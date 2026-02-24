@@ -37,4 +37,14 @@ body {
 ::selection {
   background: rgba(255, 255, 255, 0.15);
 }
+:root {
+  --brand: #00A651;
+  --brand-600: #00994A;
+  --brand-500: #00A651;
+  --brand-400: #00B35A;
+
+  --brandGlow: rgba(0, 166, 81, 0.26);
+  --brandSoft: rgba(0, 166, 81, 0.14);
+  --brandLine: rgba(0, 166, 81, 0.22);
+}
 
