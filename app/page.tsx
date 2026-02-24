@@ -18,13 +18,22 @@ export default function HomePage() {
             24/7 indoor golf simulators in the Mishawaka area.
           </p>
 
-          <a
-            href="#info"
-            className="mt-6 inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-black transition hover:brightness-95"
-            style={{ backgroundColor: "var(--brand)" }}
-          >
-            See details
-          </a>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+  <a
+    href="#info"
+    className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-black transition hover:brightness-95"
+    style={{ backgroundColor: "var(--brand)" }}
+  >
+    See details
+  </a>
+
+  <a
+    href="/faq"
+    className="inline-flex items-center justify-center rounded-xl border border-[color:var(--brandLine)] bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+  >
+    FAQ
+  </a>
+</div>
 
           <p className="mt-3 text-xs text-neutral-400">
             Location and launch window announced after lease signing.
