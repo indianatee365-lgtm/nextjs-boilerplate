@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
 export default function HomePage() {
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24, fontFamily: "system-ui" }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: 24, fontFamily: 'system-ui' }}>
       <h1 style={{ fontSize: 42, marginBottom: 8 }}>Tee365</h1>
       <p style={{ fontSize: 18, marginTop: 0 }}>
         24/7 indoor golf simulators. Location and launch date coming soon.
       </p>
 
-      <div style={{ display: "flex", gap: 12, margin: "20px 0", flexWrap: "wrap" }}>
+      <div style={{ display: 'flex', gap: 12, margin: '20px 0', flexWrap: 'wrap' }}>
         <a
           href="#waitlist"
           style={{
-            background: "#111",
-            color: "#fff",
-            padding: "10px 14px",
+            background: '#111',
+            color: '#fff',
+            padding: '10px 14px',
             borderRadius: 10,
-            textDecoration: "none",
+            textDecoration: 'none',
             fontWeight: 600,
           }}
         >
@@ -26,14 +26,14 @@ export default function HomePage() {
         <a
           href="#giftcards"
           style={{
-            border: "1px solid #ccc",
-            color: "#111",
-            padding: "10px 14px",
+            border: '1px solid #ccc',
+            color: '#111',
+            padding: '10px 14px',
             borderRadius: 10,
-            textDecoration: "none",
+            textDecoration: 'none',
             fontWeight: 600,
             opacity: 0.6,
-            pointerEvents: "none",
+            pointerEvents: 'none',
           }}
         >
           Gift cards (soon)
@@ -77,33 +77,33 @@ export default function HomePage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          alert("Form not connected yet. Add email provider later.");
+          alert('Form not connected yet. Add email provider later.');
         }}
-        style={{ display: "flex", gap: 10, flexWrap: "wrap" }}
+        style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}
       >
         <input
           type="email"
           required
           placeholder="Email address"
-          style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc", minWidth: 260 }}
+          style={{ padding: 10, borderRadius: 10, border: '1px solid #ccc', minWidth: 260 }}
         />
         <button
           type="submit"
           style={{
-            background: "#111",
-            color: "#fff",
-            padding: "10px 14px",
+            background: '#111',
+            color: '#fff',
+            padding: '10px 14px',
             borderRadius: 10,
-            border: "none",
+            border: 'none',
             fontWeight: 600,
-            cursor: "pointer",
+            cursor: 'pointer',
           }}
         >
           Join
         </button>
       </form>
 
-      <p style={{ color: "#666", marginTop: 14 }}>No spam. Unsubscribe anytime.</p>
+      <p style={{ color: '#666', marginTop: 14 }}>No spam. Unsubscribe anytime.</p>
     </div>
   );
 }
