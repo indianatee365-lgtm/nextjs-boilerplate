@@ -16,7 +16,7 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2">
              <img
-  src="/Logo.png"
+  src="/logo.png"
   alt="Tee365"
   className="h-8 w-auto"
 />
