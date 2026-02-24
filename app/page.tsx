@@ -20,7 +20,8 @@ export default function HomePage() {
 
           <a
             href="#info"
-            className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-neutral-200 transition"
+            className="mt-6 inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-black transition hover:brightness-95"
+            style={{ backgroundColor: "var(--brand)" }}
           >
             See details
           </a>
@@ -34,23 +35,19 @@ export default function HomePage() {
       {/* Info */}
       <section
         id="info"
-        className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8"
+        className="relative overflow-hidden rounded-3xl border border-[color:var(--brandLine)] bg-white/5 p-8"
       >
+        {/* Glow blobs (behind content) */}
         <div
-  className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full blur-3xl"
-  style={{ backgroundColor: "var(--brandGlow)" }}
-/>
+          className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full blur-3xl"
+          style={{ backgroundColor: "var(--brandGlow)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-44 right-[-120px] h-[520px] w-[520px] rounded-full blur-3xl"
+          style={{ backgroundColor: "var(--brandSoft)" }}
+        />
 
-<div
-  className="absolute -bottom-44 right-[-120px] h-[520px] w-[520px] rounded-full blur-3xl"
-  style={{ backgroundColor: "var(--brandSoft)" }}
-/>
-
-        <div className="pointer-events-none absolute inset-0 opacity-60">
-          <div className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="absolute -bottom-44 right-[-120px] h-[520px] w-[520px] rounded-full bg-emerald-500/5 blur-3xl" />
-        </div>
-
+        {/* Content */}
         <div className="relative">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
             Coming soon
@@ -67,7 +64,7 @@ export default function HomePage() {
           </p>
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
               <h3 className="text-lg font-semibold text-white">Founding Members</h3>
               <p className="mt-2 text-sm text-neutral-300">
                 Limited enrollment when we announce the location.
@@ -82,7 +79,10 @@ export default function HomePage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div
+              id="waitlist"
+              className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
+            >
               <h3 className="text-lg font-semibold text-white">Waitlist</h3>
               <p className="mt-2 text-sm text-neutral-300">
                 Email capture not connected yet.
@@ -110,11 +110,35 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="mt-8 rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
             <h3 className="text-lg font-semibold text-white">Gift cards</h3>
             <p className="mt-2 text-sm text-neutral-300">
               Gift cards will be sold through Birrdi Golf. We’ll add the link the moment it goes live.
             </p>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-300">
+              Status: not live yet.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick answers */}
+      <section className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
+        <h2 className="text-lg font-semibold text-white">Quick answers</h2>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-sm font-semibold text-white">Where?</p>
+            <p className="mt-1 text-sm text-neutral-300">Mishawaka area. Address soon.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-sm font-semibold text-white">When?</p>
+            <p className="mt-1 text-sm text-neutral-300">Targeting 2026. Window after lease.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-sm font-semibold text-white">Gift cards?</p>
+            <p className="mt-1 text-sm text-neutral-300">Sold through Birrdi when live.</p>
           </div>
         </div>
       </section>
