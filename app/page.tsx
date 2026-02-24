@@ -36,6 +36,16 @@ export default function HomePage() {
         id="info"
         className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8"
       >
+        <div
+  className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full blur-3xl"
+  style={{ backgroundColor: "var(--brandGlow)" }}
+/>
+
+<div
+  className="absolute -bottom-44 right-[-120px] h-[520px] w-[520px] rounded-full blur-3xl"
+  style={{ backgroundColor: "var(--brandSoft)" }}
+/>
+
         <div className="pointer-events-none absolute inset-0 opacity-60">
           <div className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="absolute -bottom-44 right-[-120px] h-[520px] w-[520px] rounded-full bg-emerald-500/5 blur-3xl" />
