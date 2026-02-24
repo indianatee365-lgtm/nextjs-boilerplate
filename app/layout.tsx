@@ -15,7 +15,7 @@ export default function RootLayout({
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0b0f19]/80 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2">
-<div className="h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-black/20">
+
 <div className="flex items-center gap-3">
   <div className="h-11 w-11 overflow-hidden rounded-full border border-white/20 bg-black/30 shadow-md">
     <img
