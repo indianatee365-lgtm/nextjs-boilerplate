@@ -24,3 +24,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* Better defaults */
+html, body {
+  height: 100%;
+}
+
+body {
+  background: #0b0f19;
+  color: #e5e7eb;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.15);
+}
+
