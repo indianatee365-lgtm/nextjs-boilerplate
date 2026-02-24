@@ -15,11 +15,14 @@ export default function RootLayout({
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0b0f19]/80 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2">
-             <img
-  src="/logo.png"
-  alt="Tee365"
-  className="h-8 w-auto"
-/>
+<div className="h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-black/20">
+  <img
+    src="/logo.png"
+    alt="Tee365"
+    className="h-full w-full object-cover"
+  />
+</div>
+
 
               <span className="text-sm font-semibold tracking-tight text-white">
                 Tee365
