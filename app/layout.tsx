@@ -1,8 +1,4 @@
 import "./globals.css";
-import Link from "next/link";
-
-const navLink =
-  "text-sm text-neutral-300 hover:text-white transition";
 
 export default function RootLayout({
   children,
@@ -12,41 +8,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0b0f19]/80 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-2">
-
-<div className="flex items-center gap-3">
-  <div className="h-11 w-11 overflow-hidden rounded-full border border-white/20 bg-black/30 shadow-md">
-    <img
-      src="/logo.png"
-      alt="Tee365"
-      className="h-full w-full object-contain p-1"
-    />
-  </div>
-
-  <span className="text-base font-semibold tracking-tight text-white">
-    Tee365
-  </span>
-</div>
-
-
-              <span className="text-sm font-semibold tracking-tight text-white">
-                Tee365
-              </span>
-            </Link>
-
-            <nav className="flex items-center gap-6">
-              <Link href="/faq" className={navLink}>
-                FAQ
-              </Link>
-              <a href="/#waitlist" className={navLink}>
-                Waitlist
-              </a>
-            </nav>
-          </div>
-        </header>
-
         <div className="mx-auto max-w-5xl px-6 py-12">{children}</div>
 
         <footer className="border-t border-white/10">
