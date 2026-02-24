@@ -1,3 +1,4 @@
+"use client";
 export default function HomePage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24, fontFamily: "system-ui" }}>
