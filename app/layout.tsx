@@ -1,4 +1,6 @@
 import "./globals.css";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
 
 export default function RootLayout({
   children,
@@ -7,14 +9,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className="min-h-dvh bg-black text-white">
+        <Header />
         <div className="mx-auto max-w-5xl px-6 py-12">{children}</div>
-
-        <footer className="border-t border-white/10">
-          <div className="mx-auto max-w-5xl px-6 py-10 text-xs text-neutral-400">
-            © {new Date().getFullYear()} Tee365
-          </div>
-        </footer>
+        <Footer />
       </body>
     </html>
   );
