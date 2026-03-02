@@ -47,4 +47,16 @@ body {
   --brandSoft: rgba(0, 166, 81, 0.14);
   --brandLine: rgba(0, 166, 81, 0.22);
 }
+/* Premium site background */
+:root {
+  --bgA: #05070c;
+  --bgB: #070b12;
+}
+
+body {
+  background:
+    radial-gradient(1200px 700px at 20% -10%, rgba(0, 200, 120, 0.08), transparent 55%),
+    radial-gradient(900px 600px at 90% 10%, rgba(0, 200, 120, 0.06), transparent 60%),
+    linear-gradient(180deg, var(--bgA), var(--bgB));
+}
 
