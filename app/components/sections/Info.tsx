@@ -15,7 +15,7 @@ export default function Info() {
 
       <div className="relative">
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-          Coming soon
+          
         </p>
 
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
@@ -24,8 +24,8 @@ export default function Info() {
 
         <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">
           Tee365 is building a 24/7 indoor golf space designed for quick sessions,
-          late-night practice, and easy booking. Pricing, address, and booking provider
-          will be posted once finalized.
+          late-night practice, competition with your buddies, or in a league. Full details, Pricing, and Address, 
+          will be posted as soon as possible.
         </p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -36,10 +36,10 @@ export default function Info() {
             </p>
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
-              <li>Locked-in membership price for life</li>
+              <li>Locked-in membership price for LIFE (Maintaining Active Membership Required)
+              </li>
               <li>Extra discount for the first 12 months</li>
               <li>Early booking access</li>
-              <li>Invite-only soft opening</li>
               <li>Name on the founder wall</li>
             </ul>
           </div>
@@ -48,9 +48,9 @@ export default function Info() {
             id="waitlist"
             className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
-            <h3 className="text-lg font-semibold text-white">Waitlist</h3>
+            <h3 className="text-lg font-semibold text-white">Join Our Email List</h3>
             <p className="mt-2 text-sm text-neutral-300">
-              Email capture not connected yet.
+              
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
@@ -69,8 +69,7 @@ export default function Info() {
               </button>
             </div>
 
-            <p className="mt-2 text-xs text-neutral-400">
-              Next step: embed Mailchimp or a Google Form.
+            <p className="mt-2 text-xs text-neutral-400">            
             </p>
           </div>
         </div>
@@ -81,11 +80,11 @@ export default function Info() {
         >
           <h3 className="text-lg font-semibold text-white">Gift cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
-            Gift cards will be sold through Birrdi Golf. We’ll add the link the moment it goes live.
+            Gift cards will be sold at a discounted rate for a limited time. Keep track of our socials for updates.
           </p>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-300">
-            Status: not live yet.
+            Status: not live yet - check back soon
           </div>
         </div>
       </div>
