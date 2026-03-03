@@ -21,7 +21,7 @@ export default function HeroFull() {
         <div className="max-w-3xl">
           {/* KEEP YOUR COPY BELOW. Replace these lines with your current text if different. */}
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
-            Coming soon
+            Coming Fall of 2026
           </p>
 
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl">
@@ -29,7 +29,7 @@ export default function HeroFull() {
           </h1>
 
           <p className="mt-5 text-base leading-7 text-neutral-200">
-            Private bays built for practice, quick rounds, and simple booking in the Mishawaka area.
+            Private bays built for practice, quick rounds, and competition the Mishawaka area.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -38,14 +38,14 @@ export default function HeroFull() {
               className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
               style={{ backgroundColor: "var(--brand)" }}
             >
-              See details
+              See Details
             </a>
 
             <a
               href="#waitlist"
               className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
             >
-              Join waitlist
+              Email List
             </a>
 
             <a
@@ -57,7 +57,7 @@ export default function HeroFull() {
           </div>
 
           <p className="mt-4 text-xs text-neutral-300">
-            Location and launch window announced after lease signing.
+            Location and launch date coming soon.
           </p>
         </div>
       </div>

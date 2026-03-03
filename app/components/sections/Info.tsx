@@ -1,3 +1,5 @@
+import { Instagram, Facebook, Music2, MapPin } from "lucide-react"
+
 export default function Info() {
   return (
     <section
@@ -14,9 +16,7 @@ export default function Info() {
       />
 
       <div className="relative">
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-          
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300"></p>
 
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
           Indoor golf. 24/7. No hassle.
@@ -24,8 +24,8 @@ export default function Info() {
 
         <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">
           Tee365 is building a 24/7 indoor golf space designed for quick sessions,
-          late-night practice, competition with your buddies, or in a league. Full details, Pricing, and Address, 
-          will be posted as soon as possible.
+          late-night practice, competition with your buddies, or in a league. Full
+          details, Pricing, and Address, will be posted as soon as possible.
         </p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -36,11 +36,13 @@ export default function Info() {
             </p>
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
-              <li>Locked-in membership price for LIFE (Maintaining Active Membership Required)
+              <li>
+                - Locked-in membership price for LIFE (Maintaining Active   Membership
+                Required)
               </li>
-              <li>Extra discount for the first 12 months</li>
-              <li>Early booking access</li>
-              <li>Name on the founder wall</li>
+              <li>- Extra discount for the first 12 months</li>
+              <li>- Early booking access</li>
+              <li>- Name on Founder's Wall</li>
             </ul>
           </div>
 
@@ -49,10 +51,9 @@ export default function Info() {
             className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
             <h3 className="text-lg font-semibold text-white">Join Our Email List</h3>
-            <p className="mt-2 text-sm text-neutral-300">
-              
-            </p>
+            <p className="mt-2 text-sm text-neutral-300"></p>
 
+            {/* Email input + button */}
             <div className="mt-4 flex flex-wrap gap-3">
               <input
                 type="email"
@@ -69,8 +70,56 @@ export default function Info() {
               </button>
             </div>
 
-            <p className="mt-2 text-xs text-neutral-400">            
-            </p>
+            {/* Socials under the email row */}
+            <div className="mt-5 border-t border-white/10 pt-4">
+          <h3 className="mt-4 text-lg font-semibold text-white">
+  Follow For Launch Updates
+</h3>
+
+              <div className="mt-3 flex items-center gap-4">
+                <a
+                  href="https://www.instagram.com/tee365.mishawaka"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Tee365 on Instagram"
+                  className="text-white/70 transition hover:text-emerald-400"
+                >
+                  <Instagram size={16} />
+                </a>
+
+                <a
+                  href="https://www.facebook.com/people/Tee365/61578292102933/"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Tee365 on Facebook"
+                  className="text-white/70 transition hover:text-emerald-400"
+                >
+                  <Facebook size={16} />
+                </a>
+
+                <a
+                  href="https://www.tiktok.com/@tee36568?_t=ZT-8ybYXacTg5X&_r=1"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Tee365 on TikTok"
+                  className="text-white/70 transition hover:text-emerald-400"
+                >
+                  <Music2 size={16} />
+                </a>
+
+                <a
+                  href="https://share.google/d8bNieAsQUqaYomQZ"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Tee365 on Google Maps"
+                  className="text-white/70 transition hover:text-emerald-400"
+                >
+                  <MapPin size={16} />
+                </a>
+              </div>
+            </div>
+
+            <p className="mt-2 text-xs text-neutral-400"></p>
           </div>
         </div>
 
@@ -80,7 +129,8 @@ export default function Info() {
         >
           <h3 className="text-lg font-semibold text-white">Gift cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
-            Gift cards will be sold at a discounted rate for a limited time. Keep track of our socials for updates.
+            Gift cards will be sold at a discounted rate for a limited time. Keep
+            track of our socials for updates.
           </p>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-300">
@@ -89,5 +139,5 @@ export default function Info() {
         </div>
       </div>
     </section>
-  );
+  )
 }
