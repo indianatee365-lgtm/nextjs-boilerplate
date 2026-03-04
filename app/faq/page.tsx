@@ -4,7 +4,7 @@ export default function FAQPage() {
       <header className="pt-6">
         <h1 className="text-3xl font-semibold tracking-tight text-white">FAQ</h1>
         <p className="mt-2 max-w-2xl text-neutral-300">
-          We’ll expand this section as we lock the lease, pricing, and booking.
+          We’ll expand this section as get more frequently asked questions. Please reach out to our email or socials if you have any questions not listed.
         </p>
       </header>
 
