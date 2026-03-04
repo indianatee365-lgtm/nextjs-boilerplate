@@ -5,7 +5,7 @@ import Info from "./components/sections/Info";
 
 export default function HomePage() {
   return (
-    <main className="space-y-16 pb-20">
+    <main className="relative z-10 space-y-16 pb-20">
       <HeroFull />
       <HowItWorks />
       <FeatureBand />

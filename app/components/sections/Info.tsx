@@ -59,7 +59,7 @@ export default function Info() {
                 type="email"
                 placeholder="Email address"
                 disabled
-                className="w-full min-w-[260px] flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-500 outline-none"
+                className="w-full min-w-[260px] flex-1 rounded-xl border-2 border-white/10 ... outline-none focus:border-white/20 focus:ring-0"
               />
               <button
                 type="button"

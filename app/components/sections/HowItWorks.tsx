@@ -22,7 +22,7 @@ export default function HowItWorks() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7">
+          <div className="rounded-3xl border-2 border-white/10 bg-white/5 backdrop-blur-sm p-7">
             <p className="text-xs uppercase tracking-wider text-neutral-400">
               Step 2
             </p>

@@ -1,8 +1,26 @@
 @import "tailwindcss";
 
+/* Theme tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Brand */
+  --brand: #00A651;
+  --brand-600: #00994A;
+  --brand-500: #00A651;
+  --brand-400: #00B35A;
+
+  /* Glows */
+  --brandGlow: rgba(0, 166, 81, 0.26);
+  --brandSoft: rgba(0, 166, 81, 0.14);
+
+  /* Lines (neutral so they don't look neon) */
+  --brandLine: rgba(255, 255, 255, 0.14);
+
+  /* Background */
+  --bgA: #05070c;
+  --bgB: #070b12;
 }
 
 @theme inline {
@@ -12,51 +30,42 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-/* Better defaults */
-html, body {
   height: 100%;
 }
 
 body {
-  background: #0b0f19;
   color: #e5e7eb;
+  font-family: Arial, Helvetica, sans-serif;
+
+  background:
+    radial-gradient(1600px 900px at 20% -10%, rgba(0, 200, 120, 0.06), transparent 65%),
+    radial-gradient(1400px 900px at 85% 15%, rgba(0, 200, 120, 0.05), transparent 70%),
+    linear-gradient(180deg, var(--bgA), var(--bgB));
+}
+
+/* Reduce gradient banding with subtle noise overlay */
+/* Reduce gradient banding without tiling seams */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.07;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.015) 0px,
+      rgba(255, 255, 255, 0.015) 1px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0) 4px
+    );
+  mix-blend-mode: overlay;
+  transform: rotate(0.02deg);
 }
 
 ::selection {
   background: rgba(255, 255, 255, 0.15);
 }
-:root {
-  --brand: #00A651;
-  --brand-600: #00994A;
-  --brand-500: #00A651;
-  --brand-400: #00B35A;
-
-  --brandGlow: rgba(0, 166, 81, 0.26);
-  --brandSoft: rgba(0, 166, 81, 0.14);
-  --brandLine: rgba(255, 255, 255, 0.14);
-}
-/* Premium site background */
-:root {
-  --bgA: #05070c;
-  --bgB: #070b12;
-}
-
-body {
-  background:
-    radial-gradient(1200px 700px at 20% -10%, rgba(0, 200, 120, 0.08), transparent 55%),
-    radial-gradient(900px 600px at 90% 10%, rgba(0, 200, 120, 0.06), transparent 60%),
-    linear-gradient(180deg, var(--bgA), var(--bgB));
-}
-
