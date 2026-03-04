@@ -28,8 +28,9 @@ export default function Info() {
           details, Pricing, and Address will be posted as soon as possible.
         </p>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
+        {/* Founding + Waitlist (centered and mobile-safe) */}
+        <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
             <h3 className="text-lg font-semibold text-white">Founding Members</h3>
             <p className="mt-2 text-sm text-neutral-300">
               Limited enrollment when we announce the location.
@@ -37,29 +38,29 @@ export default function Info() {
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
               <li>
-                - Locked-in membership price for LIFE (Maintaining Active   Membership
+                - Locked-in membership price for LIFE (Maintaining Active Membership
                 Required)
               </li>
               <li>- Extra discount for the first 12 months</li>
               <li>- Early booking access</li>
-              <li>- Name on Founder's Wall</li>
+              <li>- Name on Founder&apos;s Wall</li>
             </ul>
           </div>
 
           <div
             id="waitlist"
-            className="rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
+            className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
             <h3 className="text-lg font-semibold text-white">Join Our Email List</h3>
             <p className="mt-2 text-sm text-neutral-300"></p>
 
-            {/* Email input + button */}
-            <div className="mt-4 flex flex-wrap gap-3">
+            {/* Email input + button (stacks on mobile, row on larger screens) */}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <input
                 type="email"
                 placeholder="Email address"
                 disabled
-                className="w-full min-w-[260px] flex-1 rounded-xl border-2 border-white/10 ... outline-none focus:border-white/20 focus:ring-0"
+                className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-500 outline-none focus:border-white/20 focus:ring-0"
               />
               <button
                 type="button"
@@ -72,9 +73,9 @@ export default function Info() {
 
             {/* Socials under the email row */}
             <div className="mt-5 border-t border-white/10 pt-4">
-          <h3 className="mt-4 text-lg font-semibold text-white">
-  Follow For Launch Updates
-</h3>
+              <h3 className="mt-4 text-lg font-semibold text-white">
+                Follow For Launch Updates
+              </h3>
 
               <div className="mt-3 flex items-center gap-4">
                 <a
@@ -82,7 +83,7 @@ export default function Info() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Tee365 on Instagram"
-                  className="text-white/70 transition hover:text-emerald-400"
+                  className="text-white/70 transition hover:text-white/90"
                 >
                   <Instagram size={16} />
                 </a>
@@ -92,7 +93,7 @@ export default function Info() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Tee365 on Facebook"
-                  className="text-white/70 transition hover:text-emerald-400"
+                  className="text-white/70 transition hover:text-white/90"
                 >
                   <Facebook size={16} />
                 </a>
@@ -102,7 +103,7 @@ export default function Info() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Tee365 on TikTok"
-                  className="text-white/70 transition hover:text-emerald-400"
+                  className="text-white/70 transition hover:text-white/90"
                 >
                   <Music2 size={16} />
                 </a>
@@ -112,7 +113,7 @@ export default function Info() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Tee365 on Google Maps"
-                  className="text-white/70 transition hover:text-emerald-400"
+                  className="text-white/70 transition hover:text-white/90"
                 >
                   <MapPin size={16} />
                 </a>
@@ -125,7 +126,7 @@ export default function Info() {
 
         <div
           id="gift"
-          className="mt-8 rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
+          className="mx-auto mt-8 w-full max-w-5xl rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
         >
           <h3 className="text-lg font-semibold text-white">Gift cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
