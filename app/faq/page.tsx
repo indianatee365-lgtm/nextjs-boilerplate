@@ -10,18 +10,18 @@ export default function FAQPage() {
 
       <section className="grid gap-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-base font-semibold text-white">Where will you be located?</h2>
+          <h2 className="text-base font-semibold text-white">Where will Tee365 be located?</h2>
           <p className="mt-2 text-sm text-neutral-300">
             Mishawaka, Indiana. Address will be updated as soon as possible.
           </p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-base font-semibold text-white">When do you open?</h2>
+          <h2 className="text-base font-semibold text-white">When does Tee365 open?</h2>
           <p className="mt-2 text-sm text-neutral-300">
             Targeting fall of 2026. We’ll share a launch window after the lease is signed.
           </p>
-        </div>
+        </div>  
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">How does 24/7 access work?</h2>
@@ -29,15 +29,36 @@ export default function FAQPage() {
             Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically, with an option to extend your bay rental provided 15 minutes before the end of your session. 
           </p>
         </div>
+        
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Will there be staff at Tee365? </h2>
+          <p className="mt-2 text-sm text-neutral-300">
+            Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could forseeably arise.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">How does this work? Do I bring my own clubs? </h2>
+          <p className="mt-2 text-sm text-neutral-300">
+            At Tee365 you do bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Does Tee365 offer rental clubs? </h2>
+          <p className="mt-2 text-sm text-neutral-300">
+            We at Tee365 want to make golf as accessible as possible. We are looking to offer a small selection of clubs for use by those that do not have clubs of their own. 
+             </p>
+        </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">Is there an age requirement? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            Minimum age for at least one member of the group is 18.  
+            Minimum age for public booking is 18. Exceptions will be made for members and high school partners.  
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-base font-semibold text-white">How many people are allowed in a bay per booking? </h2>
+          <h2 className="text-base font-semibold text-white">How many players are allowed in each bay per booking? </h2>
           <p className="mt-2 text-sm text-neutral-300">
             4 players per bay is the recommended maximum.     
           </p>
@@ -45,13 +66,13 @@ export default function FAQPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">How long should I book a bay for? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            2 players can comfortably play nine holes per hour. Want to play 18 with 2 players? Book 2 hours.     
+            2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip, If you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half.     
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">What happens if I have trouble with my bay? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            There is a basic troubleshooting guide in each bay, and if all else call the number listed and we'll work to solve your issue.       
+            There is a basic troubleshooting guide in each bay, and if all else fails, call the number listed and we'll work to solve your issue.       
           </p>
         </div>
          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">

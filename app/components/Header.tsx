@@ -12,11 +12,11 @@ export default function Header() {
         </a>
 
         <nav className="hidden items-center gap-6 text-sm text-neutral-300 md:flex">
-          <a className="hover:text-white" href="#info">
+          <a className="hover:text-white" href="/#info">
             Details
           </a>
        
-          <a className="hover:text-white" href="#gift">
+          <a className="hover:text-white" href="/#gift">
             Gift cards
           </a>
           <a className="hover:text-white" href="/faq">
@@ -26,14 +26,14 @@ export default function Header() {
 
         <div className="flex items-center gap-3">
           <a
-            href="#waitlist"
+            href="/#waitlist"
             className="hidden rounded-xl border border-[color:var(--brandLine)] bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 md:inline-flex"
           >
             Email List
           </a>
 
           <a
-            href="#info"
+            href="/#info"
             className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
             style={{ backgroundColor: "var(--brand)" }}
           >

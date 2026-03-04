@@ -5,13 +5,13 @@ export default function Footer() {
         <p>© {new Date().getFullYear()} Tee365</p>
 
         <div className="flex flex-wrap gap-x-6 gap-y-2">
-          <a className="hover:text-white" href="#info">
+          <a className="hover:text-white" href="/#info">
             Details
           </a>
-          <a className="hover:text-white" href="#waitlist">
+          <a className="hover:text-white" href="/#waitlist">
             Email List
           </a>
-          <a className="hover:text-white" href="#gift">
+          <a className="hover:text-white" href="/#gift">
             Gift cards
           </a>
           <a className="hover:text-white" href="/faq">
