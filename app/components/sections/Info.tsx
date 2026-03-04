@@ -25,7 +25,7 @@ export default function Info() {
         <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">
           Tee365 is building a 24/7 indoor golf space designed for quick sessions,
           late-night practice, competition with your buddies, or in a league. Full
-          details, Pricing, and Address, will be posted as soon as possible.
+          details, Pricing, and Address will be posted as soon as possible.
         </p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">

@@ -29,7 +29,7 @@ export default function HeroFull() {
           </h1>
 
           <p className="mt-5 text-base leading-7 text-neutral-200">
-            Private bays built for practice, quick rounds, and competition the Mishawaka area.
+            Private bays built for practice, quick rounds, and competition in Mishawaka, Indiana.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
