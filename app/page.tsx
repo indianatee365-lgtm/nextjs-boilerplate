@@ -5,11 +5,15 @@ import Info from "./components/sections/Info";
 
 export default function HomePage() {
   return (
-    <main className="relative z-10 space-y-16 pb-20">
-      <HeroFull />
-      <HowItWorks />
-      <FeatureBand />
-      <Info />
+    <main className="relative z-10 pb-20">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="space-y-16">
+          <HeroFull />
+          <HowItWorks />
+          <FeatureBand />
+          <Info />
+        </div>
+      </div>
     </main>
-  );
+  )
 }
