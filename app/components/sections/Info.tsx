@@ -38,7 +38,7 @@ export default function Info() {
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
               <li>
-                - Locked-in membership price for LIFE (Maintaining Active Membership
+                - Locked-in membership price for LIFE <br></br> (Maintaining Active Membership
                 Required)
               </li>
               <li>- Extra discount for the first 12 months</li>

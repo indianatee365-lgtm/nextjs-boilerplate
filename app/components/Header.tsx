@@ -5,7 +5,7 @@ export default function Header() {
         <a href="/" className="flex items-center gap-3">
           <img
             src="/logo.png"
-            alt="Tee365"
+            alt="Tee365 Indoor golf simulator logo"
             className="h-9 w-9 rounded-full border border-white/10 bg-black/30 p-1"
           />
           <span className="text-sm font-semibold text-white"></span>

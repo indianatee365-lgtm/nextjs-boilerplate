@@ -5,7 +5,7 @@ export default function HeroFull() {
       <div className="absolute inset-0">
         <img
           src="/hero.jpg"
-          alt="Tee365 indoor golf bays"
+          alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
           className="h-[620px] w-full object-cover object-[center_72%] md:h-[720px]"
         />
 
