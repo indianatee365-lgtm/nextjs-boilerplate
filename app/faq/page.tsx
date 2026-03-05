@@ -26,7 +26,7 @@ export default function FAQPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">How does 24/7 access work?</h2>
           <p className="mt-2 text-sm text-neutral-300">
-            Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically, with an option to extend your bay rental provided 15 minutes before the end of your session. 
+            Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is availabie, an option to extend your bay rental will be provided 15 minutes before the end of your current session. 
           </p>
         </div>
         
@@ -38,16 +38,16 @@ export default function FAQPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-base font-semibold text-white">How does this work? Do I bring my own clubs? </h2>
+          <h2 className="text-base font-semibold text-white"> Do I bring my own golf clubs? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            At Tee365 you do bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay.
+            Yes you bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay.
           </p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">Does Tee365 offer rental clubs? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            We at Tee365 want to make golf as accessible as possible. We are looking to offer a small selection of clubs for use by those that do not have clubs of their own. 
+            We at Tee365 want to make golf as accessible as possible. While we do not aim to offer rental clubs, we look to offer a small selection of clubs for use by those that do not have clubs of their own, or do not have clubs with them. 
              </p>
         </div>
 
@@ -78,7 +78,7 @@ export default function FAQPage() {
          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">Is there a dress code? </h2>
           <p className="mt-2 text-sm text-neutral-300">
-            While there is no specific dress code, please wear appropriate attire for public atmosphere.        
+            While there is no specific dress code, please wear appropriate attire for public settings.        
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -97,7 +97,7 @@ export default function FAQPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">Will you sell gift cards?</h2>
           <p className="mt-2 text-sm text-neutral-300">
-            Yes. Gift cards will be available for a discounted rate for a limited time. 
+            Yes. Gift cards will be available for a discounted rate for a limited time. Please stay tuned to our socials for an announcement on gift card availablity.
           </p>
         </div>
       </section>

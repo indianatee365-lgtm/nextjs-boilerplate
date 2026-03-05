@@ -25,11 +25,15 @@ export default function HeroFull() {
           </p>
 
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl">
-            Practice. Play. Compete. It&apos;s always 70 degrees at Tee365.
+           Indoor Golf Simulator <br></br>in Mishawaka, Indiana <br></br>Near Notre Dame and South Bend
           </h1>
 
+        <h2 className="mt-4 text-4xl font-semibold tracking-tight text-emerald md:text-4xl">
+          Practice. Play. Compete. <br></br>It&apos;s always 70 degrees at Tee365.
+        </h2>
+        
           <p className="mt-5 text-base leading-7 text-neutral-200">
-            Private bays built for practice, quick rounds, and competition in Mishawaka, Indiana.
+            24/7 indoor golf simulator bays for practice, quick rounds, and competition in Mishawaka, Indiana. Minutes from Notre Dame and serving the greater South Bend and Michiana region.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
