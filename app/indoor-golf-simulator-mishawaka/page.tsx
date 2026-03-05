@@ -1,13 +1,78 @@
+import Script from "next/script"
+
 export const metadata = {
   title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",
   description:
     "24/7 indoor golf simulator bays in Mishawaka, Indiana near Notre Dame and South Bend. Practice, play full rounds, and compete year-round in private simulator bays.",
 }
 
+const BREADCRUMB_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://tee365.org/",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Indoor Golf Simulator Mishawaka",
+      item: "https://tee365.org/indoor-golf-simulator-mishawaka",
+    },
+  ],
+}
+
+const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Is Tee365 open 24/7?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Tee365 is planned as a 24/7 indoor golf simulator facility with online booking and access instructions for your session.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I practice and play full rounds?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. Tee365 is designed for practice sessions, quick rounds, and competitive play in private bays.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Do you serve South Bend and Notre Dame golfers?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. Tee365 is in Mishawaka and serves golfers across South Bend, Notre Dame, Granger, and the surrounding Michiana region.",
+      },
+    },
+  ],
+}
+
 export default function IndoorGolfSimulatorMishawakaPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 pt-24 pb-20">
-      {/* Hero */}
+      <Script
+        id="tee365-breadcrumb-mishawaka"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_SCHEMA) }}
+      />
+      <Script
+        id="tee365-faq-mishawaka"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }}
+      />
+
+      {/* Header */}
       <header className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
           Tee365 Mishawaka, Indiana
@@ -43,7 +108,7 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         </div>
       </header>
 
-      {/* Content */}
+      {/* Body */}
       <section className="mt-14 grid gap-10 md:grid-cols-2">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
           <h2 className="text-2xl font-semibold tracking-tight text-white">
@@ -51,10 +116,9 @@ export default function IndoorGolfSimulatorMishawakaPage() {
           </h2>
           <p className="mt-4 text-base leading-7 text-neutral-200">
             Northern Indiana weather shortens the outdoor season. Indoor golf
-            simulators let you keep your swing sharp all winter, get real ball
-            flight feedback, and stay ready for spring rounds. Tee365 is built
-            for golfers who want a simple, golf-first space to practice and play
-            on their schedule.
+            simulators keep you practicing through winter, give consistent
+            feedback, and help you stay ready for spring. Tee365 is designed for
+            golfers who want a focused, golf-first space.
           </p>
           <ul className="mt-6 space-y-2 text-neutral-200">
             <li>• Practice year-round</li>
@@ -69,10 +133,8 @@ export default function IndoorGolfSimulatorMishawakaPage() {
             Who Tee365 is for
           </h2>
           <p className="mt-4 text-base leading-7 text-neutral-200">
-            Tee365 is designed for golfers who want to improve, play real rounds,
-            and compete without the noise of a bar environment. It fits solo
-            practice, pairs, and groups looking for a focused indoor golf
-            experience in the South Bend area.
+            Tee365 fits solo practice, pairs, and groups who want to improve,
+            play real rounds, and compete without a bar-first environment.
           </p>
           <ul className="mt-6 space-y-2 text-neutral-200">
             <li>• Notre Dame students and staff</li>
@@ -83,20 +145,19 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         </div>
       </section>
 
-      {/* Local relevance */}
       <section className="mt-14 max-w-3xl">
         <h2 className="text-2xl font-semibold tracking-tight text-white">
           Near Notre Dame and South Bend
         </h2>
         <p className="mt-4 text-base leading-7 text-neutral-200">
           Tee365 is located in Mishawaka, a short drive from Notre Dame and South
-          Bend. That makes it a convenient indoor golf option for students,
-          alumni, and local golfers looking for a reliable place to practice
-          through winter and early spring.
+          Bend. It’s a convenient indoor golf option for students, alumni, and
+          local golfers looking for a reliable place to practice through winter
+          and early spring.
         </p>
       </section>
 
-      {/* FAQ */}
+      {/* FAQ (matches schema) */}
       <section className="mt-14 max-w-3xl">
         <h2 className="text-2xl font-semibold tracking-tight text-white">FAQ</h2>
 
