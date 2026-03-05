@@ -1,7 +1,7 @@
 export default function HeroFull() {
   return (
-    <section className="relative overflow-hidden bg-black min-h-[100dvh]">
-      {/* Background image */}
+    <section className="relative bg-black overflow-hidden h-[100dvh] md:h-[720px]">
+      {/* Background */}
       <div className="absolute inset-0">
         <img
           src="/hero.jpg"
@@ -9,35 +9,32 @@ export default function HeroFull() {
           className="h-full w-full object-cover object-[center_72%]"
         />
 
-        {/* Top dark wash for readability */}
         <div className="absolute inset-0 bg-black/55" />
-
-        {/* Bottom gradient so content feels grounded */}
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/70 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/70 to-transparent" />
       </div>
 
       {/* Content */}
-      <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-12 md:pt-28 md:pb-16">
+      <div className="relative mx-auto flex h-full max-w-6xl items-end px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-20 md:items-center md:pb-16 md:pt-0">
         <div className="max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
             Coming Fall of 2026
           </p>
 
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl">
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-6xl">
             Indoor Golf Simulator <br />
             in Mishawaka, Indiana <br />
             Near Notre Dame and South Bend
           </h1>
 
-          <h2 className="mt-4 text-4xl font-semibold tracking-tight text-emerald md:text-4xl">
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-emerald md:text-4xl">
             Practice. Play. Compete. <br />
             It&apos;s always 70 degrees at Tee365.
           </h2>
 
           <p className="mt-5 text-base leading-7 text-neutral-200">
-            24/7 indoor golf simulator bays for practice, quick rounds, and
-            competition in Mishawaka, Indiana. Minutes from Notre Dame and
-            serving the greater South Bend and Michiana region.
+            24/7 indoor golf simulator bays for practice, quick rounds, and competition in
+            Mishawaka, Indiana. Minutes from Notre Dame and serving the greater South Bend
+            and Michiana region.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -64,9 +61,7 @@ export default function HeroFull() {
             </a>
           </div>
 
-          <p className="mt-4 text-xs text-neutral-300">
-            Location and launch date coming soon.
-          </p>
+          <p className="mt-4 text-xs text-neutral-300">Location and launch date coming soon.</p>
         </div>
       </div>
     </section>
