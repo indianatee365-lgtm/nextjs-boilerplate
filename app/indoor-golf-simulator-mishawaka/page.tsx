@@ -72,7 +72,6 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }}
       />
 
-      {/* Header */}
       <header className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
           Tee365 Mishawaka, Indiana
@@ -108,7 +107,6 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         </div>
       </header>
 
-      {/* Body */}
       <section className="mt-14 grid gap-10 md:grid-cols-2">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
           <h2 className="text-2xl font-semibold tracking-tight text-white">
@@ -157,7 +155,6 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         </p>
       </section>
 
-      {/* FAQ (matches schema) */}
       <section className="mt-14 max-w-3xl">
         <h2 className="text-2xl font-semibold tracking-tight text-white">FAQ</h2>
 
@@ -194,7 +191,6 @@ export default function IndoorGolfSimulatorMishawakaPage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="mt-16 rounded-3xl border border-white/10 bg-white/5 p-10">
         <h2 className="text-2xl font-semibold tracking-tight text-white">
           Get launch updates

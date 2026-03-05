@@ -39,7 +39,7 @@ export default function LocalSEO() {
         <div className="mt-6">
           <Link
             href="/indoor-golf-simulator-mishawaka"
-            className="text-sm font-semibold text-emerald hover:underline"
+            className="text-lg font-semibold text-emerald hover:underline"
           >
             Learn more about indoor golf simulators in Mishawaka →
           </Link>
