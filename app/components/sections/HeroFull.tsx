@@ -1,6 +1,6 @@
 export default function HeroFull() {
   return (
-    <section className="relative bg-black overflow-hidden h-[100dvh] md:h-[720px]">
+    <section className="relative overflow-hidden bg-black h-[100dvh] md:h-[720px]">
       {/* Background */}
       <div className="absolute inset-0">
         <img
@@ -14,21 +14,21 @@ export default function HeroFull() {
       </div>
 
       {/* Content */}
-      <div className="relative mx-auto flex h-full max-w-6xl items-end px-6 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-20 md:items-center md:pb-16 md:pt-0">
+      <div className="relative mx-auto flex h-full max-w-6xl px-6 items-start pt-[calc(6rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:items-center md:pt-0 md:pb-16">
         <div className="max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
             Coming Fall of 2026
           </p>
 
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-6xl">
-            Indoor Golf Simulator <br />
-            in Mishawaka, Indiana <br />
-            Near Notre Dame and South Bend
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl">
+            <span className="block">Indoor Golf Simulator</span>
+            <span className="block">in Mishawaka, Indiana</span>
+            <span className="block">Near Notre Dame and South Bend</span>
           </h1>
 
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-emerald md:text-4xl">
-            Practice. Play. Compete. <br />
-            It&apos;s always 70 degrees at Tee365.
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-emerald sm:text-3xl md:text-4xl">
+            <span className="block">Practice. Play. Compete.</span>
+            <span className="block">It&apos;s always 70 degrees at Tee365.</span>
           </h2>
 
           <p className="mt-5 text-base leading-7 text-neutral-200">
@@ -61,7 +61,9 @@ export default function HeroFull() {
             </a>
           </div>
 
-          <p className="mt-4 text-xs text-neutral-300">Location and launch date coming soon.</p>
+          <p className="mt-4 text-xs text-neutral-300">
+            Location and launch date coming soon.
+          </p>
         </div>
       </div>
     </section>
