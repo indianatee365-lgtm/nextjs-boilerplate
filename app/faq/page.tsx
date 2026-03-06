@@ -26,7 +26,7 @@ export default function FAQPage() {
         name: "How does 24/7 access work?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is availabie, an option to extend your bay rental will be provided 15 minutes before the end of your current session.",
+          text: "Book and pay online. Entry details will be sent via text message to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is availabie, an option to extend your bay rental will be provided 15 minutes before the end of your current session.",
         },
       },
       {
