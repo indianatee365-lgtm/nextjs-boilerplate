@@ -27,7 +27,7 @@ export default function HeroFull() {
 
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-emerald sm:text-3xl md:text-4xl leading-[1.1]">
             <span className="block">Practice. Play. Compete.</span>
-            <span className="block">It&apos;s always 70 degrees at Tee365.</span>
+            <span className="block">It&apos;s always 70&deg; at Tee365.</span>
           </h2>
 
           <p className="mt-4 text-base leading-7 text-neutral-200">
