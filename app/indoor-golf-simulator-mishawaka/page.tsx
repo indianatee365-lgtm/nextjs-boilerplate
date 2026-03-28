@@ -95,7 +95,7 @@ export default function IndoorGolfSimulatorMishawakaPage() {
             className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
             style={{ backgroundColor: "var(--brand)" }}
           >
-            Join Email List
+            Get Early Access
           </a>
 
           <a
@@ -196,7 +196,7 @@ export default function IndoorGolfSimulatorMishawakaPage() {
           Get launch updates
         </h2>
         <p className="mt-3 text-neutral-200">
-          Join the email list for opening updates, pricing, and early access.
+          Get early access to founding memberships, pricing, and launch updates.
         </p>
         <div className="mt-6">
           <a
@@ -204,7 +204,7 @@ export default function IndoorGolfSimulatorMishawakaPage() {
             className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
             style={{ backgroundColor: "var(--brand)" }}
           >
-            Join Email List
+            Get Early Access
           </a>
         </div>
       </section>

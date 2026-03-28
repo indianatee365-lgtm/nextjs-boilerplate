@@ -9,7 +9,7 @@ export default function Footer() {
             Details
           </a>
           <a className="hover:text-white" href="/#waitlist">
-            Email List
+            Get Early Access
           </a>
           <a className="hover:text-white" href="/#gift">
             Gift cards

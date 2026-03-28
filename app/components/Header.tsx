@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+const EMAIL_LIST_URL = "/#waitlist"
+
 export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur">
@@ -32,12 +34,12 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/#waitlist"
+          <a
+            href={EMAIL_LIST_URL}
             className="hidden rounded-xl border border-[color:var(--brandLine)] bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 md:inline-flex"
           >
-            Email List
-          </Link>
+            Get Early Access
+          </a>
 
           <Link
             href="/#info"
@@ -50,5 +52,6 @@ export default function Header() {
       </div>
     </header>
   )
+
 }
 

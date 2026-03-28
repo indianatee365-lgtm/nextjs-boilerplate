@@ -46,10 +46,10 @@ export default function HeroFull() {
             </a>
 
             <a
-              href="#waitlist"
+              href="/#waitlist"
               className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
             >
-              Email List
+              Get Early Access
             </a>
 
             <a

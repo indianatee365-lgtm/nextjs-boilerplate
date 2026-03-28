@@ -1,6 +1,34 @@
+"use client"
+
+import { useState } from "react"
 import { Instagram, Facebook, Music2, MapPin } from "lucide-react"
 
 export default function Info() {
+  const [firstName, setFirstName] = useState("")
+  const [email, setEmail] = useState("")
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setStatus("loading")
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, email }),
+      })
+      if (res.ok) {
+        setStatus("success")
+        setFirstName("")
+        setEmail("")
+      } else {
+        setStatus("error")
+      }
+    } catch {
+      setStatus("error")
+    }
+  }
+
   return (
     <section
       id="info"
@@ -25,10 +53,9 @@ export default function Info() {
         <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">
           Tee365 is building a 24/7 indoor golf space designed for quick sessions,
           late-night practice, competition with your buddies, or in a league. Full
-          details, Pricing, and Address will be posted as soon as possible.
+          details, pricing, and address will be posted as soon as possible.
         </p>
 
-        {/* Founding + Waitlist (centered and mobile-safe) */}
         <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
           <div className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
             <h3 className="text-lg font-semibold text-white">Founding Members</h3>
@@ -38,7 +65,7 @@ export default function Info() {
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
               <li>
-                - Locked-in membership price for LIFE <br></br> (Maintaining Active Membership
+                - Locked-in membership price for LIFE <br /> (Maintaining Active Membership
                 Required)
               </li>
               <li>- Extra discount for the first 12 months</li>
@@ -51,27 +78,46 @@ export default function Info() {
             id="waitlist"
             className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
-            <h3 className="text-lg font-semibold text-white">Join Our Email List</h3>
-            <p className="mt-2 text-sm text-neutral-300"></p>
+            <h3 className="text-lg font-semibold text-white">Get Early Access</h3>
+            <p className="mt-2 text-sm text-neutral-300">
+              Be first to hear about launch updates, founding memberships, and early
+              booking access.
+            </p>
 
-            {/* Email input + button (stacks on mobile, row on larger screens) */}
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <input
-                type="email"
-                placeholder="Email address"
-                disabled
-                className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-neutral-200 placeholder:text-neutral-500 outline-none focus:border-white/20 focus:ring-0"
-              />
-              <button
-                type="button"
-                disabled
-                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-neutral-300"
-              >
-                Join
-              </button>
-            </div>
+            {status === "success" ? (
+              <p className="mt-4 text-sm text-green-400">You&apos;re on the list!</p>
+            ) : (
+              <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    type="text"
+                    required
+                    placeholder="First name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
+                  />
+                  <input
+                    type="email"
+                    required
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
+                  />
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-neutral-300 transition hover:bg-white/20 disabled:opacity-50"
+                >
+                  {status === "loading" ? "Joining…" : "Join"}
+                </button>
+              </form>
+            )}
 
-            {/* Socials under the email row */}
+            {status === "error" && (
+              <p className="mt-2 text-xs text-red-400">Something went wrong. Please try again.</p>
+            )}
+
             <div className="mt-5 border-t border-white/10 pt-4">
               <h3 className="mt-4 text-lg font-semibold text-white">
                 Follow For Launch Updates
