@@ -24,7 +24,7 @@ export default function Header() {
             Details
           </Link>
 
-          <Link className="hover:text-white" href="/#gift">
+          <Link className="hover:text-white" href="/#waitlist">
             Gift cards
           </Link>
 

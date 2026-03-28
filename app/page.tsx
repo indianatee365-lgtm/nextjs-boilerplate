@@ -17,7 +17,9 @@ export default function HomePage() {
           <HowItWorks />
           <LocalSEO />
           <FeatureBand />
-          <Info />
+          <div id="waitlist" className="scroll-mt-20">
+            <Info />
+          </div>
         </div>
       </PageContainer>
     </main>

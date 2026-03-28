@@ -34,7 +34,7 @@ export default function Info() {
       id="info"
       className="relative overflow-hidden rounded-3xl border border-[color:var(--brandLine)] bg-white/5 p-8"
     >
-      <div
+<div
         className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full blur-3xl opacity-40"
         style={{ backgroundColor: "var(--brandGlow)" }}
       />
@@ -75,7 +75,6 @@ export default function Info() {
           </div>
 
           <div
-            id="waitlist"
             className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
             <h3 className="text-lg font-semibold text-white">Get Early Access</h3>
@@ -171,7 +170,6 @@ export default function Info() {
         </div>
 
         <div
-          id="gift"
           className="mx-auto mt-8 w-full max-w-5xl rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
         >
           <h3 className="text-lg font-semibold text-white">Gift cards</h3>

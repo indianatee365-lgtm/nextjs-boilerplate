@@ -11,7 +11,7 @@ export default function Footer() {
           <a className="hover:text-white" href="/#waitlist">
             Get Early Access
           </a>
-          <a className="hover:text-white" href="/#gift">
+          <a className="hover:text-white" href="/#waitlist">
             Gift cards
           </a>
           <a className="hover:text-white" href="/faq">
