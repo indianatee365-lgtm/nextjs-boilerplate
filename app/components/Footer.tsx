@@ -6,7 +6,7 @@ export default function Footer() {
 
         <div className="flex flex-wrap gap-x-6 gap-y-2">
           <a className="hover:text-white" href="/#info">
-            Details
+            See Details
           </a>
           <a className="hover:text-white" href="/#waitlist">
             Get Early Access
