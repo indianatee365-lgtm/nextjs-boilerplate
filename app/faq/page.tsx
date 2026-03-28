@@ -121,7 +121,7 @@ export default function FAQPage() {
   };
 
   return (
-    <main className="space-y-10 pb-16">
+    <main className="mx-auto max-w-5xl space-y-10 py-12">
       <Script
         id="tee365-faq"
         type="application/ld+json"
@@ -129,7 +129,7 @@ export default function FAQPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
-      <header className="pt-6">
+      <header className="px-12">
         <h1 className="text-3xl font-semibold tracking-tight text-white">FAQ</h1>
         <p className="mt-2 max-w-2xl text-neutral-300">
           We’ll expand this section as get more frequently asked questions.
@@ -138,7 +138,7 @@ export default function FAQPage() {
         </p>
       </header>
 
-      <section className="grid gap-4">
+      <section className="grid gap-4 px-6">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-base font-semibold text-white">
             Where will Tee365 be located?
