@@ -84,7 +84,7 @@ export default function Info() {
             </p>
 
             {status === "success" ? (
-              <p className="mt-4 text-sm text-green-400">You&apos;re on the list!</p>
+              <p className="mt-4 text-sm text-green-400">You&apos;re in - look out for a welcome email shortly</p>
             ) : (
               <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <input
