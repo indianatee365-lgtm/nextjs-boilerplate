@@ -208,11 +208,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: responseData.message ?? "Subscription failed" }, { status: 422 })
   }
 
-  // Send welcome email — non-blocking, don't fail the signup if this errors
+  // Send welcome email — await it so Vercel doesn't cut the function short
   if (process.env.ZOHO_MAIL_ACCOUNT_ID && process.env.ZOHO_MAIL_REFRESH_TOKEN) {
-    getAccessToken(process.env.ZOHO_MAIL_REFRESH_TOKEN)
-      .then((mailToken) => sendWelcomeEmail(mailToken, email, firstName ?? ""))
-      .catch((err) => console.error("[subscribe] Welcome email error:", err))
+    try {
+      const mailToken = await getAccessToken(process.env.ZOHO_MAIL_REFRESH_TOKEN)
+      await sendWelcomeEmail(mailToken, email, firstName ?? "")
+      console.log("[subscribe] Welcome email sent to:", email)
+    } catch (err) {
+      console.error("[subscribe] Welcome email error:", err)
+    }
   }
 
   return NextResponse.json({ success: true })
