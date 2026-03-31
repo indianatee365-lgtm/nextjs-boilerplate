@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch("https://accounts.zoho.com/oauth/v2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -8,7 +8,7 @@ async function getAccessToken(): Promise<string> {
       grant_type: "refresh_token",
       client_id: process.env.ZOHO_CLIENT_ID!,
       client_secret: process.env.ZOHO_CLIENT_SECRET!,
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
+      refresh_token: refreshToken,
     }).toString(),
   })
 
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
 
   let accessToken: string
   try {
-    accessToken = await getAccessToken()
+    accessToken = await getAccessToken(process.env.ZOHO_REFRESH_TOKEN!)
   } catch (err) {
     console.error("[subscribe] Token error:", err)
     return NextResponse.json({ error: "Authentication failed" }, { status: 500 })
@@ -209,10 +209,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Send welcome email — non-blocking, don't fail the signup if this errors
-  if (process.env.ZOHO_MAIL_ACCOUNT_ID) {
-    sendWelcomeEmail(accessToken, email, firstName ?? "").catch((err) =>
-      console.error("[subscribe] Welcome email error:", err)
-    )
+  if (process.env.ZOHO_MAIL_ACCOUNT_ID && process.env.ZOHO_MAIL_REFRESH_TOKEN) {
+    getAccessToken(process.env.ZOHO_MAIL_REFRESH_TOKEN)
+      .then((mailToken) => sendWelcomeEmail(mailToken, email, firstName ?? ""))
+      .catch((err) => console.error("[subscribe] Welcome email error:", err))
   }
 
   return NextResponse.json({ success: true })
