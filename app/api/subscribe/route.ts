@@ -208,14 +208,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: responseData.message ?? "Subscription failed" }, { status: 422 })
   }
 
-  // Send welcome email — await it so Vercel doesn't cut the function short
   if (process.env.ZOHO_MAIL_ACCOUNT_ID && process.env.ZOHO_MAIL_REFRESH_TOKEN) {
     try {
       const mailToken = await getAccessToken(process.env.ZOHO_MAIL_REFRESH_TOKEN)
       await sendWelcomeEmail(mailToken, email, firstName ?? "")
       console.log("[subscribe] Welcome email sent to:", email)
+
+      // Notify Jerrod of new signup
+      await fetch(`https://mail.zoho.com/api/accounts/${process.env.ZOHO_MAIL_ACCOUNT_ID}/messages`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Zoho-oauthtoken ${mailToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fromAddress: "info@tee365.org",
+          toAddress: "info@tee365.org",
+          subject: "New Tee365 Signup",
+          content: `New signup:\n\nName: ${firstName || "(not provided)"}\nEmail: ${email}`,
+          mailFormat: "plaintext",
+        }),
+      })
     } catch (err) {
-      console.error("[subscribe] Welcome email error:", err)
+      console.error("[subscribe] Mail error:", err)
     }
   }
 
