@@ -13,6 +13,7 @@ export default function Header() {
         <nav className="flex items-center gap-1">
           <Link href="/about" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">About</Link>
           <Link href="/faq" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">FAQ</Link>
+          <Link href="/contact" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">Contact</Link>
         </nav>
       </div>
     </header>
