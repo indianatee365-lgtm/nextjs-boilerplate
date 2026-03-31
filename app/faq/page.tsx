@@ -138,32 +138,78 @@ export default function FAQPage() {
         </p>
       </header>
 
-      <section className="px-6 md:px-12">
-        <div style={{ borderRadius: "1rem", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+      <section className="grid gap-4 px-6">
 
-          {[
-            { q: "Where will Tee365 be located?", a: "Mishawaka, Indiana. Address will be updated as soon as possible." },
-            { q: "When does Tee365 open?", a: "Targeting fall of 2026. We’ll share a launch window after the lease is signed." },
-            { q: "How does 24/7 access work?", a: "Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is available, an option to extend your bay rental will be provided 15 minutes before the end of your current session." },
-            { q: "Will there be staff at Tee365?", a: "Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could foreseeably arise." },
-            { q: "Do I bring my own golf clubs?", a: "Yes you bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay." },
-            { q: "Does Tee365 offer rental clubs?", a: "We at Tee365 want to make golf as accessible as possible. While we do not aim to offer rental clubs, we look to offer a small selection of clubs for use by those that do not have clubs of their own, or do not have clubs with them." },
-            { q: "Is there an age requirement?", a: "Minimum age for public booking is 18. Exceptions will be made for members and high school partners." },
-            { q: "How many players are allowed in each bay per booking?", a: "4 players per bay is the recommended maximum." },
-            { q: "How long should I book a bay for?", a: "2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip: if you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half." },
-            { q: "What happens if I have trouble with my bay?", a: "There is a basic troubleshooting guide in each bay, and if all else fails, call the number listed and we’ll work to solve your issue." },
-            { q: "Is there a dress code?", a: "While there is no specific dress code, please wear appropriate attire for public settings." },
-            { q: "Is there food or beverage available?", a: "There is no food or beverage sold on site. You’re welcome to bring your own food or beverage. No glass bottles are allowed." },
-            { q: "Is alcohol allowed?", a: "There is NO ALCOHOL allowed on premises. There is a zero tolerance policy for consuming alcohol in Tee365." },
-            { q: "Will you sell gift cards?", a: "Yes. Gift cards will be available for a discounted rate for a limited time. Please stay tuned to our socials for an announcement on gift card availability." },
-          ].map(({ q, a }, i) => (
-            <div key={q} className="px-6 py-5" style={{ borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.08)" }}>
-              <h2 className="text-sm font-semibold text-white">{q}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-neutral-300">{a}</p>
-            </div>
-          ))}
-
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Where will Tee365 be located?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Mishawaka, Indiana. Address will be updated as soon as possible.</p>
         </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">When does Tee365 open?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Targeting fall of 2026. We’ll share a launch window after the lease is signed.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">How does 24/7 access work?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is available, an option to extend your bay rental will be provided 15 minutes before the end of your current session.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Will there be staff at Tee365?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could foreseeably arise.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Do I bring my own golf clubs?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Yes you bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Does Tee365 offer rental clubs?</h2>
+          <p className="mt-2 text-sm text-neutral-300">We at Tee365 want to make golf as accessible as possible. While we do not aim to offer rental clubs, we look to offer a small selection of clubs for use by those that do not have clubs of their own, or do not have clubs with them.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Is there an age requirement?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Minimum age for public booking is 18. Exceptions will be made for members and high school partners.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">How many players are allowed in each bay per booking?</h2>
+          <p className="mt-2 text-sm text-neutral-300">4 players per bay is the recommended maximum.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">How long should I book a bay for?</h2>
+          <p className="mt-2 text-sm text-neutral-300">2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip: if you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">What happens if I have trouble with my bay?</h2>
+          <p className="mt-2 text-sm text-neutral-300">There is a basic troubleshooting guide in each bay, and if all else fails, call the number listed and we’ll work to solve your issue.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Is there a dress code?</h2>
+          <p className="mt-2 text-sm text-neutral-300">While there is no specific dress code, please wear appropriate attire for public settings.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Is there food or beverage available?</h2>
+          <p className="mt-2 text-sm text-neutral-300">There is no food or beverage sold on site. You’re welcome to bring your own food or beverage. No glass bottles are allowed.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Is alcohol allowed?</h2>
+          <p className="mt-2 text-sm text-neutral-300">There is NO ALCOHOL allowed on premises. There is a zero tolerance policy for consuming alcohol in Tee365.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-base font-semibold text-white">Will you sell gift cards?</h2>
+          <p className="mt-2 text-sm text-neutral-300">Yes. Gift cards will be available for a discounted rate for a limited time. Please stay tuned to our socials for an announcement on gift card availability.</p>
+        </div>
+
       </section>
     </main>
   );
