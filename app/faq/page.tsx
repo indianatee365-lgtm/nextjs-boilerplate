@@ -1,4 +1,5 @@
 import Script from "next/script";
+import { FAQItem } from "./FAQItem";
 
 export default function FAQPage() {
   const faqSchema = {
@@ -157,10 +158,7 @@ export default function FAQPage() {
             { q: "Is alcohol allowed?", a: "There is NO ALCOHOL allowed on premises. There is a zero tolerance policy for consuming alcohol in Tee365." },
             { q: "Will you sell gift cards?", a: "Yes. Gift cards will be available for a discounted rate for a limited time. Please stay tuned to our socials for an announcement on gift card availability." },
           ].map(({ q, a }, i) => (
-            <div key={q} className="px-6 py-5" style={{ borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.08)" }}>
-              <h2 className="text-sm font-semibold text-white">{q}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-neutral-300">{a}</p>
-            </div>
+            <FAQItem key={q} q={q} a={a} first={i === 0} />
           ))}
 
         </div>
