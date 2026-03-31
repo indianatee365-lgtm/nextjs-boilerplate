@@ -127,7 +127,7 @@ async function sendWelcomeEmail(accessToken: string, toEmail: string, firstName:
 </html>`
 
   const body = {
-    fromAddress,
+    fromAddress: `Jerrod | Tee365 <${fromAddress}>`,
     toAddress: toEmail,
     subject: "Welcome to Tee365",
     content: html,
