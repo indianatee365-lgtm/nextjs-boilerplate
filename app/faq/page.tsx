@@ -139,7 +139,7 @@ export default function FAQPage() {
       </header>
 
       <section className="px-6 md:px-12">
-        <div className="rounded-2xl border border-white/10 bg-white/5 divide-y divide-white/[0.06]">
+        <div className="rounded-2xl border border-white/10 bg-white/5 divide-y divide-white/10">
 
           {[
             { q: "Where will Tee365 be located?", a: "Mishawaka, Indiana. Address will be updated as soon as possible." },
