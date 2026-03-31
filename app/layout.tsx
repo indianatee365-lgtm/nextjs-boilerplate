@@ -19,7 +19,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="relative overflow-x-hidden">
-        <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)" }} />
         <Header />
         {children}
         <Footer />
