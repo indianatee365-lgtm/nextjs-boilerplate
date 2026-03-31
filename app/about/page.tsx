@@ -19,7 +19,7 @@ export default function AboutPage() {
           </p>
 
           <p className="text-sm leading-relaxed text-neutral-300">
-            I'm a South Bend kid. Aside from my years in the Navy, which took me just about everywhere, I've spent my life in this city. I've seen the world, and I came back here. On purpose. I raised my family here. I love this town. I love this university. I believe in what this place is and what it's becoming.
+            I'm a South Bend kid. Aside from my years in the Navy, which took me just about everywhere, I've spent my life in this city. I've seen the world, and I came back here. On purpose. I raised my family here. I love this town. I love this University. I believe in what this place is and what it's becoming.
           </p>
 
           <p className="text-sm leading-relaxed text-neutral-300">

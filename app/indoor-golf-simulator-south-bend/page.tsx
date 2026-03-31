@@ -34,7 +34,7 @@ export default function IndoorGolfSimulatorSouthBendPage() {
       <header className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Tee365 South Bend, Indiana</p>
         <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl leading-[1.05]">Indoor Golf Simulator in South Bend Near Notre Dame</h1>
-        <p className="mt-5 text-base leading-7 text-neutral-200">Tee365 is a 24/7 indoor golf simulator facility in South Bend, Indiana, minutes from the University of Notre Dame and serving golfers across Granger, Mishawaka, and the greater Michiana region. Reserve a private bay online, practice year-round, play full rounds, and compete with friends without weather delays.</p>
+        <p className="mt-5 text-base leading-7 text-neutral-200">Tee365 is a 24/7 indoor golf simulator facility in South Bend, Indiana — serving golfers across Granger, Mishawaka, and the greater Michiana region. Reserve a private bay online, practice year-round, play real courses, and compete with friends no matter the weather.</p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <a href="/#waitlist" className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Get Early Access</a>
           <a href="/#info" className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15">See Details</a>
@@ -56,7 +56,7 @@ export default function IndoorGolfSimulatorSouthBendPage() {
           <h2 className="text-2xl font-semibold tracking-tight text-white">Who Tee365 is for</h2>
           <p className="mt-4 text-base leading-7 text-neutral-200">Tee365 fits solo practice, pairs, and groups who want to improve, play real rounds, and compete without a bar-first environment.</p>
           <ul className="mt-6 space-y-2 text-neutral-200">
-            <li>• Notre Dame students and staff</li>
+            <li>• University students and staff</li>
             <li>• South Bend and Granger golfers</li>
             <li>• League and competition players</li>
             <li>• Anyone who wants winter golf practice</li>

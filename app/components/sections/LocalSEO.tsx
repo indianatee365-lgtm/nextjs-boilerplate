@@ -24,10 +24,10 @@ export default function LocalSEO() {
         </p>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">
-          Whether you're a Notre Dame student practicing through the winter, a
-          South Bend golfer preparing for spring tournaments, or a Michiana
-          resident looking for a quick round after work, Tee365 offers
-          convenient 24/7 access and a golf-first experience.
+          Whether you're a high schooler working on your game, a local golfer
+          preparing for spring tournaments, or a Michiana resident looking for
+          a quick round after work, Tee365 offers convenient 24/7 access and
+          a golf-first experience.
         </p>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">
