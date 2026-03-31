@@ -11,9 +11,9 @@ export default function Header() {
           <span className="text-sm font-semibold tracking-wide text-white">Tee365</span>
         </Link>
         <nav className="flex items-center gap-1">
-          <Link href="/about" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">About</Link>
-          <Link href="/faq" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">FAQ</Link>
-          <Link href="/contact" className="rounded-lg px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5 hover:text-white">Contact</Link>
+          <Link href="/about" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">About</Link>
+          <Link href="/faq" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">FAQ</Link>
+          <Link href="/contact" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Contact</Link>
         </nav>
       </div>
     </header>
