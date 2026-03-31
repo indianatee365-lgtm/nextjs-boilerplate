@@ -192,6 +192,7 @@ export async function POST(req: NextRequest) {
   const responseText = await res.text()
 
   if (!res.ok) {
+    console.error("[subscribe] Campaigns HTTP error:", res.status, responseText)
     return NextResponse.json({ error: "Subscription failed" }, { status: 502 })
   }
 
