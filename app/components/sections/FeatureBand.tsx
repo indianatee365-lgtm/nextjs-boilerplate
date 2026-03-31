@@ -38,7 +38,7 @@ export default function FeatureBand() {
 
             <li className="flex gap-3">
               <span className="mt-1 h-2 w-2 rounded-full" style={{ backgroundColor: "var(--brand)" }} />
-              Mishawaka area
+              South Bend, Indiana
             </li>
           </ul>
 
@@ -57,7 +57,7 @@ export default function FeatureBand() {
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40">
             <img
               src="/hero.jpg"
-              alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
+              alt="Indoor golf simulator bay at Tee365 in South Bend, Indiana near Notre Dame"
               className="h-[320px] w-full object-cover md:h-[420px]"
             />
           </div>

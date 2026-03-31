@@ -116,7 +116,7 @@ async function sendWelcomeEmail(accessToken: string, toEmail: string, firstName:
         <td class="footer">
           <p class="footer-text">
             You're receiving this because you signed up at <a href="https://tee365.org">tee365.org</a>.<br>
-            Tee365 · Mishawaka, Indiana<br><br>
+            Tee365 · South Bend, Indiana<br><br>
             <a href="https://tee365.org">Visit our site</a>
           </p>
         </td>

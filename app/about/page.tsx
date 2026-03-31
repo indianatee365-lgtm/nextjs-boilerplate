@@ -1,6 +1,6 @@
 export const metadata = {
   title: "About | Tee365",
-  description: "A note from Jerrod, founder of Tee365 — indoor golf in Mishawaka, Indiana.",
+  description: "A note from Jerrod, founder of Tee365 — indoor golf in South Bend, Indiana.",
 }
 
 export default function AboutPage() {

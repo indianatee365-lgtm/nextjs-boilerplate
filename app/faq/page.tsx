@@ -10,7 +10,7 @@ export default function FAQPage() {
         name: "Where will Tee365 be located?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Mishawaka, Indiana. Address will be updated as soon as possible.",
+          text: "South Bend, Indiana. Address will be updated as soon as possible.",
         },
       },
       {
@@ -142,7 +142,7 @@ export default function FAQPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
 
           {[
-            { q: "Where will Tee365 be located?", a: "Mishawaka, Indiana. Address will be updated as soon as possible." },
+            { q: "Where will Tee365 be located?", a: "South Bend, Indiana. Address will be updated as soon as possible." },
             { q: "When does Tee365 open?", a: "Targeting fall of 2026. We’ll share a launch window after the lease is signed." },
             { q: "How does 24/7 access work?", a: "Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is available, an option to extend your bay rental will be provided 15 minutes before the end of your current session." },
             { q: "Will there be staff at Tee365?", a: "Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could foreseeably arise." },

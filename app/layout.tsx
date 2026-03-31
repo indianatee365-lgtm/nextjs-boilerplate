@@ -6,9 +6,9 @@ import Footer from "./components/Footer";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
-  title: "Indoor Golf Simulator Near Notre Dame | Tee365 Mishawaka Indiana",
+  title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
   description:
-    "24/7 indoor golf simulator bays in Mishawaka near Notre Dame and South Bend.",
+    "24/7 indoor golf simulator bays in South Bend, Indiana near Notre Dame and the Michiana region.",
 };
 
 export default function RootLayout({

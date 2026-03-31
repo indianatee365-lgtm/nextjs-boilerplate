@@ -11,7 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${base}/indoor-golf-simulator-mishawaka`,
+      url: `${base}/indoor-golf-simulator-south-bend`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.9,

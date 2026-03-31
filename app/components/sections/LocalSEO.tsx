@@ -5,14 +5,14 @@ export default function LocalSEO() {
     <section className="mx-auto max-w-6xl px-6 pt-10 pb-16 md:pt-14 md:pb-20">
       <div className="max-w-3xl">
         <h2 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
-          Indoor Golf Simulator Near Notre Dame and South Bend
+          Indoor Golf Simulator in South Bend Near Notre Dame
         </h2>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">
           Golf in Northern Indiana doesn’t stop when the weather turns cold.
           Tee365 provides a private indoor golf simulator experience in
-          Mishawaka, minutes from the University of Notre Dame and serving
-          golfers across South Bend, Granger, and the greater Michiana region.
+          South Bend, minutes from the University of Notre Dame and serving
+          golfers across Granger, Mishawaka, and the greater Michiana region.
         </p>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">
@@ -31,17 +31,17 @@ export default function LocalSEO() {
         </p>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">
-          Tee365 brings modern indoor golf simulator technology to Mishawaka
+          Tee365 brings modern indoor golf simulator technology to South Bend
           with a simple goal: make practice easier, rounds faster, and golf
           accessible year-round.
         </p>
 
         <div className="mt-6">
           <Link
-            href="/indoor-golf-simulator-mishawaka"
+            href="/indoor-golf-simulator-south-bend"
             className="text-lg font-semibold text-emerald hover:underline"
           >
-            Learn more about indoor golf simulators in Mishawaka →
+            Learn more about indoor golf simulators in South Bend →
           </Link>
         </div>
       </div>

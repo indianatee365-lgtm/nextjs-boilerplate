@@ -2,7 +2,7 @@ import { Instagram, Facebook, Music2 } from "lucide-react"
 
 export const metadata = {
   title: "Contact | Tee365",
-  description: "Get in touch with Tee365 — indoor golf in Mishawaka, Indiana.",
+  description: "Get in touch with Tee365 — indoor golf in South Bend, Indiana.",
 }
 
 export default function ContactPage() {
