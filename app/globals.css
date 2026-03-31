@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../app/**/*.{tsx,ts,jsx,js}";
 
 /* Theme tokens */
 :root {
