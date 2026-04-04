@@ -31,18 +31,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html,
-body {
-  height: 100%;
+html {
+  min-height: 100%;
+  /* covers overscroll area on Android Chrome so it doesn't flash white */
+  background-color: var(--bgB);
 }
 
 body {
+  min-height: 100%;
   color: #e5e7eb;
   font-family: Arial, Helvetica, sans-serif;
-
-  /* Stable background (no banding) */
   background: linear-gradient(180deg, var(--bgA), var(--bgB));
-  background-attachment: fixed;
 }
 /* Reduce gradient banding with subtle noise overlay */
 /* Reduce gradient banding without tiling seams */
