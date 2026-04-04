@@ -87,12 +87,12 @@ export default function Info() {
               <p className="mt-4 text-sm text-green-400">You&apos;re in - look out for a welcome email shortly</p>
             ) : (
               <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label htmlFor="first-name" className="sr-only">First name</label>
+                  <label htmlFor="first-name" className="sr-only">Name</label>
                   <input
                     id="first-name"
                     type="text"
                     required
-                    placeholder="First name"
+                    placeholder="Name"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
