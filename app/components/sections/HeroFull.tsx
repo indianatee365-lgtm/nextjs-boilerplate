@@ -7,6 +7,9 @@ export default function HeroFull() {
           src="/hero.jpg"
           alt="Indoor golf simulator bay at Tee365 in South Bend, Indiana near Notre Dame"
           className="h-full w-full object-cover object-[center_72%]"
+          width="1920"
+          height="1080"
+          loading="eager"
         />
         <div className="absolute inset-0 bg-black/55" />
         <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent" />

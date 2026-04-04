@@ -14,6 +14,12 @@ export default function Footer() {
           <a className="hover:text-white" href="/#waitlist">
             Gift cards
           </a>
+          <a className="hover:text-white" href="/about">
+            About
+          </a>
+          <a className="hover:text-white" href="/contact">
+            Contact
+          </a>
           <a className="hover:text-white" href="/faq">
             FAQ
           </a>

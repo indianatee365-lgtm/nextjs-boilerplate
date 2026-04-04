@@ -5,7 +5,7 @@ export default function LocalSEO() {
     <section className="mx-auto max-w-6xl px-6 pt-10 pb-16 md:pt-14 md:pb-20">
       <div className="max-w-3xl">
         <h2 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
-          Indoor Golf Simulator in South Bend Near Notre Dame
+          Why South Bend Golfers Choose Tee365
         </h2>
 
         <p className="mt-4 text-base leading-7 text-neutral-200">

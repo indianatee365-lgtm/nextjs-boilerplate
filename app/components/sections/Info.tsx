@@ -87,7 +87,9 @@ export default function Info() {
               <p className="mt-4 text-sm text-green-400">You&apos;re in - look out for a welcome email shortly</p>
             ) : (
               <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label htmlFor="first-name" className="sr-only">First name</label>
                   <input
+                    id="first-name"
                     type="text"
                     required
                     placeholder="First name"
@@ -95,7 +97,9 @@ export default function Info() {
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
                   />
+                  <label htmlFor="email-address" className="sr-only">Email address</label>
                   <input
+                    id="email-address"
                     type="email"
                     required
                     placeholder="Email address"
@@ -126,7 +130,7 @@ export default function Info() {
                 <a
                   href="https://www.instagram.com/tee365.mishawaka"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="nofollow noreferrer noopener"
                   aria-label="Tee365 on Instagram"
                   className="text-white/70 transition hover:text-white/90"
                 >
@@ -136,7 +140,7 @@ export default function Info() {
                 <a
                   href="https://www.facebook.com/people/Tee365/61578292102933/"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="nofollow noreferrer noopener"
                   aria-label="Tee365 on Facebook"
                   className="text-white/70 transition hover:text-white/90"
                 >
@@ -146,7 +150,7 @@ export default function Info() {
                 <a
                   href="https://www.tiktok.com/@tee36568?_t=ZT-8ybYXacTg5X&_r=1"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="nofollow noreferrer noopener"
                   aria-label="Tee365 on TikTok"
                   className="text-white/70 transition hover:text-white/90"
                 >
@@ -156,7 +160,7 @@ export default function Info() {
                 <a
                   href="https://share.google/d8bNieAsQUqaYomQZ"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="nofollow noreferrer noopener"
                   aria-label="Tee365 on Google Maps"
                   className="text-white/70 transition hover:text-white/90"
                 >
