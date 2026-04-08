@@ -1,5 +1,28 @@
-import Script from "next/script";
+import type { Metadata } from "next";
 import { FAQItem } from "./FAQItem";
+
+export const metadata: Metadata = {
+  title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
+  description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+  alternates: {
+    canonical: "https://tee365.org/faq",
+  },
+  openGraph: {
+    type: "website",
+    title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
+    description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+    url: "https://tee365.org/faq",
+    images: [{ url: "https://tee365.org/hero.jpg" }],
+    siteName: "Tee365",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
+    description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+    images: ["https://tee365.org/hero.jpg"],
+  },
+};
 
 export default function FAQPage() {
   const faqSchema = {
@@ -123,10 +146,8 @@ export default function FAQPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-10 py-12">
-      <Script
-        id="tee365-faq"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 

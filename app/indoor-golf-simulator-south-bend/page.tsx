@@ -1,9 +1,29 @@
-import Script from "next/script"
+import type { Metadata } from "next"
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
   description:
     "24/7 indoor golf simulator bays in South Bend, Indiana near Notre Dame. Practice, play full rounds, and compete year-round in private simulator bays.",
+  alternates: {
+    canonical: "https://tee365.org/indoor-golf-simulator-south-bend",
+  },
+  openGraph: {
+    type: "website",
+    title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
+    description:
+      "24/7 indoor golf simulator bays in South Bend, Indiana near Notre Dame. Practice, play full rounds, and compete year-round in private simulator bays.",
+    url: "https://tee365.org/indoor-golf-simulator-south-bend",
+    images: [{ url: "https://tee365.org/hero.jpg" }],
+    siteName: "Tee365",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
+    description:
+      "24/7 indoor golf simulator bays in South Bend, Indiana near Notre Dame. Practice, play full rounds, and compete year-round in private simulator bays.",
+    images: ["https://tee365.org/hero.jpg"],
+  },
 }
 
 const BREADCRUMB_SCHEMA = {
@@ -28,8 +48,8 @@ const FAQ_SCHEMA = {
 export default function IndoorGolfSimulatorSouthBendPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 pt-24 pb-20">
-      <Script id="tee365-breadcrumb-south-bend" type="application/ld+json" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_SCHEMA) }} />
-      <Script id="tee365-faq-south-bend" type="application/ld+json" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_SCHEMA) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
 
       <header className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Tee365 South Bend, Indiana</p>
