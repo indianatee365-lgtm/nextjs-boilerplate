@@ -11,7 +11,6 @@ const SignupSchema = z.object({
   phone: z.string().min(10, "Valid phone number required"),
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  disclosureIds: z.array(z.string()).min(1, "You must acknowledge all disclosures"),
 })
 
 export type SignupState = {
@@ -25,15 +24,12 @@ export async function signup(
 ): Promise<SignupState> {
   const supabase = await createClient()
 
-  const disclosureIds = formData.getAll("disclosureId") as string[]
-
   const parsed = SignupSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
     phone: formData.get("phone"),
     email: formData.get("email"),
     password: formData.get("password"),
-    disclosureIds,
   })
 
   if (!parsed.success) {
@@ -42,7 +38,7 @@ export async function signup(
 
   const { firstName, lastName, phone, email, password } = parsed.data
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -52,16 +48,6 @@ export async function signup(
 
   if (error) {
     return { message: error.message }
-  }
-
-  if (data.user) {
-    // Record disclosure acknowledgments
-    const acks = disclosureIds.map((id) => ({
-      user_id: data.user!.id,
-      disclosure_id: id,
-    }))
-
-    await supabase.from("disclosure_acknowledgments").insert(acks)
   }
 
   revalidatePath("/", "layout")

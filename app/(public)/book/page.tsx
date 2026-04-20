@@ -34,6 +34,12 @@ export default async function BookPage() {
     .eq("active", true)
     .order("number")
 
+  const { data: disclosures } = await supabase
+    .from("disclosures")
+    .select("id, title, body")
+    .eq("active", true)
+    .order("created_at")
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Book a Bay</h1>
@@ -45,6 +51,7 @@ export default async function BookPage() {
         advanceDays={advanceDays}
         membershipSlug={membershipSlug}
         userName={profile ? `${profile.first_name} ${profile.last_name}` : ""}
+        disclosures={disclosures ?? []}
       />
     </main>
   )

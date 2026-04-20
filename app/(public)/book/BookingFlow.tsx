@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
-import { ChevronLeft, ChevronRight, Clock, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -11,6 +11,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 
 interface Bay { id: string; number: number; name: string }
+interface Disclosure { id: string; title: string; body: string }
 interface SlotData {
   startsAt: string
   endsAt: string
@@ -28,11 +29,13 @@ export default function BookingFlow({
   advanceDays,
   membershipSlug,
   userName,
+  disclosures,
 }: {
   bays: Bay[]
   advanceDays: number
   membershipSlug: string | null
   userName: string
+  disclosures: Disclosure[]
 }) {
   const [step, setStep] = useState<Step>("date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -46,6 +49,9 @@ export default function BookingFlow({
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [bookingError, setBookingError] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [acknowledgedDisclosures, setAcknowledgedDisclosures] = useState<Set<string>>(new Set())
+  const [expandedDisclosure, setExpandedDisclosure] = useState<string | null>(disclosures[0]?.id ?? null)
+  const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -131,6 +137,7 @@ export default function BookingFlow({
           durationMinutes: selectedDuration,
           couponCode: couponCode || undefined,
           giftCardCode: giftCardCode || undefined,
+          disclosureIds: Array.from(acknowledgedDisclosures),
         }),
       })
 
@@ -429,13 +436,58 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
+          {/* Disclosures */}
+          {disclosures.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <p className="text-sm font-medium text-white">
+                Please read and acknowledge the following before booking:
+              </p>
+              {disclosures.map((d) => (
+                <div key={d.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    onClick={() => setExpandedDisclosure(expandedDisclosure === d.id ? null : d.id)}
+                  >
+                    <span className="text-sm font-medium text-white">{d.title}</span>
+                    {expandedDisclosure === d.id
+                      ? <ChevronUp size={16} className="text-neutral-400 shrink-0" />
+                      : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
+                  </button>
+                  {expandedDisclosure === d.id && (
+                    <div className="border-t border-white/10 px-4 py-3">
+                      <div className="max-h-48 overflow-y-auto text-xs leading-5 text-neutral-300 whitespace-pre-wrap">
+                        {d.body}
+                      </div>
+                    </div>
+                  )}
+                  <div className="border-t border-white/10 px-4 py-3">
+                    <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={acknowledgedDisclosures.has(d.id)}
+                        onChange={() => setAcknowledgedDisclosures((prev) => {
+                          const next = new Set(prev)
+                          next.has(d.id) ? next.delete(d.id) : next.add(d.id)
+                          return next
+                        })}
+                        className="h-4 w-4 rounded border-white/20 bg-white/10 accent-brand"
+                      />
+                      I have read and agree to the {d.title}
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {bookingError && (
             <p className="mt-3 text-sm text-red-400">{bookingError}</p>
           )}
 
           <button
             onClick={handleConfirmBooking}
-            disabled={submitting}
+            disabled={submitting || !allDisclosuresAcknowledged}
             className="btn-primary mt-5 w-full"
           >
             {submitting ? "Processing…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { bayId, startsAt, durationMinutes, couponCode, giftCardCode } = body
+  const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds } = body
 
   // Validate inputs
   if (!bayId || !startsAt || !durationMinutes) {
@@ -213,6 +213,17 @@ export async function POST(request: NextRequest) {
   if (bookingError || !booking) {
     await getStripe().paymentIntents.cancel(paymentIntent.id)
     return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+  }
+
+  // Record disclosure acknowledgments (upsert — unique constraint on user_id + disclosure_id)
+  if (Array.isArray(disclosureIds) && disclosureIds.length > 0) {
+    await serviceClient.from("disclosure_acknowledgments").upsert(
+      disclosureIds.map((id: string) => ({
+        user_id: user.id,
+        disclosure_id: id,
+      })),
+      { onConflict: "user_id,disclosure_id" }
+    )
   }
 
   return NextResponse.json({

@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server"
 import SignupForm from "./SignupForm"
 
 export const metadata = {
@@ -6,13 +5,6 @@ export const metadata = {
 }
 
 export default async function SignupPage() {
-  const supabase = await createClient()
-  const { data: disclosures } = await supabase
-    .from("disclosures")
-    .select("id, title, body")
-    .eq("active", true)
-    .order("created_at")
-
   return (
     <main className="mx-auto max-w-lg px-4 py-16">
       <div className="mb-8">
@@ -24,7 +16,7 @@ export default async function SignupPage() {
           </a>
         </p>
       </div>
-      <SignupForm disclosures={disclosures ?? []} />
+      <SignupForm />
     </main>
   )
 }
