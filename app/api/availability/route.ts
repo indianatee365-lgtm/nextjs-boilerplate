@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/server"
 import { generateDaySlots, getPricingContext } from "@/lib/pricing/engine"
 
 export async function GET(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "invalid date" }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   // Build date range for the query
   const dayStart = new Date(date)
