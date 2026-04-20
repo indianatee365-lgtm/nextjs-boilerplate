@@ -4,7 +4,10 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation } from "@/lib/twilio/sms"
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-03-25.dahlia" })
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2026-03-25.dahlia",
+    httpClient: Stripe.createFetchHttpClient(),
+  })
 }
 
 function generateAccessCode(): string {
