@@ -114,7 +114,9 @@ export default function BookingFlow({
 
     for (const bayAvail of availability) {
       for (const slot of bayAvail.slots) {
-        if (midnight && new Date(slot.startsAt) >= midnight) continue
+        const slotTime = new Date(slot.startsAt)
+        if (selectedDate && slotTime < selectedDate) continue
+        if (midnight && slotTime >= midnight) continue
         if (!seen.has(slot.startsAt)) {
           seen.set(slot.startsAt, { ...slot, available: false })
         }

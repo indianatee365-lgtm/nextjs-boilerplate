@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000)
 
   // Check bay exists
-  const { data: bay } = await supabase
+  const { data: bay } = await serviceClient
     .from("bays")
     .select("id, number, name")
     .eq("id", bayId)
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (!bay) return NextResponse.json({ error: "Bay not found" }, { status: 404 })
 
   // Check for conflicts
-  const { data: conflicts } = await supabase
+  const { data: conflicts } = await serviceClient
     .from("bookings")
     .select("id")
     .eq("bay_id", bayId)
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Check blocked times
-  const { data: blocked } = await supabase
+  const { data: blocked } = await serviceClient
     .from("blocked_times")
     .select("id")
     .or(`bay_id.eq.${bayId},bay_id.is.null`)
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Get pricing rules
-  const { data: pricingRules } = await supabase
+  const { data: pricingRules } = await serviceClient
     .from("pricing_rules")
     .select("season_type, day_type, time_type, price_per_hour")
 
