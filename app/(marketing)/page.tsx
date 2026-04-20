@@ -1,9 +1,9 @@
-import HeroFull from "./components/sections/HeroFull"
-import HowItWorks from "./components/sections/HowItWorks"
-import FeatureBand from "./components/sections/FeatureBand"
-import Info from "./components/sections/Info"
-import LocalSEO from "./components/sections/LocalSEO"
-import PageContainer from "./components/PageContainer"
+import HeroFull from "@/app/components/sections/HeroFull"
+import HowItWorks from "@/app/components/sections/HowItWorks"
+import FeatureBand from "@/app/components/sections/FeatureBand"
+import Info from "@/app/components/sections/Info"
+import LocalSEO from "@/app/components/sections/LocalSEO"
+import PageContainer from "@/app/components/PageContainer"
 
 export default function HomePage() {
   return (

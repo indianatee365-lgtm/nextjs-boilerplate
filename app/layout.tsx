@@ -1,8 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
 const LOCAL_BUSINESS_SCHEMA = {
@@ -79,9 +77,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_SCHEMA) }}
         />
         <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)" }} />
-        <Header />
         {children}
-        <Footer />
       </body>
       <GoogleAnalytics gaId="G-LJZ2L1GD7Y" />
     </html>
