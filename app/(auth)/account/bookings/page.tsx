@@ -39,11 +39,11 @@ export default async function BookingsPage({
           <div>
             <p className="font-medium text-white">{bay?.name ?? "Bay"}</p>
             <p className="mt-0.5 text-sm text-neutral-400">
-              {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+              {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}
               {" · "}
-              {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
               {" – "}
-              {end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              {end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
             </p>
           </div>
           <div className="text-right">

@@ -114,10 +114,10 @@ export default async function AccountPage() {
                     <div>
                       <p className="font-medium text-white">{bay?.name}</p>
                       <p className="mt-0.5 text-sm text-neutral-400">
-                        {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{" · "}
-                        {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" · "}
+                        {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                         {" – "}
-                        {end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-white">${Number(b.total).toFixed(2)}</span>
