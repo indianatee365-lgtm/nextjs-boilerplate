@@ -105,11 +105,16 @@ export default function BookingFlow({
     }
   }, [selectedDate, step, loadAvailability])
 
-  // Merged slots: available if ANY bay has the slot open
+  // Merged slots: available if ANY bay has the slot open.
+  // Only display slots starting within the selected calendar day — overflow slots
+  // past midnight exist in the array solely for consecutive-fit checking.
   function getMergedSlots(): SlotData[] {
     const seen = new Map<string, SlotData>()
+    const midnight = selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1) : null
+
     for (const bayAvail of availability) {
       for (const slot of bayAvail.slots) {
+        if (midnight && new Date(slot.startsAt) >= midnight) continue
         if (!seen.has(slot.startsAt)) {
           seen.set(slot.startsAt, { ...slot, available: false })
         }

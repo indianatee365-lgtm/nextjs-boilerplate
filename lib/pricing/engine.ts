@@ -155,12 +155,12 @@ export function getMaxBookingDate(membershipSlug: string | null): Date {
  * Generate all 30-min slots for a given date.
  * Returns slots as { startsAt, endsAt, label } for UI display.
  */
-export function generateDaySlots(date: Date): { startsAt: Date; endsAt: Date; label: string }[] {
+export function generateDaySlots(date: Date, extraHours = 4): { startsAt: Date; endsAt: Date; label: string }[] {
   const slots = []
   const start = new Date(date)
   start.setHours(0, 0, 0, 0)
 
-  for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+  for (let minutes = 0; minutes < (24 + extraHours) * 60; minutes += 30) {
     const startsAt = new Date(start.getTime() + minutes * 60 * 1000)
     const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000)
     const hour = startsAt.getHours()

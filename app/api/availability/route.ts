@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const dayStart = new Date(date)
   dayStart.setHours(0, 0, 0, 0)
   const dayEnd = new Date(date)
-  dayEnd.setHours(23, 59, 59, 999)
+  dayEnd.setHours(27, 59, 59, 999) // 4am next day — covers sessions starting up to 11:30pm
 
   // Get all active bays
   const { data: bays } = await supabase
