@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingsManager from "./BookingsManager"
 
@@ -10,10 +10,11 @@ export default async function AdminBookingsPage({
   searchParams: Promise<{ date?: string }>
 }) {
   const supabase = await createClient()
+  const serviceClient = await createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase
+  const { data: profile } = await serviceClient
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -26,7 +27,7 @@ export default async function AdminBookingsPage({
   const nextDay = new Date(date)
   nextDay.setDate(nextDay.getDate() + 1)
 
-  const { data: bookings } = await supabase
+  const { data: bookings } = await serviceClient
     .from("bookings")
     .select(`
       id, starts_at, ends_at, status, total, duration_minutes,
@@ -38,7 +39,7 @@ export default async function AdminBookingsPage({
     .lt("starts_at", nextDay.toISOString())
     .order("starts_at")
 
-  const { data: bays } = await supabase
+  const { data: bays } = await serviceClient
     .from("bays")
     .select("id, number, name")
     .eq("active", true)
