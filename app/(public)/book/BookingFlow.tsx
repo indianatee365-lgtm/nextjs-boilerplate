@@ -191,6 +191,10 @@ export default function BookingFlow({
     return d >= today && d <= maxDate
   }
 
+  function formatSlotTime(isoString: string): string {
+    return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  }
+
   function formatNextAvailableDate(date: Date): string {
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
@@ -271,7 +275,7 @@ export default function BookingFlow({
               <Zap size={18} className="text-brand shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-white">
-                  Next available: {formatNextAvailableDate(nextAvailable.date)} at {nextAvailable.slot.label}
+                  Next available: {formatNextAvailableDate(nextAvailable.date)} at {formatSlotTime(nextAvailable.slot.startsAt)}
                 </p>
                 <p className="text-xs text-neutral-400 mt-0.5">
                   ${nextAvailable.slot.pricePerHour}/hr · 1 hr session · click to book instantly
@@ -399,7 +403,7 @@ export default function BookingFlow({
                           : "cursor-not-allowed border-white/5 text-neutral-700",
                       ].join(" ")}
                     >
-                      {slot.label}
+                      {formatSlotTime(slot.startsAt)}
                     </button>
                   )
                 })}
@@ -409,7 +413,7 @@ export default function BookingFlow({
                 <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-neutral-300">
-                      <Clock size={14} /> {selectedDuration / 60}hr session starting {selectedStart.label}
+                      <Clock size={14} /> {selectedDuration / 60}hr session starting {formatSlotTime(selectedStart.startsAt)}
                     </span>
                     <span className="flex items-center gap-1 font-semibold text-white">
                       <DollarSign size={14} />{pricingPreview.subtotal.toFixed(2)}
