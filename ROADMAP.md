@@ -6,8 +6,9 @@ The main marketing site (`tee365.org`) and the booking app have been merged into
 
 ### What's built and deployed
 - **Marketing site** — home, about, FAQ, contact, SEO page (all under `app/(marketing)/`)
-- **Auth** — `/signup`, `/login`, `/account` with Supabase auth, disclosure acknowledgments on signup
+- **Auth** — `/signup`, `/login`, `/account` — signup → login flow confirmed working
 - **Booking flow** — `/book`: bay selection, date/time picker, Stripe payment, access code generation
+- **Disclosures** — shown at booking review step (before payment), not signup
 - **SMS confirmation** — Twilio fires on `payment_intent.succeeded` with bay name, time, and access code
 - **Admin panel** — `/admin/bookings`: view all bookings, cancel with Stripe refund
 - **Display board** — `/display`: unauthenticated kiosk view (excluded from proxy auth)
@@ -17,8 +18,8 @@ The main marketing site (`tee365.org`) and the booking app have been merged into
 
 ### Tech stack
 - Next.js 16.1.6 (Turbopack, `proxy.ts` middleware convention)
-- Supabase (auth + Postgres)
-- Stripe (payments, webhook at `/api/stripe/webhook`)
+- Supabase (auth + Postgres) — email confirmation disabled, signups working
+- Stripe (payments, webhook at `/api/stripe/webhook`) — test keys active
 - Twilio (SMS)
 - Vercel (hosting, tee365.org domain)
 
@@ -37,25 +38,27 @@ Get the booking flow production-ready and open it to customers. Then build out t
 ## Todo
 
 ### 🔴 Before going live (product testing)
+- [x] Signup → login flow working (Supabase email confirmation disabled)
 - [ ] Seed Supabase: confirm `bays` table has active bays configured
 - [ ] Seed Supabase: confirm `pricing_rules` rows exist (season/day/time combinations)
-- [ ] End-to-end test: signup → login → book → Stripe payment → SMS confirmation
+- [ ] End-to-end test: book → Stripe test payment (card 4242...) → SMS confirmation
 - [ ] Verify access code arrives via SMS and is stored on the booking
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [ ] Test booking conflict detection (same bay, overlapping time)
 - [ ] Test `/admin/bookings` — view, cancel, refund flow
 - [ ] Test `/display` board renders correctly
-- [ ] Verify Stripe webhook is registered in Stripe dashboard pointing to `https://tee365.org/api/stripe/webhook`
+- [ ] Verify Stripe webhook registered in Stripe dashboard → `https://tee365.org/api/stripe/webhook`
+- [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
 
 ### 🟡 Shortly after launch
 - [ ] Membership purchase flow — UI to buy a plan (tables exist, no purchase page yet)
-- [ ] Account page improvements — show upcoming/past bookings
+- [ ] Account page improvements — show upcoming/past bookings with details
 - [ ] Admin: bay management (activate/deactivate bays)
 - [ ] Admin: blocked times management (create/delete blocked slots)
 - [ ] Admin: pricing rules editor
 - [ ] Admin: coupon creation and management
-- [ ] Email confirmation (currently SMS only)
+- [ ] Email confirmation on booking (currently SMS only)
 
 ### 🟢 Later
 - [ ] Gift card purchase flow

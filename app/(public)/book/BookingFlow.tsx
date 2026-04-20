@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
-import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -21,8 +21,9 @@ interface SlotData {
   context: { seasonType: string; dayType: string; timeType: string }
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
+interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
-type Step = "date" | "bay" | "time" | "review" | "payment"
+type Step = "date" | "time" | "review"
 
 export default function BookingFlow({
   bays,
@@ -51,6 +52,7 @@ export default function BookingFlow({
   const [submitting, setSubmitting] = useState(false)
   const [acknowledgedDisclosures, setAcknowledgedDisclosures] = useState<Set<string>>(new Set())
   const [expandedDisclosure, setExpandedDisclosure] = useState<string | null>(disclosures[0]?.id ?? null)
+  const [nextAvailable, setNextAvailable] = useState<NextAvailable | null | "loading">("loading")
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
   const today = new Date()
@@ -58,13 +60,10 @@ export default function BookingFlow({
   const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
-  // Load availability when date or bay changes
-  const loadAvailability = useCallback(async (date: Date, bayId?: string) => {
+  const loadAvailability = useCallback(async (date: Date) => {
     setLoadingSlots(true)
     try {
-      const params = new URLSearchParams({ date: date.toISOString() })
-      if (bayId) params.set("bayId", bayId)
-      const res = await fetch(`/api/availability?${params}`)
+      const res = await fetch(`/api/availability?date=${date.toISOString()}`)
       const data = await res.json()
       setAvailability(Array.isArray(data) ? data : [])
     } finally {
@@ -72,14 +71,100 @@ export default function BookingFlow({
     }
   }, [])
 
+  // Fetch next available slot on mount
   useEffect(() => {
-    if (selectedDate && step === "bay") {
+    async function findNextAvailable() {
+      const now = new Date()
+      for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
+        const d = new Date(now)
+        d.setDate(d.getDate() + offset)
+        const res = await fetch(`/api/availability?date=${d.toISOString()}`)
+        const data: BayAvailability[] = await res.json()
+        if (!Array.isArray(data)) continue
+        for (const bayAvail of data) {
+          for (let i = 0; i < bayAvail.slots.length - 1; i++) {
+            const slot = bayAvail.slots[i]
+            const next = bayAvail.slots[i + 1]
+            if (slot.available && next.available) {
+              const slotDate = new Date(d)
+              slotDate.setHours(0, 0, 0, 0)
+              setNextAvailable({ date: slotDate, slot, bay: bayAvail.bay })
+              return
+            }
+          }
+        }
+      }
+      setNextAvailable(null)
+    }
+    findNextAvailable()
+  }, [advanceDays])
+
+  useEffect(() => {
+    if (selectedDate && step === "time") {
       loadAvailability(selectedDate)
     }
-    if (selectedDate && selectedBay && step === "time") {
-      loadAvailability(selectedDate, selectedBay.id)
+  }, [selectedDate, step, loadAvailability])
+
+  // Merged slots: available if ANY bay has the slot open
+  function getMergedSlots(): SlotData[] {
+    const seen = new Map<string, SlotData>()
+    for (const bayAvail of availability) {
+      for (const slot of bayAvail.slots) {
+        if (!seen.has(slot.startsAt)) {
+          seen.set(slot.startsAt, { ...slot, available: false })
+        }
+        if (slot.available) {
+          seen.set(slot.startsAt, { ...slot, available: true })
+        }
+      }
     }
-  }, [selectedDate, selectedBay, step, loadAvailability])
+    return Array.from(seen.values())
+  }
+
+  // Check if any single bay can fit the full duration from this slot
+  function canFitDurationOnAnyBay(slotStartsAt: string, durationMins: number): boolean {
+    const needed = durationMins / 30
+    for (const bayAvail of availability) {
+      const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
+      if (startIdx === -1) continue
+      let fits = true
+      for (let i = 0; i < needed; i++) {
+        if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
+      }
+      if (fits) return true
+    }
+    return false
+  }
+
+  // Find first bay that can fit the full duration from this slot
+  function findBayForSlot(slotStartsAt: string, durationMins: number): Bay | null {
+    const needed = durationMins / 30
+    for (const bayAvail of availability) {
+      const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
+      if (startIdx === -1) continue
+      let fits = true
+      for (let i = 0; i < needed; i++) {
+        if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
+      }
+      if (fits) return bayAvail.bay
+    }
+    return null
+  }
+
+  function selectDate(date: Date) {
+    setSelectedDate(date)
+    setSelectedStart(null)
+    setSelectedBay(null)
+    setStep("time")
+  }
+
+  function quickBook(na: NextAvailable) {
+    setSelectedDate(na.date)
+    setSelectedBay(na.bay)
+    setSelectedStart(na.slot)
+    setSelectedDuration(60)
+    setStep("review")
+  }
 
   // Calendar helpers
   function buildCalendarDays(month: Date): (Date | null)[] {
@@ -101,19 +186,17 @@ export default function BookingFlow({
     return d >= today && d <= maxDate
   }
 
-  // Slot helpers
-  const currentBaySlots =
-    availability.find((a) => a.bay.id === selectedBay?.id)?.slots ?? []
-
-  function countAvailableConsecutive(startIndex: number, durationMins: number): boolean {
-    const needed = durationMins / 30
-    for (let i = 0; i < needed; i++) {
-      if (!currentBaySlots[startIndex + i]?.available) return false
-    }
-    return true
+  function formatNextAvailableDate(date: Date): string {
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    const t = new Date()
+    t.setHours(0, 0, 0, 0)
+    const diff = Math.round((d.getTime() - t.getTime()) / 86400000)
+    if (diff === 0) return "Today"
+    if (diff === 1) return "Tomorrow"
+    return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
   }
 
-  // Pricing preview
   const pricingPreview = selectedStart
     ? calculateBookingPrice({
         pricePerHour: selectedStart.pricePerHour,
@@ -126,7 +209,6 @@ export default function BookingFlow({
     if (!selectedBay || !selectedStart) return
     setSubmitting(true)
     setBookingError("")
-
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
@@ -140,39 +222,33 @@ export default function BookingFlow({
           disclosureIds: Array.from(acknowledgedDisclosures),
         }),
       })
-
       const data = await res.json()
       if (!res.ok) {
         setBookingError(data.error ?? "Something went wrong")
         return
       }
-
-      // Redirect to Stripe payment
       const stripe = await stripePromise
       if (!stripe) return
-
       const { error } = await stripe.confirmPayment({
         clientSecret: data.clientSecret,
         confirmParams: {
           return_url: `${window.location.origin}/account/bookings?confirmed=${data.bookingId}`,
         },
       })
-
-      if (error) {
-        setBookingError(error.message ?? "Payment failed")
-      }
+      if (error) setBookingError(error.message ?? "Payment failed")
     } finally {
       setSubmitting(false)
     }
   }
 
   const calendarDays = buildCalendarDays(calendarMonth)
+  const mergedSlots = getMergedSlots()
 
   return (
     <div className="mt-8 space-y-6">
       {/* Step indicators */}
       <div className="flex items-center gap-2 text-sm">
-        {(["date", "bay", "time", "review"] as Step[]).map((s, i) => (
+        {(["date", "time", "review"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span className="text-neutral-600">›</span>}
             <span className={step === s ? "font-semibold text-brand" : "text-neutral-500 capitalize"}>
@@ -181,6 +257,31 @@ export default function BookingFlow({
           </div>
         ))}
       </div>
+
+      {/* ── Next available block ── */}
+      {step === "date" && nextAvailable && nextAvailable !== "loading" && (
+        <div className="rounded-2xl border border-brand/30 bg-brand/10 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Zap size={18} className="text-brand shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Next available: {formatNextAvailableDate(nextAvailable.date)} at {nextAvailable.slot.label}
+                </p>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  ${nextAvailable.slot.pricePerHour}/hr · 1 hr session · click to book instantly
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => quickBook(nextAvailable)}
+              className="btn-primary shrink-0 text-sm px-4 py-2"
+            >
+              Book now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Step 1: Date ── */}
       {step === "date" && (
@@ -217,7 +318,7 @@ export default function BookingFlow({
                 <button
                   key={i}
                   disabled={!selectable}
-                  onClick={() => date && setSelectedDate(date)}
+                  onClick={() => date && selectDate(date)}
                   className={[
                     "rounded-lg py-2 text-sm transition",
                     !date ? "invisible" : "",
@@ -233,70 +334,26 @@ export default function BookingFlow({
               )
             })}
           </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              disabled={!selectedDate}
-              onClick={() => setStep("bay")}
-              className="btn-primary"
-            >
-              Continue
-            </button>
-          </div>
         </div>
       )}
 
-      {/* ── Step 2: Bay selection ── */}
-      {step === "bay" && (
+      {/* ── Step 2: Time + duration ── */}
+      {step === "time" && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <button onClick={() => setStep("date")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
             <ChevronLeft size={14} /> Back
           </button>
-          <h2 className="mb-4 text-lg font-semibold text-white">
-            Select a bay — {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-          </h2>
-
-          {loadingSlots ? (
-            <p className="text-sm text-neutral-400">Checking availability…</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {bays.map((bay) => {
-                const bayData = availability.find((a) => a.bay.id === bay.id)
-                const openSlots = bayData?.slots.filter((s) => s.available).length ?? 0
-                return (
-                  <button
-                    key={bay.id}
-                    onClick={() => { setSelectedBay(bay); setStep("time") }}
-                    className="rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-brand/50 hover:bg-brand/10"
-                  >
-                    <p className="font-semibold text-white">{bay.name}</p>
-                    <p className="mt-1 text-xs text-neutral-400">{openSlots} slots open</p>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Step 3: Time + duration ── */}
-      {step === "time" && selectedBay && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <button onClick={() => setStep("bay")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
-            <ChevronLeft size={14} /> Back
-          </button>
           <h2 className="mb-1 text-lg font-semibold text-white">
-            {selectedBay.name} — {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h2>
 
-          {/* Duration selector */}
           <div className="mb-5 mt-4">
             <p className="mb-2 text-sm text-neutral-400">Session length</p>
             <div className="flex flex-wrap gap-2">
               {[60, 90, 120, 150, 180, 210, 240].map((mins) => (
                 <button
                   key={mins}
-                  onClick={() => { setSelectedDuration(mins); setSelectedStart(null) }}
+                  onClick={() => { setSelectedDuration(mins); setSelectedStart(null); setSelectedBay(null) }}
                   className={[
                     "rounded-lg border px-3 py-1.5 text-sm transition",
                     selectedDuration === mins
@@ -316,14 +373,18 @@ export default function BookingFlow({
             <>
               <p className="mb-3 text-sm text-neutral-400">Select start time</p>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                {currentBaySlots.map((slot, i) => {
-                  const canFit = countAvailableConsecutive(i, selectedDuration)
+                {mergedSlots.map((slot) => {
+                  const canFit = canFitDurationOnAnyBay(slot.startsAt, selectedDuration)
                   const isSelected = selectedStart?.startsAt === slot.startsAt
                   return (
                     <button
                       key={slot.startsAt}
                       disabled={!slot.available || !canFit}
-                      onClick={() => setSelectedStart(slot)}
+                      onClick={() => {
+                        const bay = findBayForSlot(slot.startsAt, selectedDuration)
+                        setSelectedStart(slot)
+                        setSelectedBay(bay)
+                      }}
                       className={[
                         "rounded-lg border py-2 text-xs transition",
                         slot.available && canFit
@@ -372,7 +433,7 @@ export default function BookingFlow({
         </div>
       )}
 
-      {/* ── Step 4: Review + discounts ── */}
+      {/* ── Step 3: Review + discounts ── */}
       {step === "review" && selectedStart && selectedBay && pricingPreview && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <button onClick={() => setStep("time")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
@@ -382,8 +443,8 @@ export default function BookingFlow({
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-300">
-              <span>{selectedBay.name}</span>
-              <span>{selectedDate?.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              <span>Date</span>
+              <span>{selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Start time</span>
@@ -405,7 +466,6 @@ export default function BookingFlow({
             )}
           </div>
 
-          {/* Coupon code */}
           <div className="mt-5">
             <label className="label" htmlFor="couponCode">Coupon code</label>
             <input
@@ -418,7 +478,6 @@ export default function BookingFlow({
             />
           </div>
 
-          {/* Gift card */}
           <div className="mt-3">
             <label className="label" htmlFor="giftCardCode">Gift card</label>
             <input
@@ -436,7 +495,6 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
-          {/* Disclosures */}
           {disclosures.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-sm font-medium text-white">
