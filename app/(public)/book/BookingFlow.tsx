@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -23,8 +24,51 @@ interface SlotData {
 interface BayAvailability { bay: Bay; slots: SlotData[] }
 interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
-type Step = "date" | "time" | "review"
+type Step = "date" | "time" | "review" | "payment"
 
+// ── Inner payment form (must be inside <Elements>) ────────────────────────────
+function PaymentForm({
+  clientSecret,
+  bookingId,
+  total,
+  onError,
+}: {
+  clientSecret: string
+  bookingId: string
+  total: number
+  onError: (msg: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setSubmitting(true)
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/account?confirmed=${bookingId}`,
+      },
+    })
+    if (error) {
+      onError(error.message ?? "Payment failed")
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <PaymentElement />
+      <button type="submit" disabled={submitting || !stripe} className="btn-primary w-full">
+        {submitting ? "Processing…" : `Pay $${total.toFixed(2)}`}
+      </button>
+    </form>
+  )
+}
+
+// ── Main booking flow ─────────────────────────────────────────────────────────
 export default function BookingFlow({
   bays,
   advanceDays,
@@ -53,6 +97,8 @@ export default function BookingFlow({
   const [acknowledgedDisclosures, setAcknowledgedDisclosures] = useState<Set<string>>(new Set())
   const [expandedDisclosure, setExpandedDisclosure] = useState<string | null>(disclosures[0]?.id ?? null)
   const [nextAvailable, setNextAvailable] = useState<NextAvailable | null | "loading">("loading")
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [bookingId, setBookingId] = useState<string | null>(null)
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
   const today = new Date()
@@ -71,13 +117,13 @@ export default function BookingFlow({
     }
   }, [])
 
-  // Fetch next available slot on mount
   useEffect(() => {
     async function findNextAvailable() {
       const now = new Date()
       for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
         const d = new Date(now)
         d.setDate(d.getDate() + offset)
+        d.setHours(0, 0, 0, 0)
         const res = await fetch(`/api/availability?date=${d.toISOString()}`)
         const data: BayAvailability[] = await res.json()
         if (!Array.isArray(data)) continue
@@ -86,9 +132,7 @@ export default function BookingFlow({
             const slot = bayAvail.slots[i]
             const next = bayAvail.slots[i + 1]
             if (slot.available && next.available) {
-              const slotDate = new Date(d)
-              slotDate.setHours(0, 0, 0, 0)
-              setNextAvailable({ date: slotDate, slot, bay: bayAvail.bay })
+              setNextAvailable({ date: d, slot, bay: bayAvail.bay })
               return
             }
           }
@@ -105,12 +149,11 @@ export default function BookingFlow({
     }
   }, [selectedDate, step, loadAvailability])
 
-  // Merged slots: available if ANY bay has the slot open.
-  // Only display slots starting within the selected calendar day — overflow slots
-  // past midnight exist in the array solely for consecutive-fit checking.
   function getMergedSlots(): SlotData[] {
     const seen = new Map<string, SlotData>()
-    const midnight = selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1) : null
+    const midnight = selectedDate
+      ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1)
+      : null
 
     for (const bayAvail of availability) {
       for (const slot of bayAvail.slots) {
@@ -128,7 +171,6 @@ export default function BookingFlow({
     return Array.from(seen.values())
   }
 
-  // Check if any single bay can fit the full duration from this slot
   function canFitDurationOnAnyBay(slotStartsAt: string, durationMins: number): boolean {
     const needed = durationMins / 30
     for (const bayAvail of availability) {
@@ -143,7 +185,6 @@ export default function BookingFlow({
     return false
   }
 
-  // Find first bay that can fit the full duration from this slot
   function findBayForSlot(slotStartsAt: string, durationMins: number): Bay | null {
     const needed = durationMins / 30
     for (const bayAvail of availability) {
@@ -171,9 +212,10 @@ export default function BookingFlow({
     setSelectedStart(na.slot)
     setSelectedDuration(60)
     setStep("review")
+    // Load availability in background so back-navigation works
+    loadAvailability(na.date)
   }
 
-  // Calendar helpers
   function buildCalendarDays(month: Date): (Date | null)[] {
     const year = month.getFullYear()
     const m = month.getMonth()
@@ -216,7 +258,7 @@ export default function BookingFlow({
       })
     : null
 
-  async function handleConfirmBooking() {
+  async function handleCreateBooking() {
     if (!selectedBay || !selectedStart) return
     setSubmitting(true)
     setBookingError("")
@@ -238,15 +280,9 @@ export default function BookingFlow({
         setBookingError(data.error ?? "Something went wrong")
         return
       }
-      const stripe = await stripePromise
-      if (!stripe) return
-      const { error } = await stripe.confirmPayment({
-        clientSecret: data.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/account/bookings?confirmed=${data.bookingId}`,
-        },
-      })
-      if (error) setBookingError(error.message ?? "Payment failed")
+      setClientSecret(data.clientSecret)
+      setBookingId(data.bookingId)
+      setStep("payment")
     } finally {
       setSubmitting(false)
     }
@@ -259,7 +295,7 @@ export default function BookingFlow({
     <div className="mt-8 space-y-6">
       {/* Step indicators */}
       <div className="flex items-center gap-2 text-sm">
-        {(["date", "time", "review"] as Step[]).map((s, i) => (
+        {(["date", "time", "review", "payment"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span className="text-neutral-600">›</span>}
             <span className={step === s ? "font-semibold text-brand" : "text-neutral-500 capitalize"}>
@@ -284,10 +320,7 @@ export default function BookingFlow({
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => quickBook(nextAvailable)}
-              className="btn-primary shrink-0 text-sm px-4 py-2"
-            >
+            <button onClick={() => quickBook(nextAvailable)} className="btn-primary shrink-0 text-sm px-4 py-2">
               Book now
             </button>
           </div>
@@ -298,33 +331,22 @@ export default function BookingFlow({
       {step === "date" && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="mb-4 text-lg font-semibold text-white">Select a date</h2>
-
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}
-              className="btn-ghost p-2"
-            >
+            <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))} className="btn-ghost p-2">
               <ChevronLeft size={18} />
             </button>
-            <span className="font-medium text-white">
-              {MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
-            </span>
-            <button
-              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}
-              className="btn-ghost p-2"
-            >
+            <span className="font-medium text-white">{MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}</span>
+            <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))} className="btn-ghost p-2">
               <ChevronRight size={18} />
             </button>
           </div>
-
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500 mb-1">
             {DAYS.map((d) => <div key={d}>{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date, i) => {
               const selectable = isDateSelectable(date)
-              const isSelected = selectedDate && date &&
-                date.toDateString() === selectedDate.toDateString()
+              const isSelected = selectedDate && date && date.toDateString() === selectedDate.toDateString()
               return (
                 <button
                   key={i}
@@ -334,9 +356,7 @@ export default function BookingFlow({
                     "rounded-lg py-2 text-sm transition",
                     !date ? "invisible" : "",
                     selectable
-                      ? isSelected
-                        ? "bg-brand text-white font-semibold"
-                        : "text-white hover:bg-white/10"
+                      ? isSelected ? "bg-brand text-white font-semibold" : "text-white hover:bg-white/10"
                       : "cursor-not-allowed text-neutral-700",
                   ].join(" ")}
                 >
@@ -357,7 +377,6 @@ export default function BookingFlow({
           <h2 className="mb-1 text-lg font-semibold text-white">
             {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h2>
-
           <div className="mb-5 mt-4">
             <p className="mb-2 text-sm text-neutral-400">Session length</p>
             <div className="flex flex-wrap gap-2">
@@ -367,9 +386,7 @@ export default function BookingFlow({
                   onClick={() => { setSelectedDuration(mins); setSelectedStart(null); setSelectedBay(null) }}
                   className={[
                     "rounded-lg border px-3 py-1.5 text-sm transition",
-                    selectedDuration === mins
-                      ? "border-brand bg-brand/20 text-brand"
-                      : "border-white/10 text-neutral-300 hover:border-white/30",
+                    selectedDuration === mins ? "border-brand bg-brand/20 text-brand" : "border-white/10 text-neutral-300 hover:border-white/30",
                   ].join(" ")}
                 >
                   {mins < 60 ? `${mins}m` : `${mins / 60}hr${mins > 60 ? "s" : ""}`}
@@ -377,7 +394,6 @@ export default function BookingFlow({
               ))}
             </div>
           </div>
-
           {loadingSlots ? (
             <p className="text-sm text-neutral-400">Loading slots…</p>
           ) : (
@@ -399,9 +415,7 @@ export default function BookingFlow({
                       className={[
                         "rounded-lg border py-2 text-xs transition",
                         slot.available && canFit
-                          ? isSelected
-                            ? "border-brand bg-brand/20 text-brand font-semibold"
-                            : "border-white/10 text-white hover:border-white/30"
+                          ? isSelected ? "border-brand bg-brand/20 text-brand font-semibold" : "border-white/10 text-white hover:border-white/30"
                           : "cursor-not-allowed border-white/5 text-neutral-700",
                       ].join(" ")}
                     >
@@ -410,7 +424,6 @@ export default function BookingFlow({
                   )
                 })}
               </div>
-
               {selectedStart && pricingPreview && (
                 <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
                   <div className="flex items-center justify-between text-sm">
@@ -429,13 +442,8 @@ export default function BookingFlow({
                   </p>
                 </div>
               )}
-
               <div className="mt-6 flex justify-end">
-                <button
-                  disabled={!selectedStart}
-                  onClick={() => setStep("review")}
-                  className="btn-primary"
-                >
+                <button disabled={!selectedStart} onClick={() => setStep("review")} className="btn-primary">
                   Review booking
                 </button>
               </div>
@@ -451,7 +459,6 @@ export default function BookingFlow({
             <ChevronLeft size={14} /> Back
           </button>
           <h2 className="mb-5 text-lg font-semibold text-white">Review your booking</h2>
-
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-300">
               <span>Date</span>
@@ -459,7 +466,7 @@ export default function BookingFlow({
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Start time</span>
-              <span>{new Date(selectedStart.startsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+              <span>{formatSlotTime(selectedStart.startsAt)}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Duration</span>
@@ -476,31 +483,14 @@ export default function BookingFlow({
               </div>
             )}
           </div>
-
           <div className="mt-5">
             <label className="label" htmlFor="couponCode">Coupon code</label>
-            <input
-              id="couponCode"
-              type="text"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              placeholder="Enter code"
-              className="input mt-1"
-            />
+            <input id="couponCode" type="text" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="Enter code" className="input mt-1" />
           </div>
-
           <div className="mt-3">
             <label className="label" htmlFor="giftCardCode">Gift card</label>
-            <input
-              id="giftCardCode"
-              type="text"
-              value={giftCardCode}
-              onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
-              placeholder="Enter code"
-              className="input mt-1"
-            />
+            <input id="giftCardCode" type="text" value={giftCardCode} onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())} placeholder="Enter code" className="input mt-1" />
           </div>
-
           <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
             <span className="font-semibold text-white">Total due</span>
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
@@ -508,26 +498,16 @@ export default function BookingFlow({
 
           {disclosures.length > 0 && (
             <div className="mt-6 space-y-3">
-              <p className="text-sm font-medium text-white">
-                Please read and acknowledge the following before booking:
-              </p>
+              <p className="text-sm font-medium text-white">Please read and acknowledge the following before booking:</p>
               {disclosures.map((d) => (
                 <div key={d.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-4 py-3 text-left"
-                    onClick={() => setExpandedDisclosure(expandedDisclosure === d.id ? null : d.id)}
-                  >
+                  <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left" onClick={() => setExpandedDisclosure(expandedDisclosure === d.id ? null : d.id)}>
                     <span className="text-sm font-medium text-white">{d.title}</span>
-                    {expandedDisclosure === d.id
-                      ? <ChevronUp size={16} className="text-neutral-400 shrink-0" />
-                      : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
+                    {expandedDisclosure === d.id ? <ChevronUp size={16} className="text-neutral-400 shrink-0" /> : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
                   </button>
                   {expandedDisclosure === d.id && (
                     <div className="border-t border-white/10 px-4 py-3">
-                      <div className="max-h-48 overflow-y-auto text-xs leading-5 text-neutral-300 whitespace-pre-wrap">
-                        {d.body}
-                      </div>
+                      <div className="max-h-48 overflow-y-auto text-xs leading-5 text-neutral-300 whitespace-pre-wrap">{d.body}</div>
                     </div>
                   )}
                   <div className="border-t border-white/10 px-4 py-3">
@@ -550,20 +530,38 @@ export default function BookingFlow({
             </div>
           )}
 
-          {bookingError && (
-            <p className="mt-3 text-sm text-red-400">{bookingError}</p>
-          )}
+          {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
 
           <button
-            onClick={handleConfirmBooking}
+            onClick={handleCreateBooking}
             disabled={submitting || !allDisclosuresAcknowledged}
             className="btn-primary mt-5 w-full"
           >
-            {submitting ? "Processing…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}
+            {submitting ? "Processing…" : `Continue to payment — $${pricingPreview.total.toFixed(2)}`}
           </button>
-          <p className="mt-2 text-center text-xs text-neutral-500">
-            Payment processed securely by Stripe
-          </p>
+          <p className="mt-2 text-center text-xs text-neutral-500">Payment processed securely by Stripe</p>
+        </div>
+      )}
+
+      {/* ── Step 4: Payment ── */}
+      {step === "payment" && clientSecret && bookingId && pricingPreview && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 className="mb-5 text-lg font-semibold text-white">Payment</h2>
+          <div className="mb-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between text-sm">
+            <span className="text-neutral-300">
+              {selectedDate?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {selectedStart && formatSlotTime(selectedStart.startsAt)} · {selectedDuration / 60}hr
+            </span>
+            <span className="font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
+          </div>
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
+            <PaymentForm
+              clientSecret={clientSecret}
+              bookingId={bookingId}
+              total={pricingPreview.total}
+              onError={(msg) => setBookingError(msg)}
+            />
+          </Elements>
+          {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
         </div>
       )}
     </div>

@@ -18,11 +18,10 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createServiceClient()
 
-  // Build date range for the query
+  // date is the client's local midnight expressed in UTC — use it directly.
+  // dayEnd covers 28 hours from local midnight to handle sessions crossing into the next day.
   const dayStart = new Date(date)
-  dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(date)
-  dayEnd.setHours(27, 59, 59, 999) // 4am next day — covers sessions starting up to 11:30pm
+  const dayEnd = new Date(date.getTime() + 28 * 60 * 60 * 1000)
 
   // Get all active bays
   const { data: bays } = await supabase

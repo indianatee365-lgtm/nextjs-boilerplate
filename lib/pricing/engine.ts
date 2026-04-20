@@ -157,8 +157,9 @@ export function getMaxBookingDate(membershipSlug: string | null): Date {
  */
 export function generateDaySlots(date: Date, extraHours = 4): { startsAt: Date; endsAt: Date; label: string }[] {
   const slots = []
+  // Use the date as-is — callers pass local midnight expressed in UTC,
+  // so resetting hours here would snap to UTC midnight and lose the offset.
   const start = new Date(date)
-  start.setHours(0, 0, 0, 0)
 
   for (let minutes = 0; minutes < (24 + extraHours) * 60; minutes += 30) {
     const startsAt = new Date(start.getTime() + minutes * 60 * 1000)
