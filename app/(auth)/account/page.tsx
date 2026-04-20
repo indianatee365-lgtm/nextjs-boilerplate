@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
@@ -10,16 +10,18 @@ export default async function AccountPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  const serviceClient = await createServiceClient()
+
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }] =
     await Promise.all([
       supabase.from("profiles").select("first_name, last_name, phone, role").eq("id", user.id).single(),
-      supabase
+      serviceClient
         .from("memberships")
         .select("status, started_at, current_period_end, membership_plans(name, slug, discount_percent, first_year_discount)")
         .eq("user_id", user.id)
         .eq("status", "active")
         .single(),
-      supabase
+      serviceClient
         .from("bookings")
         .select("id, starts_at, ends_at, status, total, access_code, bays(name)")
         .eq("user_id", user.id)
