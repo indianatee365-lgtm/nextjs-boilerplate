@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
-import { cancelBooking, blockTime } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually } from "./actions"
 
 interface Booking {
   id: string
@@ -54,6 +54,14 @@ export default function BookingsManager({
     if (!confirm("Cancel this booking? A refund will be issued to the customer.")) return
     startTransition(async () => {
       await cancelBooking(bookingId)
+      router.refresh()
+    })
+  }
+
+  function handleConfirm(bookingId: string) {
+    if (!confirm("Manually confirm this booking and send SMS to customer?")) return
+    startTransition(async () => {
+      await confirmBookingManually(bookingId)
       router.refresh()
     })
   }
@@ -142,6 +150,14 @@ export default function BookingsManager({
                               className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
                             >
                               <X size={10} /> Cancel
+                            </button>
+                          )}
+                          {booking.status === "pending" && (
+                            <button
+                              onClick={() => handleConfirm(booking.id)}
+                              className="mt-0.5 flex items-center gap-0.5 text-green-400 hover:text-green-300"
+                            >
+                              ✓ Confirm + SMS
                             </button>
                           )}
                         </div>
