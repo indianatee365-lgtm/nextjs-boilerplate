@@ -275,14 +275,17 @@ export default function BookingFlow({
           disclosureIds: Array.from(acknowledgedDisclosures),
         }),
       })
-      const data = await res.json()
+      let data: Record<string, unknown> = {}
+      try { data = await res.json() } catch { /* non-JSON body */ }
       if (!res.ok) {
-        setBookingError(data.error ?? "Something went wrong")
+        setBookingError((data.error as string) ?? `Server error (${res.status})`)
         return
       }
-      setClientSecret(data.clientSecret)
-      setBookingId(data.bookingId)
+      setClientSecret(data.clientSecret as string)
+      setBookingId(data.bookingId as string)
       setStep("payment")
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setSubmitting(false)
     }
