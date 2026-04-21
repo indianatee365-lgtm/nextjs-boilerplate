@@ -10,11 +10,6 @@ function getStripe() {
   })
 }
 
-function generateAccessCode(): string {
-  // 6-digit numeric PIN
-  return String(Math.floor(100000 + Math.random() * 900000))
-}
-
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const sig = request.headers.get("stripe-signature")!
@@ -35,16 +30,13 @@ export async function POST(request: NextRequest) {
 
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
-    const accessCode = generateAccessCode()
 
-    // Update booking to confirmed
     const { data: booking } = await supabase
       .from("bookings")
       .update({
         status: "confirmed",
         paid_at: new Date().toISOString(),
         stripe_charge_id: paymentIntent.latest_charge as string,
-        access_code: accessCode,
       })
       .eq("stripe_payment_intent_id", paymentIntent.id)
       .select(`
@@ -96,7 +88,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send SMS confirmation
+    // Send confirmation SMS — access code will be sent separately 15 min before session
     if (profile?.phone && bay) {
       try {
         await sendBookingConfirmation({
@@ -105,15 +97,8 @@ export async function POST(request: NextRequest) {
           bayName: bay.name,
           startsAt: new Date(booking.starts_at),
           endsAt: new Date(booking.ends_at),
-          accessCode,
         })
-
-        await supabase
-          .from("bookings")
-          .update({ access_sent_at: new Date().toISOString() })
-          .eq("id", booking.id)
       } catch (smsError) {
-        // SMS failure should not block confirmation — log and continue
         console.error("SMS send failed", smsError)
       }
     }

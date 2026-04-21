@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendAccessCodeReminder } from "@/lib/twilio/sms"
+import { grantBayAccess } from "@/lib/access-control"
 
 export const runtime = "nodejs"
 
+function generateAccessCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000))
+}
+
 export async function GET(request: NextRequest) {
-  // Vercel cron auth
   const authHeader = request.headers.get("authorization")
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -20,12 +24,13 @@ export async function GET(request: NextRequest) {
   const { data: bookings, error } = await supabase
     .from("bookings")
     .select(`
-      id, starts_at, access_code,
+      id, starts_at, ends_at,
       bays(name),
       profiles!user_id(first_name, phone)
     `)
     .eq("status", "confirmed")
     .is("reminder_sent_at", null)
+    .is("access_code", null)
     .gte("starts_at", windowStart.toISOString())
     .lte("starts_at", windowEnd.toISOString())
 
@@ -40,29 +45,47 @@ export async function GET(request: NextRequest) {
     const profile = booking.profiles as { first_name: string; phone: string | null } | null
     const bay = booking.bays as { name: string } | null
 
-    if (!profile?.phone || !bay || !booking.access_code) {
-      results.push({ id: booking.id, sent: false, error: "missing phone, bay, or access code" })
+    if (!profile?.phone || !bay) {
+      results.push({ id: booking.id, sent: false, error: "missing phone or bay" })
       continue
     }
 
+    const accessCode = generateAccessCode()
+
     try {
+      // Persist the access code
+      await supabase
+        .from("bookings")
+        .update({ access_code: accessCode })
+        .eq("id", booking.id)
+
+      // SMS the customer
       await sendAccessCodeReminder({
         to: profile.phone,
         firstName: profile.first_name,
         bayName: bay.name,
-        accessCode: booking.access_code,
+        accessCode,
         startsAt: new Date(booking.starts_at),
       })
 
+      // Send to access control system
+      await grantBayAccess({
+        accessCode,
+        bayName: bay.name,
+        startsAt: new Date(booking.starts_at),
+        endsAt: new Date(booking.ends_at),
+      })
+
+      // Mark reminder sent
       await supabase
         .from("bookings")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ reminder_sent_at: new Date().toISOString() } as any)
+        .update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any)
         .eq("id", booking.id)
 
       results.push({ id: booking.id, sent: true })
     } catch (err) {
-      console.error("[cron/booking-reminders] SMS failed", booking.id, err)
+      console.error("[cron/booking-reminders] failed for booking", booking.id, err)
       results.push({ id: booking.id, sent: false, error: String(err) })
     }
   }

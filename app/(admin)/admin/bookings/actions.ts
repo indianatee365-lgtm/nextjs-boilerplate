@@ -11,9 +11,6 @@ function getStripe() {
   })
 }
 
-function generateAccessCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
-}
 
 export async function confirmBookingManually(bookingId: string) {
   const supabase = await createClient()
@@ -40,14 +37,11 @@ export async function confirmBookingManually(bookingId: string) {
   if (!b) throw new Error("Booking not found")
   if (b.status === "confirmed") return
 
-  const accessCode = generateAccessCode()
-
   await serviceClient
     .from("bookings")
     .update({
       status: "confirmed",
       paid_at: new Date().toISOString(),
-      access_code: accessCode,
     })
     .eq("id", bookingId)
 
@@ -59,12 +53,7 @@ export async function confirmBookingManually(bookingId: string) {
         bayName: b.bays.name,
         startsAt: new Date(b.starts_at),
         endsAt: new Date(b.ends_at),
-        accessCode,
       })
-      await serviceClient
-        .from("bookings")
-        .update({ access_sent_at: new Date().toISOString() })
-        .eq("id", bookingId)
     } catch (smsError) {
       console.error("SMS send failed", smsError)
     }

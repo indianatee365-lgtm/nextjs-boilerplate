@@ -11,14 +11,12 @@ export async function sendBookingConfirmation({
   bayName,
   startsAt,
   endsAt,
-  accessCode,
 }: {
   to: string
   firstName: string
   bayName: string
   startsAt: Date
   endsAt: Date
-  accessCode: string
 }) {
   const startStr = startsAt.toLocaleString("en-US", {
     weekday: "short",
@@ -38,8 +36,7 @@ export async function sendBookingConfirmation({
     `Hi ${firstName}! Your Tee365 booking is confirmed.`,
     `📍 ${bayName}`,
     `🕐 ${startStr} – ${endStr}`,
-    `🔐 Access code: ${accessCode}`,
-    `Your code activates 5 minutes before your session.`,
+    `Your access code will be sent to this number 10–20 minutes before your session begins.`,
     `Questions? info@tee365.org`,
   ].join("\n")
 
