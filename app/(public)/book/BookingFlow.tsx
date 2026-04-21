@@ -101,9 +101,13 @@ export default function BookingFlow({
   const [bookingId, setBookingId] = useState<string | null>(null)
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const maxDate = new Date()
+  // Compute today client-side only — server is UTC so SSR would give wrong date for ET users
+  const [today] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+  const maxDate = new Date(today)
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
   const loadAvailability = useCallback(async (date: Date) => {
