@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
 
       await supabase
         .from("bookings")
-        .update({ reminder_sent_at: new Date().toISOString() })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update({ reminder_sent_at: new Date().toISOString() } as any)
         .eq("id", booking.id)
 
       results.push({ id: booking.id, sent: true })
