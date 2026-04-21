@@ -121,7 +121,8 @@ export default function BookingsManager({
                   const slotBookings = bookings.filter((b) => {
                     if (b.bays?.id !== bay.id) return false
                     const start = new Date(b.starts_at)
-                    return start.getHours() === hour
+                    const etHour = parseInt(start.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Indiana/Indianapolis" })) % 24
+                    return etHour === hour
                   })
                   return (
                     <div key={bay.id} className="min-h-[40px] border-l border-white/5 px-1 py-1">
@@ -140,9 +141,9 @@ export default function BookingsManager({
                             {booking.profiles?.first_name} {booking.profiles?.last_name?.[0]}.
                           </div>
                           <div className="opacity-75">
-                            {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                            {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                             {" – "}
-                            {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                            {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                           </div>
                           {booking.status === "confirmed" && (
                             <button

@@ -107,9 +107,9 @@ export default async function AdminPage() {
                       <td className="px-4 py-3">{profile ? `${profile.first_name} ${profile.last_name}` : "—"}</td>
                       <td className="px-4 py-3">{bay?.name}</td>
                       <td className="px-4 py-3">
-                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                         {" – "}
-                        {new Date(b.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {new Date(b.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </td>
                       <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
                       <td className="px-4 py-3">

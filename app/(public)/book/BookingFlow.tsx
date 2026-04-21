@@ -101,13 +101,14 @@ export default function BookingFlow({
   const [bookingId, setBookingId] = useState<string | null>(null)
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
-  // Compute today client-side only — server is UTC so SSR would give wrong date for ET users
-  const [today] = useState(() => {
+  // Start with epoch so SSR renders all dates as selectable — useEffect sets correct local today after hydration
+  const [today, setToday] = useState(new Date(0))
+  useEffect(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
-    return d
-  })
-  const maxDate = new Date(today)
+    setToday(d)
+  }, [])
+  const maxDate = new Date(today.getTime() > 0 ? today : new Date())
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
   const loadAvailability = useCallback(async (date: Date) => {
