@@ -5,6 +5,10 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN!
 )
 
+function normalizePhone(phone: string): string {
+  return phone.startsWith("+") ? phone : `+${phone}`
+}
+
 export async function sendBookingConfirmation({
   to,
   firstName,
@@ -43,7 +47,7 @@ export async function sendBookingConfirmation({
   await client.messages.create({
     body: message,
     from: process.env.TWILIO_PHONE_NUMBER!,
-    to,
+    to: normalizePhone(to),
   })
 }
 
@@ -69,6 +73,6 @@ export async function sendAccessCodeReminder({
   await client.messages.create({
     body: `Tee365 reminder: ${firstName}, your session at ${bayName} starts at ${timeStr}.\n🔐 Access code: ${accessCode}`,
     from: process.env.TWILIO_PHONE_NUMBER!,
-    to,
+    to: normalizePhone(to),
   })
 }

@@ -10,8 +10,10 @@ The main marketing site (`tee365.org`) and the booking app have been merged into
 - **Booking flow** — `/book`: date/time picker (no bay selection — auto-assigned), Stripe embedded PaymentElement, access code generation; midnight rollover works for 24/7 model; all times in America/Indiana/Indianapolis
 - **My Bookings** — `/account/bookings`: upcoming + past bookings with status, access code display, confirmed banner after payment
 - **Disclosures** — shown at booking review step (before payment), not signup
-- **SMS confirmation** — Twilio fires on `payment_intent.succeeded` with bay name, time, and access code
-- **Admin panel** — `/admin/bookings`: calendar grid view, cancel with Stripe refund, **manual confirm + SMS** button for pending bookings; requires `role = 'admin'` in profiles table
+- **SMS confirmation** — fires on `payment_intent.succeeded`: "Booking confirmed, access code coming 10–20 min before your session"
+- **SMS access code** — cron fires 15 min before session, generates access code, SMSs customer, calls `grantBayAccess()` stub for access control integration
+- **Access control stub** — `lib/access-control/index.ts` ready to wire up when system is defined
+- **Admin panel** — `/admin/bookings`: calendar grid view, cancel with Stripe refund, manual confirm + SMS button for pending bookings; requires `role = 'admin'` in profiles table
 - **Display board** — `/display`: unauthenticated kiosk view (excluded from proxy auth)
 - **Pricing engine** — rules-based by season/day/time, stored in `pricing_rules` table
 - **Memberships** — discount logic in booking flow, `memberships` + `membership_plans` tables exist
@@ -46,8 +48,12 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] `/account/bookings` page — upcoming/past bookings with access code display
 - [x] Admin panel accessible at `/admin/bookings` (requires `role = 'admin'` in profiles)
 - [x] Manual confirm + SMS button in admin for pending bookings
-- [ ] **Stripe webhook** — `STRIPE_WEBHOOK_SECRET` in Vercel must match Stripe dashboard signing secret; verify in Stripe → Developers → Webhooks → Recent deliveries
-- [ ] Verify SMS sends and access code arrives on booking confirmation
+- [x] Stripe webhook fixed — duplicate endpoints removed, signing secret matched
+- [x] Access code flow: generated at 15-min mark (not at payment), sent via cron
+- [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
+- [ ] **Verify Twilio credentials** set in Vercel env vars — no SMS received yet
+- [ ] End-to-end SMS test: book a session ~15 min out, verify confirmation SMS + access code SMS
+- [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [ ] Test booking conflict detection (same bay, overlapping time)
 - [ ] Test cancel + Stripe refund from admin panel
