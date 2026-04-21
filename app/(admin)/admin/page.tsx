@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, DollarSign, Tag, Gift } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle } from "lucide-react"
 
 export const metadata = { title: "Admin | Tee365" }
 
@@ -19,28 +19,34 @@ export default async function AdminPage() {
 
   if (profile?.role !== "admin") redirect("/account")
 
-  const today = new Date()
+  // Use Eastern time for "today" window
+  const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Indiana/Indianapolis" }))
+  const today = new Date(nowET)
   today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
+  // Convert back to UTC for DB queries
+  const etOffset = new Date().getTime() - nowET.getTime()
+  const todayUTC = new Date(today.getTime() + etOffset)
+  const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
 
   const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }] =
     await Promise.all([
-      supabase
+      serviceClient
         .from("bookings")
         .select("id", { count: "exact", head: true })
-        .gte("starts_at", today.toISOString())
-        .lt("starts_at", tomorrow.toISOString())
+        .gte("starts_at", todayUTC.toISOString())
+        .lt("starts_at", tomorrowUTC.toISOString())
         .in("status", ["confirmed"]),
-      supabase
+      serviceClient
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending"),
-      supabase
+      serviceClient
         .from("bookings")
         .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
         .in("status", ["confirmed", "pending"])
-        .gte("starts_at", today.toISOString())
+        .gte("starts_at", todayUTC.toISOString())
         .order("starts_at")
         .limit(10),
     ])
@@ -59,11 +65,11 @@ export default async function AdminPage() {
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           { href: "/admin/bookings", icon: <Calendar size={16} />, label: "Manage Bookings" },
-          { href: "/admin/bays", icon: <Clock size={16} />, label: "Bay & Block Times" },
+          { href: "/admin/bays", icon: <Clock size={16} />, label: "Bays & Block Times" },
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
+          { href: "/admin/users", icon: <UserCircle size={16} />, label: "Users" },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
-          { href: "/display", icon: <DollarSign size={16} />, label: "Availability Display", target: "_blank" },
         ].map((item) => (
           <Link
             key={item.href}
