@@ -51,13 +51,19 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] Stripe webhook fixed — duplicate endpoints removed, signing secret matched
 - [x] Access code flow: generated at 15-min mark (not at payment), sent via cron
 - [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
-- [ ] **Verify Twilio credentials** set in Vercel env vars — no SMS received yet
-- [ ] End-to-end SMS test: book a session ~15 min out, verify confirmation SMS + access code SMS
+- [x] Twilio credentials set in Vercel — SMS blocked by A2P 10DLC (not a code issue)
+- [x] Twilio number purchased: (574) 406-2332
+- [x] A2P 10DLC brand + campaign registration submitted — pending carrier approval (1–5 business days)
+- [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
+- [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
+- [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
+- [x] Next available slot scans all 4 bays correctly
+- [ ] **Verify SMS end-to-end once A2P 10DLC approved** — book session, confirm SMS + 15-min access code
+- [ ] Fix CRON_SECRET mismatch — pg_cron getting 401 on `/api/cron/booking-reminders`
 - [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [ ] Test booking conflict detection (same bay, overlapping time)
 - [ ] Test cancel + Stripe refund from admin panel
-- [ ] Test `/display` board renders correctly
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
 
