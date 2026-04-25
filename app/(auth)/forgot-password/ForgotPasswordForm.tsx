@@ -12,7 +12,7 @@ export default function ForgotPasswordForm() {
   if (state.message === "Check your email for a password reset link.") {
     return (
       <div className="rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-400">
-        {state.message}
+        If an account exists for that email, you&apos;ll receive a reset link shortly.
       </div>
     )
   }
