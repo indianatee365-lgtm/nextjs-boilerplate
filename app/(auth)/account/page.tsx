@@ -53,6 +53,7 @@ export default async function AccountPage() {
           {profile?.role === "admin" && (
             <Link href="/admin" className="btn-secondary text-xs px-3 py-2">Admin</Link>
           )}
+          <Link href="/reset-password" className="btn-ghost px-3 py-2 text-xs">Change password</Link>
           <form action={logout}>
             <button className="btn-ghost px-3 py-2 text-xs">Sign out</button>
           </form>

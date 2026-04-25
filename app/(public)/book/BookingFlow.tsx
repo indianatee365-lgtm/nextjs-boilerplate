@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -75,12 +75,14 @@ export default function BookingFlow({
   membershipSlug,
   userName,
   disclosures,
+  isAuthenticated,
 }: {
   bays: Bay[]
   advanceDays: number
   membershipSlug: string | null
   userName: string
   disclosures: Disclosure[]
+  isAuthenticated: boolean
 }) {
   const [step, setStep] = useState<Step>("date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -99,6 +101,9 @@ export default function BookingFlow({
   const [nextAvailable, setNextAvailable] = useState<NextAvailable | null | "loading">("loading")
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [confirmedPricing, setConfirmedPricing] = useState<{
+    total: number; subtotal: number; membershipDiscount: number; couponDiscount: number; giftCardApplied: number
+  } | null>(null)
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
   // Start with epoch so SSR renders all dates as selectable — useEffect sets correct local today after hydration
@@ -111,12 +116,49 @@ export default function BookingFlow({
   const maxDate = new Date(today.getTime() > 0 ? today : new Date())
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
+  // Pending slot ref: set when returning from auth, used to auto-select the saved slot after availability loads
+  const pendingSlotRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    try {
+      const saved = sessionStorage.getItem("tee365_pending_booking")
+      if (!saved) return
+      sessionStorage.removeItem("tee365_pending_booking")
+      const { dateISO, startsAt, durationMinutes: dur } = JSON.parse(saved)
+      if (!dateISO || !startsAt) return
+      const date = new Date(dateISO)
+      if (isNaN(date.getTime())) return
+      date.setHours(0, 0, 0, 0)
+      setSelectedDate(date)
+      setSelectedDuration(dur ?? 60)
+      pendingSlotRef.current = startsAt
+      setStep("time")
+    } catch { /* ignore malformed sessionStorage */ }
+  }, [isAuthenticated])
+
   const loadAvailability = useCallback(async (date: Date) => {
     setLoadingSlots(true)
     try {
       const res = await fetch(`/api/availability?date=${date.toISOString()}`)
       const data = await res.json()
-      setAvailability(Array.isArray(data) ? data : [])
+      const bayData: BayAvailability[] = Array.isArray(data) ? data : []
+      setAvailability(bayData)
+
+      // If returning from auth, try to auto-select the saved slot
+      const pending = pendingSlotRef.current
+      if (pending) {
+        pendingSlotRef.current = null
+        for (const bayAvail of bayData) {
+          const slot = bayAvail.slots.find((s) => s.startsAt === pending && s.available)
+          if (slot) {
+            setSelectedStart(slot)
+            setSelectedBay(bayAvail.bay)
+            setStep("review")
+            break
+          }
+        }
+      }
     } finally {
       setLoadingSlots(false)
     }
@@ -297,6 +339,7 @@ export default function BookingFlow({
       }
       setClientSecret(data.clientSecret as string)
       setBookingId(data.bookingId as string)
+      setConfirmedPricing(data.pricing as typeof confirmedPricing)
       setStep("payment")
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : "Something went wrong")
@@ -460,8 +503,23 @@ export default function BookingFlow({
                 </div>
               )}
               <div className="mt-6 flex justify-end">
-                <button disabled={!selectedStart} onClick={() => setStep("review")} className="btn-primary">
-                  Review booking
+                <button
+                  disabled={!selectedStart}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      sessionStorage.setItem("tee365_pending_booking", JSON.stringify({
+                        dateISO: selectedDate?.toISOString(),
+                        startsAt: selectedStart?.startsAt,
+                        durationMinutes: selectedDuration,
+                      }))
+                      window.location.href = `/login?return=/book`
+                      return
+                    }
+                    setStep("review")
+                  }}
+                  className="btn-primary"
+                >
+                  {isAuthenticated ? "Review booking" : "Sign in to book"}
                 </button>
               </div>
             </>
@@ -561,20 +619,33 @@ export default function BookingFlow({
       )}
 
       {/* ── Step 4: Payment ── */}
-      {step === "payment" && clientSecret && bookingId && pricingPreview && (
+      {step === "payment" && clientSecret && bookingId && confirmedPricing && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="mb-5 text-lg font-semibold text-white">Payment</h2>
           <div className="mb-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between text-sm">
             <span className="text-neutral-300">
               {selectedDate?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {selectedStart && formatSlotTime(selectedStart.startsAt)} · {selectedDuration / 60}hr
             </span>
-            <span className="font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
+            <span className="font-bold text-white">${confirmedPricing.total.toFixed(2)}</span>
           </div>
+          {(confirmedPricing.couponDiscount > 0 || confirmedPricing.giftCardApplied > 0 || confirmedPricing.membershipDiscount > 0) && (
+            <div className="mb-4 space-y-1 text-sm">
+              {confirmedPricing.membershipDiscount > 0 && (
+                <div className="flex justify-between text-green-400"><span>Member discount</span><span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span></div>
+              )}
+              {confirmedPricing.couponDiscount > 0 && (
+                <div className="flex justify-between text-green-400"><span>Coupon</span><span>−${confirmedPricing.couponDiscount.toFixed(2)}</span></div>
+              )}
+              {confirmedPricing.giftCardApplied > 0 && (
+                <div className="flex justify-between text-green-400"><span>Gift card</span><span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span></div>
+              )}
+            </div>
+          )}
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
             <PaymentForm
               clientSecret={clientSecret}
               bookingId={bookingId}
-              total={pricingPreview.total}
+              total={confirmedPricing.total}
               onError={(msg) => setBookingError(msg)}
             />
           </Elements>

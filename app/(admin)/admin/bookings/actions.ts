@@ -81,8 +81,15 @@ export async function cancelBooking(bookingId: string) {
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") return
 
-  // Issue Stripe refund if paid
-  if (b.stripe_charge_id && Number(b.total) > 0) {
+  if (b.status === "pending" && b.stripe_payment_intent_id) {
+    // Cancel the PaymentIntent so the customer can't complete payment after cancellation
+    try {
+      await getStripe().paymentIntents.cancel(b.stripe_payment_intent_id)
+    } catch {
+      // Already cancelled or captured — ignore
+    }
+  } else if (b.stripe_charge_id && Number(b.total) > 0) {
+    // Issue Stripe refund for confirmed paid bookings
     await getStripe().refunds.create({
       charge: b.stripe_charge_id,
     })

@@ -51,7 +51,8 @@ export async function signup(
   }
 
   revalidatePath("/", "layout")
-  redirect("/account")
+  const returnUrl = formData.get("returnUrl") as string | null
+  redirect(returnUrl?.startsWith("/") ? returnUrl : "/account")
 }
 
 export async function login(
@@ -74,7 +75,8 @@ export async function login(
   }
 
   revalidatePath("/", "layout")
-  redirect("/account")
+  const returnUrl = formData.get("returnUrl") as string | null
+  redirect(returnUrl?.startsWith("/") ? returnUrl : "/account")
 }
 
 export async function logout() {
@@ -82,4 +84,46 @@ export async function logout() {
   await supabase.auth.signOut()
   revalidatePath("/", "layout")
   redirect("/login")
+}
+
+export async function requestPasswordReset(
+  prevState: SignupState,
+  formData: FormData
+): Promise<SignupState> {
+  const email = (formData.get("email") as string)?.trim()
+  if (!email) return { message: "Email is required" }
+
+  const supabase = await createClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tee365.org"
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+  })
+
+  if (error) return { message: error.message }
+
+  return { message: "Check your email for a password reset link." }
+}
+
+export async function updatePassword(
+  prevState: SignupState,
+  formData: FormData
+): Promise<SignupState> {
+  const password = formData.get("password") as string
+  const confirm = formData.get("confirm") as string
+
+  if (!password || password.length < 8) {
+    return { message: "Password must be at least 8 characters" }
+  }
+  if (password !== confirm) {
+    return { message: "Passwords do not match" }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) return { message: error.message }
+
+  revalidatePath("/", "layout")
+  redirect("/account")
 }

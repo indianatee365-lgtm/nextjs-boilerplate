@@ -7,13 +7,13 @@ The main marketing site (`tee365.org`) and the booking app have been merged into
 ### What's built and deployed
 - **Marketing site** — home, about, FAQ, contact, SEO page (all under `app/(marketing)/`)
 - **Auth** — `/signup`, `/login`, `/account` — signup → login flow confirmed working
-- **Booking flow** — `/book`: date/time picker (no bay selection — auto-assigned), Stripe embedded PaymentElement, access code generation; midnight rollover works for 24/7 model; all times in America/Indiana/Indianapolis
+- **Booking flow** — `/book`: date/time picker (no bay selection — auto-assigned), Stripe embedded PaymentElement, access code generation; midnight rollover works for 24/7 model; all times in America/Indiana/Indianapolis. Payment step shows server-confirmed pricing (includes membership discounts and coupons).
 - **My Bookings** — `/account/bookings`: upcoming + past bookings with status, access code display, confirmed banner after payment
 - **Disclosures** — shown at booking review step (before payment), not signup
 - **SMS confirmation** — fires on `payment_intent.succeeded`: "Booking confirmed, access code coming 10–20 min before your session"
 - **SMS access code** — cron fires 15 min before session, generates access code, SMSs customer, calls `grantBayAccess()` stub for access control integration
 - **Access control stub** — `lib/access-control/index.ts` ready to wire up when system is defined
-- **Admin panel** — `/admin/bookings`: calendar grid view, cancel with Stripe refund, manual confirm + SMS button for pending bookings; requires `role = 'admin'` in profiles table
+- **Admin panel** — `/admin/bookings`: calendar grid view, cancel with Stripe refund, manual confirm + SMS button for pending bookings; requires `role = 'admin'` in profiles table. Cancel correctly handles both cases: cancels PaymentIntent for pending bookings, issues refund for confirmed bookings. Webhook guarded with `.neq("status", "cancelled")` to prevent re-confirmation.
 - **Display board** — `/display`: unauthenticated kiosk view (excluded from proxy auth)
 - **Pricing engine** — rules-based by season/day/time, stored in `pricing_rules` table
 - **Memberships** — discount logic in booking flow, `memberships` + `membership_plans` tables exist
@@ -63,12 +63,65 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [ ] Test booking conflict detection (same bay, overlapping time)
-- [ ] Test cancel + Stripe refund from admin panel
+- [ ] Test cancel + Stripe refund from admin panel *(code fixed — pending → cancels PaymentIntent, confirmed → refunds charge; needs E2E test)*
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
 
+### 🔵 Go Live 1st — before opening to customers
+
+> Full membership specs in `docs/members.md`. Full database implementation guide in `docs/website_database.md`.
+
+#### Membership tiers
+| Tier | Monthly | Joining fee | Annual option | Discount | Booking window | Max reservations |
+|---|---|---|---|---|---|---|
+| Birdie | $10/mo | None | $89/yr | 10% | 10 days | 2 |
+| Eagle | $39/mo | None | $349/yr | 20% | 14 days | 3 |
+| Founder's Club | $29/mo | $199 one-time | None | 20% (30% yr 1), floor $20/hr | 21 days | 3 |
+
+Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichever comes first. Founder signup bonus = 2 free hours at Founders and Friends Day (Aug 31, 2026). All pre-launch annual purchases start September 1, 2026 regardless of purchase date.
+
+#### Database (Supabase — migration in `supabase/migrations/20260421_membership_system.sql`)
+> Claude can run SQL directly against the Supabase database via the linked CLI — no copy/paste needed. Just ask.
+- [x] `membership_plans` populated — birdie, eagle, founder's club with correct pricing/discounts/windows/caps
+- [x] `memberships` table updated — plan_type, founder_number, year_one_discount_expires_at, bonus hours, pause fields, etc.
+- [x] `bookings` table updated — member_rate_applied, discount_percent_applied, rate_type columns added
+- [x] `assign_founder_number()` function deployed — sequential, advisory-lock protected
+- [x] `enforce_founder_cap` trigger deployed — blocks insert beyond 100 paid founders
+- [x] `member_effective_pricing` view deployed
+- [x] `validate_booking_window()` function deployed
+- [x] `check_reservation_cap()` function deployed
+- [ ] Schedule pg_cron job to flip `pending_opening` → `active` at 4:00 AM UTC on Sept 1, 2026
+
+#### Website
+- [ ] `/join` membership landing page — tier comparison, Founder sold count ("X of 100 remaining"), sold-out fallback; auto-close Founder sales on Aug 18, 2026 regardless of spots remaining
+- [ ] Membership signup flow — Birdie/Eagle monthly, Birdie/Eagle annual, Founder's Club (joining fee + recurring setup)
+- [ ] Founder number assigned at joining fee payment (not at signup)
+- [ ] Founder confirmation: member number, Founders Wall acknowledgment, private update channel access
+- [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours, status
+- [ ] Update booking flow to enforce booking window and reservation cap per tier
+- [ ] `/founders` private page — authenticated, `founder_number IS NOT NULL`, construction updates and news
+- [ ] Pre-opening calendar access: Founders 48 hrs first (Sept 1), Eagle/Birdie Sept 3, public Sept 4
+- [ ] Admin: manually assign/override membership tier
+- [ ] Admin: Founder cap milestone alerts (50/75/85/95/100 sold)
+- [ ] Admin: membership reporting views (members by tier, MRR, churn, utilization)
+- [ ] Cancellation and refund policy page (annual proration: unused months × monthly rate − $25 fee, no refund after month 9)
+- [ ] Terms of membership page
+
+#### Payments
+- [ ] Stripe: one-time joining fee + recurring monthly combo for Founder signup
+- [ ] Stripe: one-time annual charge for Season Pass purchases
+- [ ] Annual refund calculation in admin panel
+
+#### Gift cards
+- [ ] Customer-facing gift card purchase flow
+- [ ] Admin: gift card issuance UI
+
+### 🔵 Go Live 2nd — open booking to the public
+- [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
+- [ ] Add "Book Now" to marketing site header nav
+- [ ] Sign-in/sign-up at the review step is already wired (return URL + sessionStorage slot restore in place)
+
 ### 🟡 Shortly after launch
-- [ ] Membership purchase flow — UI to buy a plan (tables exist, no purchase page yet)
 - [ ] Admin: bay management (activate/deactivate bays)
 - [ ] Admin: pricing rules editor
 - [ ] Admin: coupon creation and management
@@ -76,8 +129,6 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [ ] Remove `/api/stripe-test` diagnostic endpoint
 
 ### 🟢 Later
-- [ ] Gift card purchase flow
-- [ ] Admin: gift card issuance
 - [ ] Membership renewal / cancellation self-serve
 - [ ] Booking rescheduling
 - [ ] Public availability calendar (unauthenticated preview)

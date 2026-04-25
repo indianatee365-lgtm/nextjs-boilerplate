@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         stripe_charge_id: paymentIntent.latest_charge as string,
       })
       .eq("stripe_payment_intent_id", paymentIntent.id)
+      .neq("status", "cancelled")
       .select(`
         id, user_id, bay_id, starts_at, ends_at,
         coupon_id, gift_card_id, gift_card_applied,

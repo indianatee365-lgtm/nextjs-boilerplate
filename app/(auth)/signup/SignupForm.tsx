@@ -6,11 +6,12 @@ import type { SignupState } from "@/app/actions/auth"
 
 const initialState: SignupState = {}
 
-export default function SignupForm() {
+export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
   const [state, formAction, pending] = useActionState(signup, initialState)
 
   return (
     <form action={formAction} className="space-y-5">
+      {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
       {state.message && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
           {state.message}
