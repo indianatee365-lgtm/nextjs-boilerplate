@@ -130,20 +130,17 @@ export async function POST(request: NextRequest) {
       allow_promotion_codes: false,
     }
 
-    // Add one-time joining fee to first invoice
+    // Add one-time joining fee as a line item (appears on first invoice only)
     const joiningFee = Number(plan.joining_fee ?? 0)
     if (joiningFee > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(sessionParams.subscription_data as any).add_invoice_items = [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name: "Founder's Club Joining Fee (one-time)" },
-            unit_amount: Math.round(joiningFee * 100),
-          },
-          quantity: 1,
+      sessionParams.line_items!.push({
+        price_data: {
+          currency: "usd",
+          product_data: { name: "Founder's Club Joining Fee (one-time)" },
+          unit_amount: Math.round(joiningFee * 100),
         },
-      ]
+        quantity: 1,
+      })
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams)
