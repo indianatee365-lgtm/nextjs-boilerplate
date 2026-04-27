@@ -5,7 +5,12 @@ import { logout } from "@/app/actions/auth"
 
 export const metadata = { title: "My Account | Tee365" }
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ membership?: string }>
+}) {
+  const { membership: membershipParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
@@ -45,6 +50,14 @@ export default async function AccountPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
+
+      {membershipParam === "joined" && (
+        <div className="mb-6 rounded-xl border border-brand/30 bg-brand/10 px-4 py-4">
+          <p className="font-semibold text-white">Welcome to the club!</p>
+          <p className="text-sm text-neutral-400 mt-0.5">Your membership is active. Discounts apply automatically on your next booking.</p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-white">
           Welcome, {profile?.first_name}

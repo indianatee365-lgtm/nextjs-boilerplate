@@ -604,10 +604,15 @@ export type Database = {
         Row: {
           active: boolean
           advance_booking_days: number
+          annual_price: number | null
           created_at: string
+          discount_floor: number | null
           discount_percent: number
+          display_name: string | null
           first_year_discount: number | null
           id: string
+          joining_fee: number | null
+          max_active_reservations: number | null
           max_members: number | null
           name: string
           price_monthly: number
@@ -617,10 +622,15 @@ export type Database = {
         Insert: {
           active?: boolean
           advance_booking_days: number
+          annual_price?: number | null
           created_at?: string
+          discount_floor?: number | null
           discount_percent: number
+          display_name?: string | null
           first_year_discount?: number | null
           id?: string
+          joining_fee?: number | null
+          max_active_reservations?: number | null
           max_members?: number | null
           name: string
           price_monthly: number
@@ -630,10 +640,15 @@ export type Database = {
         Update: {
           active?: boolean
           advance_booking_days?: number
+          annual_price?: number | null
           created_at?: string
+          discount_floor?: number | null
           discount_percent?: number
+          display_name?: string | null
           first_year_discount?: number | null
           id?: string
+          joining_fee?: number | null
+          max_active_reservations?: number | null
           max_members?: number | null
           name?: string
           price_monthly?: number
@@ -644,40 +659,88 @@ export type Database = {
       }
       memberships: {
         Row: {
+          annual_end_date: string | null
+          annual_start_date: string | null
+          cancellation_requested_at: string | null
           cancelled_at: string | null
           created_at: string
           current_period_end: string | null
+          founder_number: number | null
+          founder_status_active: boolean
           id: string
+          is_annual: boolean
+          joining_fee_paid: boolean
+          joining_fee_paid_at: string | null
+          membership_paused: boolean
+          pause_end_date: string | null
+          pause_start_date: string | null
           plan_id: string
+          plan_type: string
+          reactivation_count: number
+          signup_bonus_expires_at: string | null
+          signup_bonus_hours: number
           started_at: string
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           user_id: string
+          year_one_discount_expires_at: string | null
         }
         Insert: {
+          annual_end_date?: string | null
+          annual_start_date?: string | null
+          cancellation_requested_at?: string | null
           cancelled_at?: string | null
           created_at?: string
           current_period_end?: string | null
+          founder_number?: number | null
+          founder_status_active?: boolean
           id?: string
+          is_annual?: boolean
+          joining_fee_paid?: boolean
+          joining_fee_paid_at?: string | null
+          membership_paused?: boolean
+          pause_end_date?: string | null
+          pause_start_date?: string | null
           plan_id: string
+          plan_type?: string
+          reactivation_count?: number
+          signup_bonus_expires_at?: string | null
+          signup_bonus_hours?: number
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           user_id: string
+          year_one_discount_expires_at?: string | null
         }
         Update: {
+          annual_end_date?: string | null
+          annual_start_date?: string | null
+          cancellation_requested_at?: string | null
           cancelled_at?: string | null
           created_at?: string
           current_period_end?: string | null
+          founder_number?: number | null
+          founder_status_active?: boolean
           id?: string
+          is_annual?: boolean
+          joining_fee_paid?: boolean
+          joining_fee_paid_at?: string | null
+          membership_paused?: boolean
+          pause_end_date?: string | null
+          pause_start_date?: string | null
           plan_id?: string
+          plan_type?: string
+          reactivation_count?: number
+          signup_bonus_expires_at?: string | null
+          signup_bonus_hours?: number
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           user_id?: string
+          year_one_discount_expires_at?: string | null
         }
         Relationships: [
           {

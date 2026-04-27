@@ -114,6 +114,68 @@ export async function POST(request: NextRequest) {
       .eq("status", "pending")
   }
 
+  // Membership signup — create the membership record
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session
+    const { user_id, plan_id, plan_slug } = session.metadata ?? {}
+
+    if (user_id && plan_id && session.subscription) {
+      const subscriptionId = session.subscription as string
+      const sub = await getStripe().subscriptions.retrieve(subscriptionId) as unknown as Stripe.Subscription & { current_period_end: number }
+      const periodEnd = sub.current_period_end
+
+      // Check idempotency — don't double-insert if webhook fires twice
+      const { data: alreadyExists } = await supabase
+        .from("memberships")
+        .select("id")
+        .eq("stripe_subscription_id", subscriptionId)
+        .maybeSingle()
+
+      if (!alreadyExists) {
+        const now = new Date()
+        const insertData: Record<string, unknown> = {
+          user_id,
+          plan_id,
+          plan_type: plan_slug ?? "birdie",
+          status: "active",
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: subscriptionId,
+          started_at: now.toISOString(),
+          current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+          joining_fee_paid: plan_slug === "founder",
+          joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+        }
+
+        // Eagle: 2-hour signup bonus, expires 90 days from now
+        if (plan_slug === "eagle") {
+          insertData.signup_bonus_hours = 2
+          const bonusExpiry = new Date(now)
+          bonusExpiry.setDate(bonusExpiry.getDate() + 90)
+          insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+        }
+
+        // Founder's Club: assign next member number, set year-one discount expiry
+        if (plan_slug === "founder") {
+          const { data: maxRow } = await supabase
+            .from("memberships")
+            .select("founder_number")
+            .not("founder_number", "is", null)
+            .order("founder_number", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
+          // Year-one discount runs through Aug 31, 2027 per the membership spec
+          insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
+          insertData.signup_bonus_hours = 2
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await supabase.from("memberships").insert(insertData as any)
+      }
+    }
+  }
+
   // Membership subscription events
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
