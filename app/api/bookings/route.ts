@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
         subtotal: pricing.subtotal,
         membership_discount: pricing.membershipDiscount,
         coupon_discount: pricing.couponDiscount,
+        tax: pricing.tax,
         gift_card_applied: pricing.giftCardApplied,
         total: pricing.total,
         membership_id: membershipId,

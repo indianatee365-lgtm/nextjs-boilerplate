@@ -20,12 +20,16 @@ export interface SlotPrice {
   context: PricingContext
 }
 
+export const TAX_RATE = 0.07
+
 export interface BookingPrice {
   pricePerHour: number
   durationHours: number
   subtotal: number
   membershipDiscount: number
   couponDiscount: number
+  taxableAmount: number
+  tax: number
   giftCardApplied: number
   total: number
   context: PricingContext
@@ -110,11 +114,16 @@ export function calculateBookingPrice({
   }
   const afterCoupon = afterMembership - couponDiscount
 
-  // Gift card applied last
+  // Tax applies on the discounted amount, before gift card (gift card is a payment method)
+  const taxableAmount = parseFloat(afterCoupon.toFixed(2))
+  const tax = parseFloat((taxableAmount * TAX_RATE).toFixed(2))
+  const afterTax = taxableAmount + tax
+
+  // Gift card applied last, against the full amount including tax
   const giftCardApplied = parseFloat(
-    Math.min(giftCardBalance, afterCoupon).toFixed(2)
+    Math.min(giftCardBalance, afterTax).toFixed(2)
   )
-  const total = parseFloat(Math.max(0, afterCoupon - giftCardApplied).toFixed(2))
+  const total = parseFloat(Math.max(0, afterTax - giftCardApplied).toFixed(2))
 
   return {
     pricePerHour,
@@ -122,6 +131,8 @@ export function calculateBookingPrice({
     subtotal,
     membershipDiscount,
     couponDiscount,
+    taxableAmount,
+    tax,
     giftCardApplied,
     total,
     context,

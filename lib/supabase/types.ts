@@ -137,6 +137,7 @@ export type Database = {
           stripe_charge_id: string | null
           stripe_payment_intent_id: string | null
           subtotal: number
+          tax: number
           total: number
           user_id: string
         }
@@ -168,6 +169,7 @@ export type Database = {
           stripe_charge_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal: number
+          tax?: number
           total: number
           user_id: string
         }
@@ -199,6 +201,7 @@ export type Database = {
           stripe_charge_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal?: number
+          tax?: number
           total?: number
           user_id?: string
         }

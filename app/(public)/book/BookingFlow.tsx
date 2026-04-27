@@ -102,7 +102,7 @@ export default function BookingFlow({
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
   const [confirmedPricing, setConfirmedPricing] = useState<{
-    total: number; subtotal: number; membershipDiscount: number; couponDiscount: number; giftCardApplied: number
+    total: number; subtotal: number; membershipDiscount: number; couponDiscount: number; tax: number; giftCardApplied: number
   } | null>(null)
   const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
@@ -557,6 +557,22 @@ export default function BookingFlow({
                 <span>−${pricingPreview.membershipDiscount.toFixed(2)}</span>
               </div>
             )}
+            {pricingPreview.couponDiscount > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Coupon</span>
+                <span>−${pricingPreview.couponDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-neutral-400 text-sm">
+              <span>Indiana sales tax (7%)</span>
+              <span>${pricingPreview.tax.toFixed(2)}</span>
+            </div>
+            {pricingPreview.giftCardApplied > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Gift card</span>
+                <span>−${pricingPreview.giftCardApplied.toFixed(2)}</span>
+              </div>
+            )}
           </div>
           <div className="mt-5">
             <label className="label" htmlFor="couponCode">Coupon code</label>
@@ -628,19 +644,18 @@ export default function BookingFlow({
             </span>
             <span className="font-bold text-white">${confirmedPricing.total.toFixed(2)}</span>
           </div>
-          {(confirmedPricing.couponDiscount > 0 || confirmedPricing.giftCardApplied > 0 || confirmedPricing.membershipDiscount > 0) && (
-            <div className="mb-4 space-y-1 text-sm">
-              {confirmedPricing.membershipDiscount > 0 && (
-                <div className="flex justify-between text-green-400"><span>Member discount</span><span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span></div>
-              )}
-              {confirmedPricing.couponDiscount > 0 && (
-                <div className="flex justify-between text-green-400"><span>Coupon</span><span>−${confirmedPricing.couponDiscount.toFixed(2)}</span></div>
-              )}
-              {confirmedPricing.giftCardApplied > 0 && (
-                <div className="flex justify-between text-green-400"><span>Gift card</span><span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span></div>
-              )}
-            </div>
-          )}
+          <div className="mb-4 space-y-1 text-sm">
+            {confirmedPricing.membershipDiscount > 0 && (
+              <div className="flex justify-between text-green-400"><span>Member discount</span><span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span></div>
+            )}
+            {confirmedPricing.couponDiscount > 0 && (
+              <div className="flex justify-between text-green-400"><span>Coupon</span><span>−${confirmedPricing.couponDiscount.toFixed(2)}</span></div>
+            )}
+            <div className="flex justify-between text-neutral-400"><span>Indiana sales tax (7%)</span><span>${confirmedPricing.tax.toFixed(2)}</span></div>
+            {confirmedPricing.giftCardApplied > 0 && (
+              <div className="flex justify-between text-green-400"><span>Gift card</span><span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span></div>
+            )}
+          </div>
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
             <PaymentForm
               clientSecret={clientSecret}
