@@ -636,35 +636,68 @@ export default function BookingFlow({
 
       {/* ── Step 4: Payment ── */}
       {step === "payment" && clientSecret && bookingId && confirmedPricing && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="mb-5 text-lg font-semibold text-white">Payment</h2>
-          <div className="mb-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between text-sm">
-            <span className="text-neutral-300">
-              {selectedDate?.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {selectedStart && formatSlotTime(selectedStart.startsAt)} · {selectedDuration / 60}hr
-            </span>
-            <span className="font-bold text-white">${confirmedPricing.total.toFixed(2)}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+          {/* Left — booking summary */}
+          <div className="lg:sticky lg:top-10">
+            <p className="text-xs font-semibold tracking-widest uppercase text-brand mb-2">Tee365 Bay Booking</p>
+            <h2 className="text-2xl font-bold text-white mb-1">{selectedBay?.name ?? "Bay Session"}</h2>
+            <p className="text-sm text-neutral-400 mb-6">
+              {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3 text-sm mb-6">
+              <div className="flex justify-between text-neutral-300">
+                <span>Time</span>
+                <span>{selectedStart && formatSlotTime(selectedStart.startsAt)} · {selectedDuration / 60} hr</span>
+              </div>
+              <div className="flex justify-between text-neutral-300 border-t border-white/10 pt-3">
+                <span>Subtotal</span>
+                <span>${confirmedPricing.subtotal.toFixed(2)}</span>
+              </div>
+              {confirmedPricing.membershipDiscount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Member discount</span>
+                  <span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {confirmedPricing.couponDiscount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Coupon</span>
+                  <span>−${confirmedPricing.couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-neutral-400">
+                <span>Indiana sales tax (7%)</span>
+                <span>${confirmedPricing.tax.toFixed(2)}</span>
+              </div>
+              {confirmedPricing.giftCardApplied > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Gift card</span>
+                  <span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-white text-base border-t border-white/10 pt-3">
+                <span>Total due</span>
+                <span>${confirmedPricing.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-600 text-center">Secured by Stripe · tee365.org</p>
           </div>
-          <div className="mb-4 space-y-1 text-sm">
-            {confirmedPricing.membershipDiscount > 0 && (
-              <div className="flex justify-between text-green-400"><span>Member discount</span><span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span></div>
-            )}
-            {confirmedPricing.couponDiscount > 0 && (
-              <div className="flex justify-between text-green-400"><span>Coupon</span><span>−${confirmedPricing.couponDiscount.toFixed(2)}</span></div>
-            )}
-            <div className="flex justify-between text-neutral-400"><span>Indiana sales tax (7%)</span><span>${confirmedPricing.tax.toFixed(2)}</span></div>
-            {confirmedPricing.giftCardApplied > 0 && (
-              <div className="flex justify-between text-green-400"><span>Gift card</span><span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span></div>
-            )}
+
+          {/* Right — Stripe payment form */}
+          <div>
+            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
+              <PaymentForm
+                clientSecret={clientSecret}
+                bookingId={bookingId}
+                total={confirmedPricing.total}
+                onError={(msg) => setBookingError(msg)}
+              />
+            </Elements>
+            {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
           </div>
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-            <PaymentForm
-              clientSecret={clientSecret}
-              bookingId={bookingId}
-              total={confirmedPricing.total}
-              onError={(msg) => setBookingError(msg)}
-            />
-          </Elements>
-          {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
         </div>
       )}
     </div>
