@@ -121,6 +121,33 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Add "Book Now" to marketing site header nav
 - [ ] Sign-in/sign-up at the review step is already wired (return URL + sessionStorage slot restore in place)
 
+### 🟠 Sales Tax — Needs Answers Before Going Live
+
+Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost certainly falls under this. **Get accountant confirmation on two questions before implementing:**
+
+1. Are one-time bay bookings taxable? (Almost certainly yes — amusement admission.)
+2. Are monthly membership fees taxable? (Possibly — depends on whether they're treated as a service subscription or a club membership. Indiana has specific rules here.)
+
+#### Implementation plan (once questions answered)
+
+**Bookings (one-time payments):**
+- Add `tax_rate: 0.07` constant to the pricing engine (`lib/pricing/engine.ts`)
+- Add `tax` and `total_with_tax` to the `calculateBookingPrice()` return value
+- Add `tax` column to the `bookings` table (numeric, default 0)
+- Store tax amount on the booking record at creation time
+- Display tax line item on the booking review step
+- Stripe PaymentIntent amount already uses the calculated total — just include tax in it
+- Update the booking confirmation SMS/email to show the tax line
+
+**Memberships (recurring Stripe Checkout):**
+- If membership fees are taxable: add a `price_data` line item for the tax amount to the Checkout Session, or enable `automatic_tax` on Stripe Checkout (Stripe Tax, $0.50/transaction) — Stripe Tax is the cleaner option here since it handles the line-item display automatically
+- If membership fees are not taxable: no change needed
+
+**Reporting:**
+- Add a simple admin query/export: sum of `tax` column by month from `bookings` table
+- Indiana DOR requires quarterly filing (ST-103) — export gives you the number to plug in
+- File at inbiz.in.gov
+
 ### 🟡 Shortly after launch
 - [ ] Admin: bay management (activate/deactivate bays)
 - [ ] Admin: pricing rules editor
