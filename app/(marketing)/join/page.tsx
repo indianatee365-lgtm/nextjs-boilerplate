@@ -94,14 +94,14 @@ export default async function JoinPage() {
 
         {/* Eagle */}
         {eagle && (
-          <div className="rounded-2xl border border-brand/40 bg-white/5 p-6 flex flex-col relative">
+          <div className="rounded-2xl border border-brand/40 bg-white/5 p-6 flex flex-col">
             <div className="mb-6">
-              <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Eagle</p>
                 <span className="rounded-full bg-brand px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
                   Most Popular
                 </span>
               </div>
-              <p className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">Eagle</p>
               <div className="flex items-baseline gap-1 mb-1">
                 <span className="text-4xl font-bold text-white">${Number(eagle.price_monthly).toFixed(0)}</span>
                 <span className="text-neutral-400 text-sm">/mo</span>
