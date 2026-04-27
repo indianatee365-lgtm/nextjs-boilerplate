@@ -35,6 +35,10 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         <label className="label" htmlFor="phone">Phone number</label>
         <input id="phone" name="phone" type="tel" required className="input" placeholder="+1 (555) 000-0000" />
         {state.errors?.phone && <p className="field-error">{state.errors.phone[0]}</p>}
+        <p className="mt-1.5 text-xs text-neutral-500">
+          By providing your number, you agree to receive SMS booking confirmations and access codes from Tee365. Msg &amp; data rates may apply. Reply STOP to opt out.{" "}
+          <a href="/privacy" className="underline hover:text-neutral-300">Privacy Policy</a>
+        </p>
       </div>
 
       <div>
