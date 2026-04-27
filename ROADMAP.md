@@ -53,7 +53,7 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
 - [x] Twilio credentials set in Vercel — SMS blocked by A2P 10DLC (not a code issue)
 - [x] Twilio number purchased: (574) 406-2332
-- [x] A2P 10DLC brand + campaign registration submitted — pending carrier approval (1–5 business days)
+- [x] A2P 10DLC brand + campaign registration submitted — first submission rejected (CTA/privacy URL), resubmitted Apr 27 2026 with consent disclosure on signup form and real privacy policy URL (tee365.org/privacy); pending carrier approval
 - [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
 - [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
 - [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
@@ -93,10 +93,14 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Schedule pg_cron job to flip `pending_opening` → `active` at 4:00 AM UTC on Sept 1, 2026
 
 #### Website
-- [ ] `/join` membership landing page — tier comparison, Founder sold count ("X of 100 remaining"), sold-out fallback; auto-close Founder sales on Aug 18, 2026 regardless of spots remaining
-- [ ] Membership signup flow — Birdie/Eagle monthly, Birdie/Eagle annual, Founder's Club (joining fee + recurring setup)
-- [ ] Founder number assigned at joining fee payment (not at signup)
-- [ ] Founder confirmation: member number, Founders Wall acknowledgment, private update channel access
+- [x] `/join` membership landing page — tier comparison, live spot counter, sold-out/close-date fallback
+- [x] `/founders` private (noindex) marketing page — full benefit detail, note from Jerrod, policy summary, CTA
+- [x] Membership signup flow — Birdie/Eagle monthly, Founder's Club (joining fee + $29/mo); Stripe Checkout Session via `POST /api/memberships/checkout`; auto-creates Founder's Stripe price if missing; $199 joining fee added to first invoice via `add_invoice_items`
+- [x] Founder number assigned in `checkout.session.completed` webhook — sequential, idempotent
+- [x] Eagle signup bonus (2 hrs, 90-day expiry) set in webhook
+- [x] Founder year-one discount expiry (Aug 31, 2027) set in webhook
+- [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel access
+- [ ] Add `checkout.session.completed` to Stripe webhook event list in dashboard (required for membership creation to fire)
 - [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours, status
 - [ ] Update booking flow to enforce booking window and reservation cap per tier
 - [ ] `/founders` private page — authenticated, `founder_number IS NOT NULL`, construction updates and news
@@ -108,7 +112,7 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Terms of membership page
 
 #### Payments
-- [ ] Stripe: one-time joining fee + recurring monthly combo for Founder signup
+- [x] Stripe: one-time joining fee + recurring monthly combo for Founder signup
 - [ ] Stripe: one-time annual charge for Season Pass purchases
 - [ ] Annual refund calculation in admin panel
 
