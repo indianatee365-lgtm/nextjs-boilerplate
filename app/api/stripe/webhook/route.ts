@@ -114,64 +114,65 @@ export async function POST(request: NextRequest) {
       .eq("status", "pending")
   }
 
-  // Membership signup — create the membership record
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session
-    const { user_id, plan_id, plan_slug } = session.metadata ?? {}
+  // Membership signup — create the membership record on first successful invoice payment
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice & { billing_reason?: string; subscription?: string; customer?: string }
 
-    if (user_id && plan_id && session.subscription) {
-      const subscriptionId = session.subscription as string
+    // Only handle the initial subscription creation invoice, not renewals
+    if (invoice.billing_reason === "subscription_create" && invoice.subscription) {
+      const subscriptionId = invoice.subscription as string
       const sub = await getStripe().subscriptions.retrieve(subscriptionId) as unknown as Stripe.Subscription & { current_period_end: number }
-      const periodEnd = sub.current_period_end
+      const { user_id, plan_id, plan_slug } = sub.metadata ?? {}
 
-      // Check idempotency — don't double-insert if webhook fires twice
-      const { data: alreadyExists } = await supabase
-        .from("memberships")
-        .select("id")
-        .eq("stripe_subscription_id", subscriptionId)
-        .maybeSingle()
+      if (user_id && plan_id) {
+        // Idempotency check
+        const { data: alreadyExists } = await supabase
+          .from("memberships")
+          .select("id")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle()
 
-      if (!alreadyExists) {
-        const now = new Date()
-        const insertData: Record<string, unknown> = {
-          user_id,
-          plan_id,
-          plan_type: plan_slug ?? "birdie",
-          status: "active",
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: subscriptionId,
-          started_at: now.toISOString(),
-          current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-          joining_fee_paid: plan_slug === "founder",
-          joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+        if (!alreadyExists) {
+          const now = new Date()
+          const insertData: Record<string, unknown> = {
+            user_id,
+            plan_id,
+            plan_type: plan_slug ?? "birdie",
+            status: "active",
+            stripe_customer_id: invoice.customer as string,
+            stripe_subscription_id: subscriptionId,
+            started_at: now.toISOString(),
+            current_period_end: sub.current_period_end
+              ? new Date(sub.current_period_end * 1000).toISOString()
+              : null,
+            joining_fee_paid: plan_slug === "founder",
+            joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+          }
+
+          if (plan_slug === "eagle") {
+            insertData.signup_bonus_hours = 2
+            const bonusExpiry = new Date(now)
+            bonusExpiry.setDate(bonusExpiry.getDate() + 90)
+            insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+          }
+
+          if (plan_slug === "founder") {
+            const { data: maxRow } = await supabase
+              .from("memberships")
+              .select("founder_number")
+              .not("founder_number", "is", null)
+              .order("founder_number", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
+            insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
+            insertData.signup_bonus_hours = 2
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await supabase.from("memberships").insert(insertData as any)
         }
-
-        // Eagle: 2-hour signup bonus, expires 90 days from now
-        if (plan_slug === "eagle") {
-          insertData.signup_bonus_hours = 2
-          const bonusExpiry = new Date(now)
-          bonusExpiry.setDate(bonusExpiry.getDate() + 90)
-          insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
-        }
-
-        // Founder's Club: assign next member number, set year-one discount expiry
-        if (plan_slug === "founder") {
-          const { data: maxRow } = await supabase
-            .from("memberships")
-            .select("founder_number")
-            .not("founder_number", "is", null)
-            .order("founder_number", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
-          // Year-one discount runs through Aug 31, 2027 per the membership spec
-          insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
-          insertData.signup_bonus_hours = 2
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await supabase.from("memberships").insert(insertData as any)
       }
     }
   }

@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripe()
 
-    // Reuse existing Stripe customer if one exists from a prior membership
-    let stripeCustomerId: string | undefined
+    // Reuse existing Stripe customer if one exists
+    let stripeCustomerId: string
     const { data: priorMembership } = await serviceClient
       .from("memberships")
       .select("stripe_customer_id")
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       stripeCustomerId = customer.id
     }
 
-    // Auto-create Stripe price for Founder's Club if not set
+    // Auto-create Stripe price if not set
     let stripePriceId = plan.stripe_price_id
     if (!stripePriceId) {
       const displayName = plan.display_name ?? plan.name
@@ -115,45 +115,38 @@ export async function POST(request: NextRequest) {
       stripePriceId = price.id
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tee365.org"
-
-    const submitMessages: Record<string, string> = {
-      birdie: "10% off every bay session. No contracts — cancel anytime.",
-      eagle: "20% off every session + 2 free hours at signup. Cancel anytime.",
-      founder: "Your member number and Founders Wall listing are permanent, even if you pause.",
-    }
-
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      customer: stripeCustomerId,
-      mode: "subscription",
-      ui_mode: "embedded_page",
-      line_items: [{ price: stripePriceId, quantity: 1 }],
-      metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
-      subscription_data: {
-        metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
-      },
-      return_url: `${siteUrl}/join/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-      custom_text: {
-        submit: { message: submitMessages[planSlug] ?? "" },
-      },
-    }
-
-    // Add one-time joining fee as a line item (appears on first invoice only)
+    // Add one-time joining fee as a pending invoice item before creating subscription
     const joiningFee = Number(plan.joining_fee ?? 0)
     if (joiningFee > 0) {
-      sessionParams.line_items!.push({
-        price_data: {
-          currency: "usd",
-          product_data: { name: "Founder's Club Joining Fee (one-time)" },
-          unit_amount: Math.round(joiningFee * 100),
-        },
-        quantity: 1,
+      await stripe.invoiceItems.create({
+        customer: stripeCustomerId,
+        amount: Math.round(joiningFee * 100),
+        currency: "usd",
+        description: "Founder's Club Joining Fee (one-time)",
       })
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    // Create subscription with incomplete payment — returns a PaymentIntent client secret
+    const subscription = await stripe.subscriptions.create({
+      customer: stripeCustomerId,
+      items: [{ price: stripePriceId }],
+      payment_behavior: "default_incomplete",
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      expand: ["latest_invoice.payment_intent"],
+      metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
+    })
 
-    return NextResponse.json({ clientSecret: session.client_secret })
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice & {
+      payment_intent: Stripe.PaymentIntent | null
+    }
+    const clientSecret = latestInvoice?.payment_intent?.client_secret
+
+    if (!clientSecret) {
+      // Subscription may already be active (free trial or $0) — handle gracefully
+      return NextResponse.json({ error: "Unable to initialize payment" }, { status: 500 })
+    }
+
+    return NextResponse.json({ clientSecret, planSlug })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"
     console.error("[POST /api/memberships/checkout]", err)
