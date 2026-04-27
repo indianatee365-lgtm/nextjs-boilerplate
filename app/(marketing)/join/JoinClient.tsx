@@ -40,7 +40,10 @@ export function JoinButton({
         return
       }
 
-      window.location.href = data.url
+      // Store client secret and navigate to embedded checkout page
+      sessionStorage.setItem("membership_cs", data.clientSecret)
+      sessionStorage.setItem("membership_plan", planSlug)
+      router.push(`/join/checkout`)
     } catch {
       setError("Connection error — please try again")
       setLoading(false)
@@ -54,7 +57,7 @@ export function JoinButton({
         disabled={loading || disabled}
         className={className}
       >
-        {loading ? "Redirecting…" : label}
+        {loading ? "Loading…" : label}
       </button>
       {error && (
         <p className="text-xs text-red-400 text-center">{error}</p>

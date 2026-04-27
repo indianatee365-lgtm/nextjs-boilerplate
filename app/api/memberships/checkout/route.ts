@@ -117,17 +117,26 @@ export async function POST(request: NextRequest) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tee365.org"
 
+    const submitMessages: Record<string, string> = {
+      birdie: "10% off every bay session. No contracts — cancel anytime.",
+      eagle: "20% off every session + 2 free hours at signup. Cancel anytime.",
+      founder: "Your member number and Founders Wall listing are permanent, even if you pause.",
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
       mode: "subscription",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ui_mode: "embedded" as any,
       line_items: [{ price: stripePriceId, quantity: 1 }],
       metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
       subscription_data: {
         metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
       },
-      success_url: `${siteUrl}/account?membership=joined`,
-      cancel_url: `${siteUrl}/join`,
-      allow_promotion_codes: false,
+      return_url: `${siteUrl}/join/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+      custom_text: {
+        submit: { message: submitMessages[planSlug] ?? "" },
+      },
     }
 
     // Add one-time joining fee as a line item (appears on first invoice only)
@@ -145,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.create(sessionParams)
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"
     console.error("[POST /api/memberships/checkout]", err)
