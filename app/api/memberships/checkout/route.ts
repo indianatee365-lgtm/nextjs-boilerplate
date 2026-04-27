@@ -126,8 +126,7 @@ export async function POST(request: NextRequest) {
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
       mode: "subscription",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ui_mode: "embedded" as any,
+      ui_mode: "embedded_page",
       line_items: [{ price: stripePriceId, quantity: 1 }],
       metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
       subscription_data: {
