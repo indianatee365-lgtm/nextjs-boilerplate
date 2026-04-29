@@ -3,6 +3,7 @@
 import { useActionState } from "react"
 import { signup } from "@/app/actions/auth"
 import type { SignupState } from "@/app/actions/auth"
+import { Turnstile } from "@/app/components/Turnstile"
 
 const initialState: SignupState = {}
 
@@ -52,6 +53,8 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         <input id="password" name="password" type="password" required minLength={8} className="input" />
         {state.errors?.password && <p className="field-error">{state.errors.password[0]}</p>}
       </div>
+
+      <Turnstile />
 
       <button
         type="submit"

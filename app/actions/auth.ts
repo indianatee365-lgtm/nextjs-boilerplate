@@ -5,6 +5,19 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
 
+async function verifyTurnstile(token: string | null): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY
+  if (!secret) return true
+  if (!token) return false
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret, response: token }),
+  })
+  const data = await res.json()
+  return data.success === true
+}
+
 const SignupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -22,6 +35,10 @@ export async function signup(
   prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
+  if (!(await verifyTurnstile(formData.get("cf-turnstile-response") as string | null))) {
+    return { message: "Bot verification failed. Please try again." }
+  }
+
   const supabase = await createClient()
 
   const parsed = SignupSchema.safeParse({
@@ -47,7 +64,7 @@ export async function signup(
   })
 
   if (error) {
-    return { message: error.message }
+    return { message: "Unable to create account. If you already have one, try signing in." }
   }
 
   revalidatePath("/", "layout")
@@ -59,6 +76,10 @@ export async function login(
   prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
+  if (!(await verifyTurnstile(formData.get("cf-turnstile-response") as string | null))) {
+    return { message: "Bot verification failed. Please try again." }
+  }
+
   const supabase = await createClient()
 
   const email = formData.get("email") as string

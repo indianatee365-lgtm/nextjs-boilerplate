@@ -3,6 +3,7 @@
 import { useActionState } from "react"
 import { login } from "@/app/actions/auth"
 import type { SignupState } from "@/app/actions/auth"
+import { Turnstile } from "@/app/components/Turnstile"
 
 const initialState: SignupState = {}
 
@@ -31,6 +32,8 @@ export default function LoginForm({ returnUrl }: { returnUrl?: string }) {
         </div>
         <input id="password" name="password" type="password" required className="input" />
       </div>
+
+      <Turnstile />
 
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {pending ? "Signing in…" : "Sign in"}

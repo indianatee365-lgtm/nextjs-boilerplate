@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { randomInt } from "crypto"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendAccessCodeReminder } from "@/lib/twilio/sms"
 import { grantBayAccess } from "@/lib/access-control"
@@ -6,12 +7,13 @@ import { grantBayAccess } from "@/lib/access-control"
 export const runtime = "nodejs"
 
 function generateAccessCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(randomInt(100000, 1000000))
 }
 
 export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
