@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import { signup } from "@/app/actions/auth"
 import type { SignupState } from "@/app/actions/auth"
 import { Turnstile } from "@/app/components/Turnstile"
@@ -9,6 +9,7 @@ const initialState: SignupState = {}
 
 export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
   const [state, formAction, pending] = useActionState(signup, initialState)
+  const [tsReady, setTsReady] = useState(!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
 
   return (
     <form action={formAction} className="space-y-5">
@@ -54,14 +55,14 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         {state.errors?.password && <p className="field-error">{state.errors.password[0]}</p>}
       </div>
 
-      <Turnstile />
+      <Turnstile onVerified={setTsReady} />
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !tsReady}
         className="btn-primary w-full"
       >
-        {pending ? "Creating account…" : "Create account"}
+        {pending ? "Creating account…" : !tsReady ? "Verifying…" : "Create account"}
       </button>
     </form>
   )
