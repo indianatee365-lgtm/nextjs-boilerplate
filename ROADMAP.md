@@ -160,8 +160,8 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [x] Replaced `Math.random()` with `crypto.randomInt()` for access code generation
 - [x] Added security headers to `next.config.ts` — `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `HSTS`, `Permissions-Policy`
 - [x] Disabled `X-Powered-By: Next.js` header (`poweredByHeader: false`)
-- [x] Cloudflare Turnstile wired to login + signup forms — **inert until env vars are added** (see below)
-- [ ] **Activate Cloudflare Turnstile** — add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` in Vercel env vars (dash.cloudflare.com → Turnstile → Add site → Managed mode)
+- [x] Cloudflare Turnstile wired to login + signup forms — live and working (Apr 28 2026)
+- [x] Turnstile env vars added in Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`)
 - [ ] **Put Cloudflare in front of tee365.org** (orange-cloud DNS mode) — strips `X-Vercel-Id` / `server: Vercel` headers, adds WAF + DDoS + rate limiting on login/signup at the edge
 - [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate webhook delivery side-effects (duplicate coupon/gift card deductions)
 - [ ] Supabase RLS audit — verify Row Level Security is ON for `bookings`, `profiles`, `memberships`
