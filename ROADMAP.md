@@ -96,11 +96,11 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [x] `/join` membership landing page — tier comparison, live spot counter, sold-out/close-date fallback
 - [x] `/founders` private (noindex) marketing page — full benefit detail, note from Jerrod, policy summary, CTA
 - [x] Membership signup flow — Birdie/Eagle monthly, Founder's Club (joining fee + $29/mo); Stripe Checkout Session via `POST /api/memberships/checkout`; auto-creates Founder's Stripe price if missing; $199 joining fee added to first invoice via `add_invoice_items`
-- [x] Founder number assigned in `checkout.session.completed` webhook — sequential, idempotent
+- [x] Founder number assigned in `invoice.payment_succeeded` webhook — sequential, idempotent (note: not checkout.session.completed as originally planned)
 - [x] Eagle signup bonus (2 hrs, 90-day expiry) set in webhook
 - [x] Founder year-one discount expiry (Aug 31, 2027) set in webhook
 - [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel access
-- [ ] Add `checkout.session.completed` to Stripe webhook event list in dashboard (required for membership creation to fire)
+- [x] Stripe webhook recreated at `tee365.org/api/stripe/webhook` (Apr 29 2026) — events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `invoice.payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`; new signing secret saved in Vercel
 - [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours, status
 - [ ] Update booking flow to enforce booking window and reservation cap per tier
 - [ ] `/founders` private page — authenticated, `founder_number IS NOT NULL`, construction updates and news
