@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation } from "@/lib/twilio/sms"
+import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -42,9 +43,10 @@ export async function POST(request: NextRequest) {
       .neq("status", "cancelled")
       .select(`
         id, user_id, bay_id, starts_at, ends_at,
+        subtotal, tax, total, coupon_discount, membership_discount,
         coupon_id, gift_card_id, gift_card_applied,
         bays(name),
-        profiles!user_id(first_name, phone)
+        profiles!user_id(first_name, last_name, phone)
       `)
       .single()
 
@@ -53,8 +55,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
 
-    const profile = booking.profiles as { first_name: string; phone: string | null } | null
+    const profile = booking.profiles as { first_name: string; last_name: string; phone: string | null } | null
     const bay = booking.bays as { name: string } | null
+    const b = booking as typeof booking & {
+      subtotal: number; tax: number; total: number
+      coupon_discount: number; membership_discount: number; gift_card_applied: number
+    }
 
     // Record coupon use
     if (booking.coupon_id) {
@@ -101,6 +107,28 @@ export async function POST(request: NextRequest) {
         })
       } catch (smsError) {
         console.error("SMS send failed", smsError)
+      }
+    }
+
+    // Send confirmation email with receipt
+    const { data: { user: authUser } } = await supabase.auth.admin.getUserById(booking.user_id)
+    if (authUser?.email && bay && profile) {
+      try {
+        await sendBookingConfirmationEmail({
+          to: authUser.email,
+          firstName: profile.first_name,
+          bayName: bay.name,
+          startsAt: new Date(booking.starts_at),
+          endsAt: new Date(booking.ends_at),
+          subtotal: Number(b.subtotal ?? 0),
+          membershipDiscount: Number(b.membership_discount ?? 0),
+          couponDiscount: Number(b.coupon_discount ?? 0),
+          tax: Number(b.tax ?? 0),
+          giftCardApplied: Number(b.gift_card_applied ?? 0),
+          total: Number(b.total ?? 0),
+        })
+      } catch (emailError) {
+        console.error("Confirmation email failed", emailError)
       }
     }
   }

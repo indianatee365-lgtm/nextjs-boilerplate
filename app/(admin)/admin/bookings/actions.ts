@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation } from "@/lib/twilio/sms"
+import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 
 function getStripe() {
@@ -25,12 +26,14 @@ export async function confirmBookingManually(bookingId: string) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select(`id, starts_at, ends_at, status, bays(name), profiles!user_id(first_name, phone)`)
+    .select(`id, user_id, starts_at, ends_at, status, subtotal, tax, total, coupon_discount, membership_discount, gift_card_applied, bays(name), profiles!user_id(first_name, phone)`)
     .eq("id", bookingId)
     .single()
 
   const b = booking as {
-    id: string; starts_at: string; ends_at: string; status: string
+    id: string; user_id: string; starts_at: string; ends_at: string; status: string
+    subtotal: number; tax: number; total: number
+    coupon_discount: number; membership_discount: number; gift_card_applied: number
     bays: { name: string } | null
     profiles: { first_name: string; phone: string | null } | null
   } | null
@@ -56,6 +59,27 @@ export async function confirmBookingManually(bookingId: string) {
       })
     } catch (smsError) {
       console.error("SMS send failed", smsError)
+    }
+  }
+
+  const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(b.user_id)
+  if (authUser?.email && b.bays && b.profiles) {
+    try {
+      await sendBookingConfirmationEmail({
+        to: authUser.email,
+        firstName: b.profiles.first_name,
+        bayName: b.bays.name,
+        startsAt: new Date(b.starts_at),
+        endsAt: new Date(b.ends_at),
+        subtotal: Number(b.subtotal ?? 0),
+        membershipDiscount: Number(b.membership_discount ?? 0),
+        couponDiscount: Number(b.coupon_discount ?? 0),
+        tax: Number(b.tax ?? 0),
+        giftCardApplied: Number(b.gift_card_applied ?? 0),
+        total: Number(b.total ?? 0),
+      })
+    } catch (emailError) {
+      console.error("Confirmation email failed", emailError)
     }
   }
 }
