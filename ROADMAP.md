@@ -117,9 +117,10 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Annual refund calculation in admin panel
 
 #### Gift cards
-- [x] Customer-facing gift card purchase flow — `/gift-cards` (public, no login required); $25/$50/$100/custom ($10–$500); recipient name + email; Stripe Checkout; branded gift email with code; webhook backup for reliability
-- [x] Balance checker — on `/gift-cards` page, public, no login required
+- [x] Customer-facing gift card purchase flow — `/gift-cards` (login required until Stripe goes live); $25/$50/$100/custom ($10–$500); recipient name + email; Stripe Checkout; branded gift email with code; webhook backup for reliability
+- [x] Balance checker — on `/gift-cards` page (login required)
 - [x] Admin: gift card issuance UI — "Issue gift card" modal on `/admin/gift-cards`; optional email send
+- [ ] Remove login gate from `/gift-cards` and balance checker once Stripe is on live keys; update FAQ gift card answer to "now live"
 
 ### 🔵 Go Live 2nd — open booking to the public
 - [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
@@ -174,10 +175,10 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [ ] Admin: coupon creation and management
 - [x] Booking confirmation email with receipt — fires on payment_intent.succeeded and admin manual confirm; uses Resend; shows subtotal, member discount, coupon, tax, gift card, total; access code note
 - [x] Self-service cancel — `/account/bookings`; >24h = full Stripe refund; ≤24h = forfeit with explicit policy warning; pending bookings cancel PaymentIntent
-- [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $3 reschedule fee always applies; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion
+- [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $5 flat reschedule fee; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion; cutoff is 4h before session (not 24h)
 - [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
 
 ### 🟢 Later
 - [ ] Membership renewal / cancellation self-serve
 - [ ] Public availability calendar (unauthenticated preview)
-- [ ] Add `checkout.session.completed` to Stripe webhook event list (needed for gift card webhook backup)
+- [ ] Add `checkout.session.completed` to Stripe webhook event list (needed for gift card webhook backup — do this when switching to live keys)
