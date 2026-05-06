@@ -93,15 +93,18 @@ export async function login(
     return { message: "Email and password are required" }
   }
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data: { user: loggedInUser }, error } = await supabase.auth.signInWithPassword({ email, password })
 
-  if (error) {
+  if (error || !loggedInUser) {
     return { message: "Invalid email or password" }
   }
 
   revalidatePath("/", "layout")
   const returnUrl = formData.get("returnUrl") as string | null
-  redirect(returnUrl?.startsWith("/") ? returnUrl : "/account")
+  if (returnUrl?.startsWith("/")) redirect(returnUrl)
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", loggedInUser.id).single()
+  redirect((profile as { role: string } | null)?.role === "admin" ? "/admin" : "/account")
 }
 
 export async function logout() {
