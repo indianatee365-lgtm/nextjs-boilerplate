@@ -27,7 +27,7 @@ export default function AboutPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-10 py-12">
       <header className="px-6 md:px-12">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">A note from the founder</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">A note from the founder</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">About Tee365</h1>
       </header>
 
@@ -58,7 +58,7 @@ export default function AboutPage() {
             And whether you're here to grind through a bucket's worth of balls working on your swing, or just show up with a few friends and have a great time, you'll fit right in. This place is for golfers at every level, and people who aren't sure they're golfers yet. Nobody's going to make you feel like you don't belong here. That's the whole point.
           </p>
 
-          <p className="text-sm font-medium leading-relaxed text-white border-l-2 border-[#00A651] pl-4">
+          <p className="text-sm font-medium leading-relaxed text-white border-l-2 border-white/20 pl-4">
             Your game shouldn't be held hostage by the weather. It isn't at Tee365.
           </p>
 
@@ -66,7 +66,7 @@ export default function AboutPage() {
             Indiana winters are long. Rain happens. The sun sets earlier than you'd like, and summers here can be brutally hot. Real golf is at the mercy of all of it. Tee365 isn't. If it's a January blizzard or a July scorcher, neither factor into your tee time here, because:
           </p>
 
-          <p className="text-center text-sm font-bold uppercase tracking-widest text-[#00A651]">
+          <p className="text-center text-sm font-bold uppercase tracking-widest text-white">
             It's Always 70° At Tee365
           </p>
 
@@ -80,7 +80,7 @@ export default function AboutPage() {
 
           <div className="pt-4 border-t border-white/10">
             <p className="text-sm font-semibold italic text-white">— Jerrod</p>
-            <p className="mt-1 text-xs uppercase tracking-widest text-[#00A651]">Founder, Tee365</p>
+            <p className="mt-1 text-xs uppercase tracking-widest text-neutral-400">Founder, Tee365</p>
           </div>
 
         </div>
