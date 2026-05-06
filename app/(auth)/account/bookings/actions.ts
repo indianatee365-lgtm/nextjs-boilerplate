@@ -92,7 +92,7 @@ export async function finalizeReschedule({
   if (original.status === "cancelled") throw new Error("Booking is already cancelled")
 
   const hoursUntil = (new Date(original.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
-  if (hoursUntil <= 24) throw new Error("Booking is within 24 hours and cannot be rescheduled")
+  if (hoursUntil <= 4) throw new Error("Booking is within 4 hours and cannot be rescheduled")
 
   const ob = original as typeof original & { stripe_charge_id: string | null }
 

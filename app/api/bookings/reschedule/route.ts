@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 
-export const RESCHEDULE_FEE = 3.00
+export const RESCHEDULE_FEE = 5.00
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
     }
 
     const hoursUntil = (new Date(booking.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
-    if (hoursUntil <= 24) {
-      return NextResponse.json({ error: "Bookings within 24 hours cannot be rescheduled" }, { status: 400 })
+    if (hoursUntil <= 4) {
+      return NextResponse.json({ error: "Bookings within 4 hours cannot be rescheduled" }, { status: 400 })
     }
 
     const durationMinutes = booking.duration_minutes

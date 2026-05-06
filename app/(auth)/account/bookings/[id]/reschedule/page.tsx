@@ -26,7 +26,7 @@ export default async function ReschedulePage({ params }: { params: Promise<{ id:
   if (booking.status === "cancelled") redirect("/account/bookings")
 
   const hoursUntil = (new Date(booking.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
-  const tooClose = hoursUntil <= 24
+  const tooClose = hoursUntil <= 4
 
   const { data: membership } = await supabase
     .from("memberships")
@@ -69,8 +69,8 @@ export default async function ReschedulePage({ params }: { params: Promise<{ id:
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-4">
           <p className="font-semibold text-red-400">Cannot reschedule</p>
           <p className="mt-1 text-sm text-neutral-300">
-            Per our <Link href="/terms" className="underline hover:text-white">cancellation policy</Link>,
-            bookings cannot be rescheduled within 24 hours of the session.
+            Per our <Link href="/terms" className="underline hover:text-white">reschedule policy</Link>,
+            bookings cannot be rescheduled within 4 hours of the session.
             Contact us at <a href="mailto:info@tee365.org" className="underline hover:text-white">info@tee365.org</a> if you need help.
           </p>
         </div>
