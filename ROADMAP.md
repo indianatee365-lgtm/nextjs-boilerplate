@@ -64,6 +64,7 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [ ] Test booking conflict detection (same bay, overlapping time)
 - [ ] Test cancel + Stripe refund from admin panel *(code fixed — pending → cancels PaymentIntent, confirmed → refunds charge; needs E2E test)*
+- [ ] **Add `RESEND_API_KEY` to Vercel env vars** — confirmation emails are silently failing (key missing); get key from resend.com → Vercel project → Settings → Environment Variables → redeploy
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
 
