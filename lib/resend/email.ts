@@ -2,6 +2,89 @@ function fmt(amount: number): string {
   return `$${amount.toFixed(2)}`
 }
 
+export async function sendGiftCardEmail({
+  recipientEmail,
+  recipientName,
+  senderName,
+  code,
+  amount,
+}: {
+  recipientEmail: string
+  recipientName: string
+  senderName: string
+  code: string
+  amount: number
+}) {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+          <tr>
+            <td style="background:#111;padding:28px 32px;text-align:center;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+              <p style="margin:6px 0 0;color:#a3a3a3;font-size:13px;">Indoor Golf Simulator &mdash; South Bend, IN</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:13px;color:#777;text-transform:uppercase;letter-spacing:1px;">You&rsquo;ve received a gift!</p>
+              <h1 style="margin:0 0 6px;font-size:36px;font-weight:800;color:#111;">${fmt(amount)}</h1>
+              <p style="margin:0 0 28px;color:#555;font-size:15px;">Gift Card from <strong>${senderName}</strong></p>
+
+              <div style="background:#f9f9f9;border-radius:8px;padding:24px;margin-bottom:28px;">
+                <p style="margin:0 0 8px;font-size:12px;color:#999;text-transform:uppercase;letter-spacing:1px;">Your gift card code</p>
+                <p style="margin:0;font-size:28px;font-weight:800;letter-spacing:6px;color:#111;font-family:monospace;">${code}</p>
+              </div>
+
+              <p style="margin:0 0 6px;color:#555;font-size:14px;line-height:1.6;">
+                Hi ${recipientName}! Use this code at checkout on tee365.org when booking your simulator session.
+                The full ${fmt(amount)} will be applied to your booking automatically.
+              </p>
+              <p style="margin:12px 0 0;color:#999;font-size:12px;">
+                Gift cards never expire &middot; Check your balance at
+                <a href="https://tee365.org/gift-cards" style="color:#4ade80;text-decoration:none;">tee365.org/gift-cards</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #eee;text-align:center;">
+              <p style="margin:0;color:#999;font-size:12px;line-height:1.8;">
+                Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>
+                Tee365 &middot; South Bend, IN
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Tee365 <bookings@tee365.org>",
+      to: [recipientEmail],
+      subject: `🎁 You've received a ${fmt(amount)} Tee365 gift card!`,
+      html,
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Resend error ${res.status}: ${body}`)
+  }
+}
+
 function lineItem(label: string, value: string, isDiscount = false): string {
   return `
     <tr>

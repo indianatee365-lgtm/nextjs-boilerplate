@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation } from "@/lib/twilio/sms"
-import { sendBookingConfirmationEmail } from "@/lib/resend/email"
+import { sendBookingConfirmationEmail, sendGiftCardEmail } from "@/lib/resend/email"
+import { randomBytes } from "crypto"
+
+function generateGiftCardCode(): string {
+  return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
+}
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -226,6 +231,33 @@ export async function POST(request: NextRequest) {
           : null,
       })
       .eq("stripe_subscription_id", sub.id)
+  }
+
+  // Gift card purchase — backup in case success page wasn't reached
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.metadata?.type === "gift_card" && session.payment_status === "paid") {
+      const { recipientName, recipientEmail, senderName, amountCents } = session.metadata
+      const stripePaymentId = session.payment_intent as string
+      const amount = parseInt(amountCents) / 100
+
+      const { data: existing } = await supabase
+        .from("gift_cards").select("id").eq("stripe_payment_id", stripePaymentId).single()
+
+      if (!existing) {
+        const code = generateGiftCardCode()
+        await supabase.from("gift_cards").insert({
+          code, original_amount: amount, balance: amount, active: true,
+          recipient_name: recipientName, recipient_email: recipientEmail,
+          purchased_by: senderName, stripe_payment_id: stripePaymentId,
+        })
+        try {
+          await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount })
+        } catch (err) {
+          console.error("Gift card email failed (webhook)", err)
+        }
+      }
+    }
   }
 
   return NextResponse.json({ received: true })

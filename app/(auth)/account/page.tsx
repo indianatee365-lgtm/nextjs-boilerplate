@@ -104,12 +104,15 @@ export default async function AccountPage({
       )}
 
       {/* Quick actions */}
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="mt-6 grid grid-cols-3 gap-3">
         <Link href="/book" className="btn-primary flex items-center justify-center py-3">
           Book a bay
         </Link>
         <Link href="/account/bookings" className="btn-secondary flex items-center justify-center py-3">
-          All bookings
+          My bookings
+        </Link>
+        <Link href="/gift-cards" className="btn-secondary flex items-center justify-center py-3">
+          Gift cards
         </Link>
       </div>
 
