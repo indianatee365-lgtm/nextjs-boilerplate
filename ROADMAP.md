@@ -53,7 +53,7 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
 - [x] Twilio credentials set in Vercel — SMS blocked by A2P 10DLC (not a code issue)
 - [x] Twilio number purchased: (574) 406-2332
-- [x] A2P 10DLC brand + campaign registration submitted — first submission rejected (CTA/privacy URL), resubmitted Apr 27 2026 with consent disclosure on signup form and real privacy policy URL (tee365.org/privacy); pending carrier approval
+- [x] A2P 10DLC — resubmitted 4 times; May 5 2026 changes: added explicit SMS consent checkbox to signup (required, server-validated), added "Reply STOP to opt out, HELP for info. Msg & data rates may apply." to booking confirmation SMS, added "Reply STOP to opt out." to access code SMS. Campaign copy saved in `docs/twilio-a2p-campaign.md`. **Pending resubmission.**
 - [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
 - [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
 - [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
@@ -117,8 +117,9 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Annual refund calculation in admin panel
 
 #### Gift cards
-- [ ] Customer-facing gift card purchase flow
-- [ ] Admin: gift card issuance UI
+- [x] Customer-facing gift card purchase flow — `/gift-cards` (public, no login required); $25/$50/$100/custom ($10–$500); recipient name + email; Stripe Checkout; branded gift email with code; webhook backup for reliability
+- [x] Balance checker — on `/gift-cards` page, public, no login required
+- [x] Admin: gift card issuance UI — "Issue gift card" modal on `/admin/gift-cards`; optional email send
 
 ### 🔵 Go Live 2nd — open booking to the public
 - [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
@@ -171,9 +172,12 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [ ] Admin: bay management (activate/deactivate bays)
 - [ ] Admin: pricing rules editor
 - [ ] Admin: coupon creation and management
-- [ ] Email confirmation on booking (currently SMS only)
+- [x] Booking confirmation email with receipt — fires on payment_intent.succeeded and admin manual confirm; uses Resend; shows subtotal, member discount, coupon, tax, gift card, total; access code note
+- [x] Self-service cancel — `/account/bookings`; >24h = full Stripe refund; ≤24h = forfeit with explicit policy warning; pending bookings cancel PaymentIntent
+- [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $3 reschedule fee always applies; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion
+- [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
 
 ### 🟢 Later
 - [ ] Membership renewal / cancellation self-serve
-- [ ] Booking rescheduling
 - [ ] Public availability calendar (unauthenticated preview)
+- [ ] Add `checkout.session.completed` to Stripe webhook event list (needed for gift card webhook backup)
