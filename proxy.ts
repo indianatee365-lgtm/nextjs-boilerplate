@@ -39,6 +39,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
+  if (pathname.startsWith("/gift-cards") && !user) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
   if ((pathname === "/login" || pathname === "/signup") && user) {
     return NextResponse.redirect(new URL("/account", request.url))
   }

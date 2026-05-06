@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 
 function getStripe() {
@@ -10,6 +11,10 @@ function getStripe() {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
     const { amountCents, recipientName, recipientEmail, senderName } = await request.json()
 
     if (!amountCents || !recipientName || !recipientEmail || !senderName) {
