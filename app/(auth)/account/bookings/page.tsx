@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { CancelBookingButton } from "./CancelBookingButton"
 
 export const metadata = { title: "My Bookings | Tee365" }
 
@@ -27,7 +28,7 @@ export default async function BookingsPage({
   const upcoming = (bookings ?? []).filter((b) => new Date(b.starts_at) >= now && b.status !== "cancelled")
   const past = (bookings ?? []).filter((b) => new Date(b.starts_at) < now || b.status === "cancelled")
 
-  function BookingCard({ b }: { b: typeof bookings extends (infer T)[] | null ? T : never }) {
+  function BookingCard({ b, isUpcoming }: { b: typeof bookings extends (infer T)[] | null ? T : never; isUpcoming: boolean }) {
     const bay = b.bays as { name: string } | null
     const start = new Date(b.starts_at)
     const end = new Date(b.ends_at)
@@ -61,6 +62,15 @@ export default async function BookingsPage({
             <p className="mt-0.5 text-xl font-bold tracking-widest text-brand">{b.access_code}</p>
           </div>
         )}
+        {isUpcoming && !isCancelled && (
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-xs text-neutral-500">
+              Need to reschedule?{" "}
+              <a href="mailto:info@tee365.org" className="underline hover:text-neutral-300">Contact us</a>
+            </p>
+            <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={Number(b.total)} />
+          </div>
+        )}
       </div>
     )
   }
@@ -85,7 +95,7 @@ export default async function BookingsPage({
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-white">Upcoming</h2>
           <div className="space-y-3">
-            {upcoming.map((b) => <BookingCard key={b.id} b={b} />)}
+            {upcoming.map((b) => <BookingCard key={b.id} b={b} isUpcoming={true} />)}
           </div>
         </section>
       )}
@@ -94,7 +104,7 @@ export default async function BookingsPage({
         <section>
           <h2 className="mb-3 text-lg font-semibold text-white">Past</h2>
           <div className="space-y-3">
-            {past.map((b) => <BookingCard key={b.id} b={b} />)}
+            {past.map((b) => <BookingCard key={b.id} b={b} isUpcoming={false} />)}
           </div>
         </section>
       )}
