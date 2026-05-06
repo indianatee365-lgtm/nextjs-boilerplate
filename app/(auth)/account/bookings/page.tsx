@@ -8,14 +8,14 @@ export const metadata = { title: "My Bookings | Tee365" }
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmed?: string }>
+  searchParams: Promise<{ confirmed?: string; rescheduled?: string; reschedule_error?: string }>
 }) {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { confirmed } = await searchParams
+  const { confirmed, rescheduled, reschedule_error } = await searchParams
 
   const { data: bookings } = await serviceClient
     .from("bookings")
@@ -64,10 +64,9 @@ export default async function BookingsPage({
         )}
         {isUpcoming && !isCancelled && (
           <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs text-neutral-500">
-              Need to reschedule?{" "}
-              <a href="mailto:info@tee365.org" className="underline hover:text-neutral-300">Contact us</a>
-            </p>
+            <Link href={`/account/bookings/${b.id}/reschedule`} className="text-xs text-neutral-500 hover:text-white underline transition-colors">
+              Reschedule
+            </Link>
             <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={Number(b.total)} />
           </div>
         )}
@@ -87,6 +86,25 @@ export default async function BookingsPage({
           <p className="font-semibold text-green-400">Booking confirmed!</p>
           <p className="mt-0.5 text-sm text-neutral-300">
             Your access code will appear below once payment clears. Check your phone for an SMS confirmation.
+          </p>
+        </div>
+      )}
+
+      {rescheduled && (
+        <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">
+          <p className="font-semibold text-green-400">Booking rescheduled!</p>
+          <p className="mt-0.5 text-sm text-neutral-300">
+            Your booking has been moved. A confirmation has been sent to your phone and email.
+          </p>
+        </div>
+      )}
+
+      {reschedule_error && (
+        <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-4">
+          <p className="font-semibold text-red-400">Reschedule incomplete</p>
+          <p className="mt-0.5 text-sm text-neutral-300">
+            Something went wrong finalizing your reschedule. Please contact us at{" "}
+            <a href="mailto:info@tee365.org" className="underline hover:text-white">info@tee365.org</a>.
           </p>
         </div>
       )}
