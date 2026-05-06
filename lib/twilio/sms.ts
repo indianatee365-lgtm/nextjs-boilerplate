@@ -42,6 +42,7 @@ export async function sendBookingConfirmation({
     `🕐 ${startStr} – ${endStr}`,
     `Your access code will be sent to this number 10–20 minutes before your session begins.`,
     `Questions? info@tee365.org`,
+    `Reply STOP to opt out, HELP for info. Msg & data rates may apply.`,
   ].join("\n")
 
   await client.messages.create({
@@ -71,7 +72,7 @@ export async function sendAccessCodeReminder({
   })
 
   await client.messages.create({
-    body: `Tee365 reminder: ${firstName}, your session at ${bayName} starts at ${timeStr}.\n🔐 Access code: ${accessCode}`,
+    body: `Tee365 reminder: ${firstName}, your session at ${bayName} starts at ${timeStr}.\n🔐 Access code: ${accessCode}\nReply STOP to opt out.`,
     from: process.env.TWILIO_PHONE_NUMBER!,
     to: normalizePhone(to),
   })

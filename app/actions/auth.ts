@@ -39,6 +39,10 @@ export async function signup(
     return { message: "Bot verification failed. Please try again." }
   }
 
+  if (formData.get("smsConsent") !== "on") {
+    return { message: "You must agree to receive SMS messages to create an account." }
+  }
+
   const supabase = await createClient()
 
   const parsed = SignupSchema.safeParse({
