@@ -10,7 +10,7 @@ export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-3xl font-bold text-white mb-2">Privacy Policy</h1>
-      <p className="text-sm text-neutral-500 mb-10">Last updated: April 20, 2026</p>
+      <p className="text-sm text-neutral-500 mb-10">Last updated: May 8, 2026</p>
 
       <div className="prose prose-invert prose-sm max-w-none space-y-8 text-neutral-300">
 
@@ -39,7 +39,25 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-2">3. SMS Communications</h2>
           <p>
-            By providing your phone number, you consent to receive transactional SMS messages from Tee365, including booking confirmations and access codes. Message and data rates may apply. You may opt out at any time by replying <strong>STOP</strong> to any message. Reply <strong>HELP</strong> for support.
+            When creating an account at tee365.org/signup, you are required to check a mandatory consent checkbox
+            before your account can be created. The checkbox reads:
+          </p>
+          <blockquote className="mt-3 border-l-4 border-white/20 pl-4 py-1 text-neutral-400 italic">
+            "I agree to receive transactional SMS messages from Tee365 (booking confirmations and access codes).
+            Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info."
+          </blockquote>
+          <p className="mt-3">
+            Tee365 sends two types of SMS messages only: booking confirmations (sent after payment is confirmed)
+            and access code reminders (sent 10–20 minutes before your session begins). No marketing or promotional
+            SMS messages are sent.
+          </p>
+          <p className="mt-3">
+            You may opt out at any time by replying <strong>STOP</strong> to any message from Tee365. Reply{" "}
+            <strong>HELP</strong> for support, or contact us at info@tee365.org. Message and data rates may apply.
+          </p>
+          <p className="mt-3">
+            For full details including sample messages and re-subscription instructions, see our{" "}
+            <a href="/sms-opt-in" className="text-brand hover:underline">SMS Opt-In Policy</a>.
           </p>
         </section>
 
