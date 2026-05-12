@@ -178,10 +178,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Booking total $${pricing.total.toFixed(2)} is below the minimum charge. Check pricing rules.` }, { status: 400 })
     }
 
-    // Create Stripe PaymentIntent
+    // Retrieve or create a Stripe Customer so the payment method is saved for future use
+    const { data: profileForStripe } = await serviceClient
+      .from("profiles")
+      .select("stripe_customer_id, first_name, last_name")
+      .eq("id", user.id)
+      .single()
+
+    let stripeCustomerId = (profileForStripe as { stripe_customer_id: string | null } | null)?.stripe_customer_id ?? null
+
+    if (!stripeCustomerId) {
+      const { data: authUser } = await serviceClient.auth.admin.getUserById(user.id)
+      const customer = await getStripe().customers.create({
+        email: authUser.user?.email ?? undefined,
+        name: profileForStripe
+          ? `${(profileForStripe as { first_name: string }).first_name} ${(profileForStripe as { last_name: string }).last_name}`.trim()
+          : undefined,
+        metadata: { supabase_user_id: user.id },
+      })
+      stripeCustomerId = customer.id
+      await serviceClient.from("profiles").update({ stripe_customer_id: stripeCustomerId }).eq("id", user.id)
+    }
+
+    // Create Stripe PaymentIntent — setup_future_usage saves the card on file for future charges
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",
+      customer: stripeCustomerId,
+      setup_future_usage: "off_session",
       metadata: {
         userId: user.id,
         bayId,
