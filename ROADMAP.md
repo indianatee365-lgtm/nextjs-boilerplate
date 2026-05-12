@@ -179,6 +179,15 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $5 flat reschedule fee; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion; cutoff is 4h before session (not 24h)
 - [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
 
+### 🟡 Phone OTP verification (scaffold in place — not live)
+- [ ] Add `phone_otp_hash` and `phone_otp_expires_at` columns to profiles
+- [ ] Implement `POST /api/auth/send-phone-otp` — generate 6-digit OTP, store hashed, send via Twilio
+- [ ] Implement `POST /api/auth/verify-phone-otp` — validate OTP, set `phone_verified = true`
+- [ ] Add OTP step to signup flow after phone number entry
+- [ ] Gate booking on `phone_verified = true` (or prompt to verify inline)
+- **Stub routes exist** at `/api/auth/send-phone-otp` and `/api/auth/verify-phone-otp` (return 501)
+- **`profiles.phone_verified`** column already added (default false)
+
 ### 🟡 Known loopholes (deferred — fix if pattern emerges)
 - [ ] **Reschedule-to-escape-forfeit**: customer within the 24h forfeit window pays the $5 reschedule fee to move to a far-future slot, then cancels for a full refund. Net cost: $5 instead of the full booking total. Visible in the admin dashboard Cancellations block. Fix when needed: add `forfeit_on_cancel` flag to bookings, set it when a reschedule happens within 24h of the original slot, and honour it in `cancelBookingByCustomer`.
 

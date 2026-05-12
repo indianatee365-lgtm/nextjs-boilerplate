@@ -221,10 +221,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Failed to create booking: ${bookingError?.message ?? "unknown"}` }, { status: 500 })
     }
 
-    // Record disclosure acknowledgments
+    // Record disclosure acknowledgments with body snapshot for audit trail
     if (Array.isArray(disclosureIds) && disclosureIds.length > 0) {
+      const { data: disclosureBodies } = await serviceClient
+        .from("disclosures")
+        .select("id, body")
+        .in("id", disclosureIds)
+      const bodyMap = Object.fromEntries((disclosureBodies ?? []).map((d) => [d.id, d.body]))
       await serviceClient.from("disclosure_acknowledgments").upsert(
-        disclosureIds.map((id: string) => ({ user_id: user.id, disclosure_id: id })),
+        disclosureIds.map((id: string) => ({
+          user_id: user.id,
+          disclosure_id: id,
+          booking_id: booking.id,
+          body_snapshot: bodyMap[id] ?? null,
+        })),
         { onConflict: "user_id,disclosure_id" }
       )
     }
