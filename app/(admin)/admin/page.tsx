@@ -30,7 +30,7 @@ export default async function AdminPage() {
   const todayUTC = new Date(today.getTime() + etOffset)
   const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
 
-  const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }] =
+  const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }, { data: recentCancellations }] =
     await Promise.all([
       serviceClient
         .from("bookings")
@@ -49,6 +49,13 @@ export default async function AdminPage() {
         .gte("starts_at", todayUTC.toISOString())
         .order("starts_at")
         .limit(10),
+      serviceClient
+        .from("bookings")
+        .select("id, starts_at, ends_at, total, refund_amount, refunded_at, cancelled_at, bays(name), profiles!user_id(first_name, last_name)")
+        .eq("status", "cancelled")
+        .not("cancelled_at", "is", null)
+        .order("cancelled_at", { ascending: false })
+        .limit(20),
     ])
 
   return (
@@ -127,6 +134,59 @@ export default async function AdminPage() {
           </div>
         ) : (
           <p className="text-sm text-neutral-500">No bookings today.</p>
+        )}
+      </div>
+
+      {/* Cancellations & reschedules */}
+      <div className="mt-8">
+        <h2 className="mb-1 text-lg font-semibold text-white">Recent cancellations</h2>
+        <p className="mb-3 text-xs text-neutral-500">
+          Watch for refund_amount &gt; 0 on bookings cancelled shortly after creation — may indicate the reschedule-to-escape-forfeit pattern.
+        </p>
+        {recentCancellations && recentCancellations.length > 0 ? (
+          <div className="overflow-hidden rounded-xl border border-white/10">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Bay</th>
+                  <th className="px-4 py-3">Booked slot</th>
+                  <th className="px-4 py-3">Paid</th>
+                  <th className="px-4 py-3">Refunded</th>
+                  <th className="px-4 py-3">Cancelled at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentCancellations.map((b) => {
+                  const profile = b.profiles as { first_name: string; last_name: string } | null
+                  const bay = b.bays as { name: string } | null
+                  const forfeit = Number(b.refund_amount ?? 0) === 0
+                  return (
+                    <tr key={b.id} className="border-b border-white/5 text-neutral-300">
+                      <td className="px-4 py-3">{profile ? `${profile.first_name} ${profile.last_name}` : "—"}</td>
+                      <td className="px-4 py-3">{bay?.name ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}
+                        {" "}
+                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                      </td>
+                      <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forfeit ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+                          {forfeit ? "Forfeited" : `$${Number(b.refund_amount).toFixed(2)}`}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-neutral-500">
+                        {b.cancelled_at ? new Date(b.cancelled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" }) : "—"}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-500">No cancellations yet.</p>
         )}
       </div>
     </main>

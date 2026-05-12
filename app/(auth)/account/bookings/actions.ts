@@ -30,6 +30,9 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   if (!booking) throw new Error("Booking not found")
   if (booking.status === "cancelled") return { refunded: false }
 
+  // KNOWN LOOPHOLE: a customer within the forfeit window can pay the $5 reschedule fee to move
+  // their booking far into the future, then cancel for a full refund. Tracked -- fix if it becomes
+  // a pattern. Fix: add forfeit_on_cancel flag set at reschedule time when hoursUntil <= 24.
   const hoursUntil = (new Date(booking.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   const refundEligible = hoursUntil > 24
 
