@@ -2,6 +2,15 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
+import PaymentMethodsSection from "./PaymentMethodsSection"
+import Stripe from "stripe"
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2026-03-25.dahlia",
+    httpClient: Stripe.createFetchHttpClient(),
+  })
+}
 
 export const metadata = { title: "My Account | Tee365" }
 
@@ -19,7 +28,7 @@ export default async function AccountPage({
 
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }] =
     await Promise.all([
-      supabase.from("profiles").select("first_name, last_name, phone, role").eq("id", user.id).single(),
+      supabase.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
         .select("status, started_at, current_period_end, membership_plans(name, slug, discount_percent, first_year_discount)")
@@ -35,6 +44,20 @@ export default async function AccountPage({
         .order("starts_at")
         .limit(5),
     ])
+
+  // Fetch saved payment methods from Stripe
+  const stripeCustomerId = (profile as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null
+  const savedCards = stripeCustomerId
+    ? await getStripe().customers.listPaymentMethods(stripeCustomerId, { type: "card" })
+        .then((r) => r.data.map((pm) => ({
+          id: pm.id,
+          brand: pm.card?.brand ?? "card",
+          last4: pm.card?.last4 ?? "????",
+          expMonth: pm.card?.exp_month ?? 0,
+          expYear: pm.card?.exp_year ?? 0,
+        })))
+        .catch(() => [])
+    : []
 
   const plan = membership?.membership_plans as {
     name: string; slug: string; discount_percent: number; first_year_discount: number | null
@@ -153,6 +176,7 @@ export default async function AccountPage({
           <p className="text-sm text-neutral-500">No upcoming bookings.</p>
         )}
       </div>
+      <PaymentMethodsSection cards={savedCards} />
     </main>
   )
 }
