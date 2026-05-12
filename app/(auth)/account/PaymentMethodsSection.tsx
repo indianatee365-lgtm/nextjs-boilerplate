@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { loadStripe } from "@stripe/stripe-js"
-import { Elements, SetupElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { removePaymentMethod } from "./payment-actions"
 import { CreditCard, Plus, Trash2 } from "lucide-react"
 
@@ -42,7 +42,7 @@ function AddCardForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-      <SetupElement />
+      <PaymentElement />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex gap-3">
         <button type="submit" disabled={submitting} className="btn-primary px-4 py-2 text-sm">
