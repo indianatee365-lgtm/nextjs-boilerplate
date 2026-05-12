@@ -11,17 +11,19 @@ export default async function BookPage() {
   const serviceClient = await createServiceClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) redirect("/login") // LAUNCH: remove this line to open tee sheet to public
 
-  const { data: minorCheck } = await serviceClient
-    .from("profiles")
-    .select("is_minor, parental_consent_verified")
-    .eq("id", user.id)
-    .single()
-
-  const needsConsent = (minorCheck as { is_minor: boolean; parental_consent_verified: boolean } | null)
-  if (needsConsent?.is_minor && !needsConsent?.parental_consent_verified) {
-    redirect("/account/awaiting-consent")
+  // Minor consent gate — conditional on user so it survives when auth gate is removed
+  if (user) {
+    const { data: minorCheck } = await serviceClient
+      .from("profiles")
+      .select("is_minor, parental_consent_verified")
+      .eq("id", user.id)
+      .single()
+    const needsConsent = (minorCheck as { is_minor: boolean; parental_consent_verified: boolean } | null)
+    if (needsConsent?.is_minor && !needsConsent?.parental_consent_verified) {
+      redirect("/account/awaiting-consent")
+    }
   }
 
   let membershipSlug: string | null = null
