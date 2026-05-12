@@ -120,18 +120,23 @@ export type Database = {
           coupon_discount: number
           coupon_id: string | null
           created_at: string
+          discount_percent_applied: number | null
           duration_minutes: number
           ends_at: string
           gift_card_applied: number
           gift_card_id: string | null
           id: string
+          member_rate_applied: number | null
           membership_discount: number
           membership_id: string | null
           notes: string | null
           paid_at: string | null
           price_per_hour: number
+          rate_type: string | null
           refund_amount: number | null
           refunded_at: string | null
+          reminder_sent_at: string | null
+          signup_bonus_applied: boolean | null
           starts_at: string
           status: string
           stripe_charge_id: string | null
@@ -152,18 +157,23 @@ export type Database = {
           coupon_discount?: number
           coupon_id?: string | null
           created_at?: string
+          discount_percent_applied?: number | null
           duration_minutes: number
           ends_at: string
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
+          member_rate_applied?: number | null
           membership_discount?: number
           membership_id?: string | null
           notes?: string | null
           paid_at?: string | null
           price_per_hour: number
+          rate_type?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
+          reminder_sent_at?: string | null
+          signup_bonus_applied?: boolean | null
           starts_at: string
           status?: string
           stripe_charge_id?: string | null
@@ -184,18 +194,23 @@ export type Database = {
           coupon_discount?: number
           coupon_id?: string | null
           created_at?: string
+          discount_percent_applied?: number | null
           duration_minutes?: number
           ends_at?: string
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
+          member_rate_applied?: number | null
           membership_discount?: number
           membership_id?: string | null
           notes?: string | null
           paid_at?: string | null
           price_per_hour?: number
+          rate_type?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
+          reminder_sent_at?: string | null
+          signup_bonus_applied?: boolean | null
           starts_at?: string
           status?: string
           stripe_charge_id?: string | null
@@ -233,6 +248,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gift_cards"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "member_effective_pricing"
+            referencedColumns: ["membership_id"]
           },
           {
             foreignKeyName: "bookings_membership_id_fkey"
@@ -346,23 +368,36 @@ export type Database = {
       disclosure_acknowledgments: {
         Row: {
           acknowledged_at: string
+          body_snapshot: string | null
+          booking_id: string | null
           disclosure_id: string
           id: string
           user_id: string
         }
         Insert: {
           acknowledged_at?: string
+          body_snapshot?: string | null
+          booking_id?: string | null
           disclosure_id: string
           id?: string
           user_id: string
         }
         Update: {
           acknowledged_at?: string
+          body_snapshot?: string | null
+          booking_id?: string | null
           disclosure_id?: string
           id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "disclosure_acknowledgments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "disclosure_acknowledgments_disclosure_id_fkey"
             columns: ["disclosure_id"]
@@ -488,15 +523,7 @@ export type Database = {
           recipient_name?: string | null
           stripe_payment_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "gift_cards_purchased_by_fkey"
-            columns: ["purchased_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       league_participants: {
         Row: {
@@ -669,19 +696,19 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           founder_number: number | null
-          founder_status_active: boolean
+          founder_status_active: boolean | null
           id: string
           is_annual: boolean
-          joining_fee_paid: boolean
+          joining_fee_paid: boolean | null
           joining_fee_paid_at: string | null
-          membership_paused: boolean
+          membership_paused: boolean | null
           pause_end_date: string | null
           pause_start_date: string | null
           plan_id: string
           plan_type: string
-          reactivation_count: number
+          reactivation_count: number | null
           signup_bonus_expires_at: string | null
-          signup_bonus_hours: number
+          signup_bonus_hours: number | null
           started_at: string
           status: string
           stripe_customer_id: string | null
@@ -697,19 +724,19 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
-          founder_status_active?: boolean
+          founder_status_active?: boolean | null
           id?: string
           is_annual?: boolean
-          joining_fee_paid?: boolean
+          joining_fee_paid?: boolean | null
           joining_fee_paid_at?: string | null
-          membership_paused?: boolean
+          membership_paused?: boolean | null
           pause_end_date?: string | null
           pause_start_date?: string | null
           plan_id: string
           plan_type?: string
-          reactivation_count?: number
+          reactivation_count?: number | null
           signup_bonus_expires_at?: string | null
-          signup_bonus_hours?: number
+          signup_bonus_hours?: number | null
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
@@ -725,19 +752,19 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
-          founder_status_active?: boolean
+          founder_status_active?: boolean | null
           id?: string
           is_annual?: boolean
-          joining_fee_paid?: boolean
+          joining_fee_paid?: boolean | null
           joining_fee_paid_at?: string | null
-          membership_paused?: boolean
+          membership_paused?: boolean | null
           pause_end_date?: string | null
           pause_start_date?: string | null
           plan_id?: string
           plan_type?: string
-          reactivation_count?: number
+          reactivation_count?: number | null
           signup_bonus_expires_at?: string | null
-          signup_bonus_hours?: number
+          signup_bonus_hours?: number | null
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
@@ -756,6 +783,53 @@ export type Database = {
           {
             foreignKeyName: "memberships_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parental_consents: {
+        Row: {
+          consented_at: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          minor_user_id: string
+          parent_email: string
+          parent_name: string | null
+          token: string
+          token_expires_at: string
+          waiver_snapshot: string | null
+        }
+        Insert: {
+          consented_at?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          minor_user_id: string
+          parent_email: string
+          parent_name?: string | null
+          token: string
+          token_expires_at: string
+          waiver_snapshot?: string | null
+        }
+        Update: {
+          consented_at?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          minor_user_id?: string
+          parent_email?: string
+          parent_name?: string | null
+          token?: string
+          token_expires_at?: string
+          waiver_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parental_consents_minor_user_id_fkey"
+            columns: ["minor_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -794,25 +868,37 @@ export type Database = {
           created_at: string
           first_name: string
           id: string
+          is_minor: boolean
           last_name: string
+          parental_consent_verified: boolean
           phone: string | null
+          phone_verified: boolean
           role: string
+          stripe_customer_id: string | null
         }
         Insert: {
           created_at?: string
           first_name: string
           id: string
+          is_minor?: boolean
           last_name: string
+          parental_consent_verified?: boolean
           phone?: string | null
+          phone_verified?: boolean
           role?: string
+          stripe_customer_id?: string | null
         }
         Update: {
           created_at?: string
           first_name?: string
           id?: string
+          is_minor?: boolean
           last_name?: string
+          parental_consent_verified?: boolean
           phone?: string | null
+          phone_verified?: boolean
           role?: string
+          stripe_customer_id?: string | null
         }
         Relationships: []
       }
@@ -845,10 +931,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      member_effective_pricing: {
+        Row: {
+          day_type: string | null
+          effective_rate: number | null
+          membership_id: string | null
+          plan_type: string | null
+          pricing_rule_id: string | null
+          rack_rate: number | null
+          season_type: string | null
+          time_type: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      assign_founder_number: { Args: { member_id: string }; Returns: number }
+      check_reservation_cap: { Args: { p_user_id: string }; Returns: boolean }
+      validate_booking_window: {
+        Args: { booking_start: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
