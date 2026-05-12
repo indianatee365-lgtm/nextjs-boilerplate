@@ -124,7 +124,7 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Remove login gate from `/gift-cards` and balance checker once Stripe is on live keys; update FAQ gift card answer to "now live"
 
 ### 🔵 Go Live 2nd — open booking to the public
-- [ ] **Minor consent system** — DOB field on signup, `profiles.date_of_birth`, `parental_consents` table, `/minor-consent/[token]` page, email flow to parent, booking gate checks `requires_parental_consent`. See CLAUDE.md for full design.
+- [x] **Minor consent system** — Option B (yes/no age gate at signup). is_minor + parental_consent_verified on profiles, parental_consents table, /minor-consent/[token] public consent page, /account/awaiting-consent holding page, resend button, booking gate. Launch-ready: minor check wrapped in if (user) so auth gate removal at launch is one line.
 - [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
 - [ ] Add "Book Now" to marketing site header nav
 - [ ] Sign-in/sign-up at the review step is already wired (return URL + sessionStorage slot restore in place)

@@ -42,8 +42,16 @@ A2P 10DLC rejected 4 times. Pending resubmission. Campaign copy at `docs/twilio-
 ## OTP scaffold (not live)
 `profiles.phone_verified boolean default false` exists. Stub routes at `/api/auth/send-phone-otp` and `/api/auth/verify-phone-otp` (return 501). Full implementation plan in ROADMAP.
 
-## Minor consent system (designed, not built)
-Target market includes high school golfers. Policy: 16-17 can book with parental consent on file; under 16 needs adult present. Needs: DOB at signup, `profiles.date_of_birth`, `parental_consents` table, `/minor-consent/[token]` page, booking gate. See ROADMAP.
+## Minor consent system (built 2026-05-12)
+Option B — yes/no age question at signup (no DOB collected). Adults click yes, zero friction. Minors click no, parent email field appears.
+- `profiles.is_minor`, `profiles.parental_consent_verified` columns
+- `parental_consents` table: token (7-day expiry), parent_email, parent_name, consented_at, waiver_snapshot, ip_address
+- Signup action creates consent record + emails parent via Resend
+- `/minor-consent/[token]` — public page, parent signs, account unlocked, minor emailed
+- `/minor-consent/complete` — confirmation page
+- `/account/awaiting-consent` — holding page with resend button
+- Booking gate: wrapped in `if (user)` so it survives auth gate removal at launch
+- **At launch:** remove the one line marked `// LAUNCH: remove this line` in `app/(public)/book/page.tsx`
 
 ## Recourse process
 Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
