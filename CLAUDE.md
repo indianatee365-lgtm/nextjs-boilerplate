@@ -1,45 +1,64 @@
 # Tee365 — Project Context for Claude
 
-Live codebase, deploys to **tee365.org** via Vercel. Supabase CLI is linked — Claude can run SQL directly with `supabase db query --linked`.
+Live codebase, deploys to **tee365.org** via Vercel. Supabase CLI is linked — Claude can run SQL directly with `supabase db query --linked`. SSH from labwork (Windows) to labserver works.
 
 ## Stack
 Next.js 16, Supabase (auth + Postgres), Stripe, Twilio, Resend, Vercel
 
 ## What's built and working
-- **Booking flow** — date → time → review → Stripe payment. Server-confirmed pricing with membership discounts, coupons, gift cards, 7% Indiana sales tax.
-- **Admin panel** — `/admin/bookings`, `/admin/bays`, `/admin/users`, `/admin/gift-cards`. Admins auto-redirect to `/admin` on login.
+- **Booking flow** — date → time → review → Stripe payment. Server-confirmed pricing with membership discounts, coupons, gift cards, 7% Indiana sales tax. Payment confirmation gated via `/book/return` (checks Stripe `redirect_status=succeeded` before showing banner).
+- **Stripe Customer / card on file** — `profiles.stripe_customer_id` stores Stripe Customer ID. Booking API creates Customer on first booking, saves card via `setup_future_usage: 'off_session'`. Next booking shows saved card in PaymentElement. `/account` page has full payment method management (view, remove, add via SetupIntent).
+- **Admin panel** — `/admin/bookings`, `/admin/bays`, `/admin/users`, `/admin/gift-cards`, `/admin/coupons`, `/admin/members`. Admins auto-redirect to `/admin` on login. Dashboard has cancellations block (forfeit vs. refund visibility).
 - **Access code cron** — fires 15 min before session via pg_cron + pg_net.
 - **Display board** — `/display`, unauthenticated kiosk view.
 - **Pricing engine** — rules-based by season/day/time in `pricing_rules` table.
-- **Self-service cancel** — `/account/bookings`. >24h = full Stripe refund. ≤24h = forfeit, explicit warning.
-- **Self-service reschedule** — `/account/bookings/[id]/reschedule`. Cutoff: **4h before session**. Fee: **$5 flat**. Repriced at new slot's actual rate (arbitrage-proof). Delta charged/refunded via Stripe. 3DS via return page. Policy in /terms Section 4 and /faq.
-- **Gift cards** — `/gift-cards` (login-gated until Stripe goes live). $25/$50/$100/custom. Stripe Checkout → idempotent DB insert → branded email. Balance checker on same page. Admin issuance at `/admin/gift-cards`. Codes: `XXXX-XXXX-XXXX`.
-- **Membership system** — Birdie ($10/mo, 10% off, 10-day window), Eagle ($39/mo, 20% off, 14-day), Founder's Club ($29/mo + $199 joining, 20%/30% yr1, 21-day, 100 cap, closes Aug 18 2026). `/join` public page, `/founders` private page, Stripe Checkout flow, webhook creates membership record.
-- **Booking confirmation email** — fires on `payment_intent.succeeded` and admin manual confirm. Receipt with all line items. `lib/resend/email.ts`.
-- **Gift card email** — branded "You've Got a Gift" email with code. Same file.
-- **Security** — Cloudflare orange-cloud, Turnstile on login + signup, RLS on all tables, security headers, no `X-Powered-By`.
+- **Self-service cancel** — `/account/bookings`. >24h = full Stripe refund. ≤24h = forfeit, explicit warning. Known loophole tracked (reschedule to escape forfeit) — see ROADMAP "Known loopholes".
+- **Self-service reschedule** — `/account/bookings/[id]/reschedule`. Cutoff: 4h before session. Fee: $5 flat. Repriced at new slot's actual rate. Delta charged/refunded via Stripe. 3DS via return page.
+- **Gift cards** — `/gift-cards` (login-gated until Stripe goes live). $25/$50/$100/custom. Stripe Checkout → idempotent DB insert → branded email. Balance checker. Admin issuance at `/admin/gift-cards`.
+- **Membership system** — Birdie ($10/mo, 10% off, 10-day window), Eagle ($39/mo, 20% off, 14-day), Founder's Club ($29/mo + $199 joining, 20%/30% yr1, 21-day, 100 cap, closes Aug 18 2026). `/join`, `/founders`, Stripe Checkout flow, webhook creates membership record.
+- **Booking confirmation email** — fires on `payment_intent.succeeded` and admin manual confirm. Full receipt. `lib/resend/email.ts`. RESEND_API_KEY confirmed in Vercel.
+- **Security** — Cloudflare orange-cloud, Turnstile on login + signup, RLS on all tables, security headers.
+
+## Disclosures (overhauled 2026-05-12)
+Three disclosures live in DB: Liability Waiver, Facility Rules, Guest & Age Policy. `disclosure_acknowledgments` stores `body_snapshot` (exact text agreed to at time of booking) and `booking_id`. Key policy points:
+- Card storage disclosed in Liability Waiver
+- Overstay: 15-min grace, then booked rate, card on file may be charged (contact first)
+- Equipment damage: full repair/replacement cost, card on file, contact first
+- Cameras: disclosed ("monitored by security cameras")
+- Closure: 24h+ notice = full refund or reschedule; same-day = full refund
+- Minors: 16-17 with parental consent on file; under 16 with adult present
+- Capacity: 4 per bay (6 is physical max, not advertised)
 
 ## SMS (Twilio)
-A2P 10DLC rejected 4 times. As of May 5 2026: explicit SMS consent checkbox added to signup (server-validated), STOP/HELP opt-out added to both message templates. Campaign copy at `docs/twilio-a2p-campaign.md`. **Pending resubmission.** Twilio number: (574) 406-2332.
-
-## Email (Resend)
-Free tier, 3k/mo. Domain tee365.org verified. `from` address: `bookings@tee365.org`.
-**`RESEND_API_KEY` is NOT yet set in Vercel** — emails are silently failing. Fix: resend.com → API Keys → Vercel project → Settings → Environment Variables → add `RESEND_API_KEY` → redeploy.
+A2P 10DLC rejected 4 times. Pending resubmission. Campaign copy at `docs/twilio-a2p-campaign.md`. Twilio number: (574) 406-2332. **Blocked.**
 
 ## Sales tax
-7% Indiana flat rate. Calculated on post-discount amount before gift cards. Stored in `bookings.tax`. Membership fee taxability TBD (pending accountant).
+7% Indiana flat rate on post-discount amount before gift cards. Stored in `bookings.tax`. Membership fee taxability TBD (pending accountant).
+
+## Test suites
+- `scripts/test-conflicts.sql` — 9/9 passing. Run: `supabase db query --linked -f scripts/test-conflicts.sql`
+- `scripts/test-cancel.sql` — 11/11 passing. Run: `supabase db query --linked -f scripts/test-cancel.sql`
+
+## OTP scaffold (not live)
+`profiles.phone_verified boolean default false` exists. Stub routes at `/api/auth/send-phone-otp` and `/api/auth/verify-phone-otp` (return 501). Full implementation plan in ROADMAP.
+
+## Minor consent system (designed, not built)
+Target market includes high school golfers. Policy: 16-17 can book with parental consent on file; under 16 needs adult present. Needs: DOB at signup, `profiles.date_of_birth`, `parental_consents` table, `/minor-consent/[token]` page, booking gate. See ROADMAP.
+
+## Recourse process
+Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
 
 ## Pre-launch checklist (short version)
-1. Add `RESEND_API_KEY` to Vercel env vars → redeploy
-2. Resubmit Twilio A2P campaign (`docs/twilio-a2p-campaign.md`)
-3. Verify SMS end-to-end once A2P approved
-4. Fix CRON_SECRET mismatch (pg_cron → 401 on `/api/cron/booking-reminders`)
-5. Wire up access control API (`lib/access-control/index.ts` stub)
-6. Test failed payment, conflict detection, cancel+refund E2E
+1. Resubmit Twilio A2P campaign — `docs/twilio-a2p-campaign.md` *(blocked)*
+2. Verify SMS end-to-end once A2P approved *(blocked)*
+3. Wire up access control API — `lib/access-control/index.ts` stub *(blocked on hardware)*
+4. Build minor consent system (DOB on signup, parental consent flow, booking gate)
+5. Verify `SetupElement` package version in `@stripe/react-stripe-js`
+6. Run one real Stripe test-mode booking → cancel → verify refund (DB tested; Stripe E2E pending)
 7. Switch Stripe to live keys
 8. Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup)
 9. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
-10. Remove login gate from `/gift-cards` + update FAQ gift card answer once Stripe is live
+10. Remove login gate from `/gift-cards` + update FAQ gift card answer
 
 Full checklist: `ROADMAP.md`
 
@@ -47,3 +66,4 @@ Full checklist: `ROADMAP.md`
 - `docs/members.md` — canonical membership specs
 - `docs/website_database.md` — database implementation guide
 - `docs/twilio-a2p-campaign.md` — Twilio A2P campaign copy ready to paste
+- `docs/templates/recourse-contact.md` — damage/overstay contact templates

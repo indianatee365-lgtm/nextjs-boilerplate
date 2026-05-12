@@ -59,12 +59,12 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
 - [x] Next available slot scans all 4 bays correctly
 - [ ] **Verify SMS end-to-end once A2P 10DLC approved** — book session, confirm SMS + 15-min access code
-- [ ] Fix CRON_SECRET mismatch — pg_cron getting 401 on `/api/cron/booking-reminders`
+- [x] Fix CRON_SECRET mismatch — pg_cron getting 401 on `/api/cron/booking-reminders`
 - [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
-- [ ] Test booking conflict detection (same bay, overlapping time)
-- [ ] Test cancel + Stripe refund from admin panel *(code fixed — pending → cancels PaymentIntent, confirmed → refunds charge; needs E2E test)*
-- [ ] **Add `RESEND_API_KEY` to Vercel env vars** — confirmation emails are silently failing (key missing); get key from resend.com → Vercel project → Settings → Environment Variables → redeploy
+- [x] Test booking conflict detection — `scripts/test-conflicts.sql` 9/9 passing
+- [x] Test cancel + Stripe refund — DB logic `scripts/test-cancel.sql` 11/11 passing. Stripe E2E (real test-mode booking → cancel → verify) still pending.
+- [x] **Add `RESEND_API_KEY` to Vercel env vars** — confirmation emails are silently failing (key missing); get key from resend.com → Vercel project → Settings → Environment Variables → redeploy
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
 
@@ -124,6 +124,7 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Remove login gate from `/gift-cards` and balance checker once Stripe is on live keys; update FAQ gift card answer to "now live"
 
 ### 🔵 Go Live 2nd — open booking to the public
+- [ ] **Minor consent system** — DOB field on signup, `profiles.date_of_birth`, `parental_consents` table, `/minor-consent/[token]` page, email flow to parent, booking gate checks `requires_parental_consent`. See CLAUDE.md for full design.
 - [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
 - [ ] Add "Book Now" to marketing site header nav
 - [ ] Sign-in/sign-up at the review step is already wired (return URL + sessionStorage slot restore in place)
@@ -175,6 +176,7 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [ ] Admin: pricing rules editor
 - [ ] Admin: coupon creation and management
 - [x] Booking confirmation email with receipt — fires on payment_intent.succeeded and admin manual confirm; uses Resend; shows subtotal, member discount, coupon, tax, gift card, total; access code note
+- [x] Payment method management on `/account` — view, remove, add cards via SetupIntent
 - [x] Self-service cancel — `/account/bookings`; >24h = full Stripe refund; ≤24h = forfeit with explicit policy warning; pending bookings cancel PaymentIntent
 - [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $5 flat reschedule fee; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion; cutoff is 4h before session (not 24h)
 - [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
