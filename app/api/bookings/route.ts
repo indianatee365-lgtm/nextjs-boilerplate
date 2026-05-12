@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       const { data: giftCard } = await serviceClient
         .from("gift_cards")
         .select("id, balance, expires_at")
-        .eq("code", giftCardCode.toUpperCase())
+        .eq("code", giftCardCode.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-"))
         .eq("active", true)
         .single()
 

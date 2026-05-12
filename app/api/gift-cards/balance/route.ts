@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code")?.toUpperCase().trim()
+  const code = request.nextUrl.searchParams.get("code")?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-")
   if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 })
 
   const supabase = await createServiceClient()
