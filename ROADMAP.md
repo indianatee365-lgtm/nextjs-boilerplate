@@ -63,7 +63,7 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
 - [x] Test booking conflict detection — `scripts/test-conflicts.sql` 9/9 passing
-- [x] Test cancel + Stripe refund — DB logic `scripts/test-cancel.sql` 11/11 passing. Stripe E2E (real test-mode booking → cancel → verify) still pending.
+- [x] Test cancel + Stripe refund — DB logic `scripts/test-cancel.sql` 11/11 passing. Stripe E2E verified 2026-05-12 (test booking → cancel → refund confirmed in Stripe sandbox).
 - [x] **Add `RESEND_API_KEY` to Vercel env vars** — confirmation emails are silently failing (key missing); get key from resend.com → Vercel project → Settings → Environment Variables → redeploy
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `/book` link to marketing site header once testing passes
@@ -196,4 +196,4 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 ### 🟢 Later
 - [ ] Membership renewal / cancellation self-serve
 - [ ] Public availability calendar (unauthenticated preview)
-- [ ] Add `checkout.session.completed` to Stripe webhook event list (needed for gift card webhook backup — do this when switching to live keys)
+- [x] Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup — added to sandbox endpoint 2026-05-12; repeat for live endpoint when switching keys)

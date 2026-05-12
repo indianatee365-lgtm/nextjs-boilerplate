@@ -60,13 +60,10 @@ Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always co
 1. Resubmit Twilio A2P campaign — `docs/twilio-a2p-campaign.md` *(blocked)*
 2. Verify SMS end-to-end once A2P approved *(blocked)*
 3. Wire up access control API — `lib/access-control/index.ts` stub *(blocked on hardware)*
-4. Build minor consent system (DOB on signup, parental consent flow, booking gate)
-5. Verify `SetupElement` package version in `@stripe/react-stripe-js`
-6. Run one real Stripe test-mode booking → cancel → verify refund (DB tested; Stripe E2E pending)
-7. Switch Stripe to live keys
-8. Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup)
-9. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
-10. Remove login gate from `/gift-cards` + update FAQ gift card answer
+4. Switch Stripe to live keys (also add `checkout.session.completed` to the live webhook endpoint when doing this)
+5. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
+6. Remove login gate from `/gift-cards` + update FAQ gift card answer
+7. Remove auth gate from `/book` — one line marked `// LAUNCH: remove this line` in `app/(public)/book/page.tsx`
 
 Full checklist: `ROADMAP.md`
 
