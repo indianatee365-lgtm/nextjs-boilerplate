@@ -13,6 +13,17 @@ export default async function BookPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  const { data: minorCheck } = await serviceClient
+    .from("profiles")
+    .select("is_minor, parental_consent_verified")
+    .eq("id", user.id)
+    .single()
+
+  const needsConsent = (minorCheck as { is_minor: boolean; parental_consent_verified: boolean } | null)
+  if (needsConsent?.is_minor && !needsConsent?.parental_consent_verified) {
+    redirect("/account/awaiting-consent")
+  }
+
   let membershipSlug: string | null = null
   let advanceDays = 7
   let userName = ""

@@ -269,3 +269,73 @@ export async function sendBookingConfirmationEmail({
     throw new Error(`Resend error ${res.status}: ${body}`)
   }
 }
+
+export async function sendParentalConsentRequestEmail({
+  to,
+  minorFirstName,
+  consentUrl,
+}: {
+  to: string
+  minorFirstName: string
+  consentUrl: string
+}) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Tee365 <bookings@tee365.org>",
+      to: [to],
+      subject: `Parental consent needed for ${minorFirstName}'s Tee365 account`,
+      html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
+<div style="max-width:520px;margin:0 auto;background:#141414;border-radius:12px;padding:36px;border:1px solid #262626">
+  <h1 style="margin:0 0 8px;font-size:22px;color:#fff">Parental Consent Required</h1>
+  <p style="margin:0 0 20px;color:#a3a3a3;font-size:14px">Tee365 Indoor Golf</p>
+  <p style="color:#d4d4d4;line-height:1.6">${minorFirstName} has created an account at Tee365 Indoor Golf and listed you as their parent or guardian.</p>
+  <p style="color:#d4d4d4;line-height:1.6">Because ${minorFirstName} is under 18, we require a parent or guardian to review and sign our consent form before they can make bookings.</p>
+  <p style="color:#d4d4d4;line-height:1.6">This takes about 60 seconds.</p>
+  <div style="text-align:center;margin:32px 0">
+    <a href="${consentUrl}" style="display:inline-block;background:#22c55e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Review &amp; Sign Consent Form</a>
+  </div>
+  <p style="color:#737373;font-size:12px;line-height:1.6">This link expires in 7 days. If you did not expect this email, you can safely ignore it — no account will be activated without your signature.</p>
+  <hr style="border:none;border-top:1px solid #262626;margin:24px 0">
+  <p style="color:#737373;font-size:12px">Questions? Reply to this email or contact us at bookings@tee365.org</p>
+</div></body></html>`,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}
+
+export async function sendMinorAccountApprovedEmail({
+  to,
+  firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Tee365 <bookings@tee365.org>",
+      to: [to],
+      subject: "You're all set — your Tee365 account is ready",
+      html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
+<div style="max-width:520px;margin:0 auto;background:#141414;border-radius:12px;padding:36px;border:1px solid #262626">
+  <h1 style="margin:0 0 20px;font-size:22px;color:#fff">You're good to go, ${firstName}!</h1>
+  <p style="color:#d4d4d4;line-height:1.6">Your parent or guardian has completed the consent form. Your Tee365 account is now fully active and you can book a bay.</p>
+  <div style="text-align:center;margin:32px 0">
+    <a href="https://tee365.org/book" style="display:inline-block;background:#22c55e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Book a Bay</a>
+  </div>
+  <hr style="border:none;border-top:1px solid #262626;margin:24px 0">
+  <p style="color:#737373;font-size:12px">Tee365 Indoor Golf &nbsp;·&nbsp; bookings@tee365.org</p>
+</div></body></html>`,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}

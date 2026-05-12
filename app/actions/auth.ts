@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { z } from "zod"
+import { randomBytes } from "crypto"
+import { sendParentalConsentRequestEmail } from "@/lib/resend/email"
 
 async function verifyTurnstile(token: string | null): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY
@@ -20,6 +22,8 @@ async function verifyTurnstile(token: string | null): Promise<boolean> {
 
 const SignupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
+  isMinor: z.enum(["true", "false"]).transform((v) => v === "true"),
+  parentEmail: z.string().email("Valid parent email required").optional().or(z.literal("")),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().min(10, "Valid phone number required"),
   email: z.string().email("Valid email required"),
@@ -51,15 +55,21 @@ export async function signup(
     phone: formData.get("phone"),
     email: formData.get("email"),
     password: formData.get("password"),
+    isMinor: formData.get("isMinor") as string,
+    parentEmail: formData.get("parentEmail") as string | null ?? "",
   })
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors }
   }
 
-  const { firstName, lastName, phone, email, password } = parsed.data
+  const { firstName, lastName, phone, email, password, isMinor, parentEmail } = parsed.data
 
-  const { error } = await supabase.auth.signUp({
+  if (isMinor && !parentEmail) {
+    return { errors: { parentEmail: ["Parent or guardian email is required"] } }
+  }
+
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -69,6 +79,30 @@ export async function signup(
 
   if (error) {
     return { message: "Unable to create account. If you already have one, try signing in." }
+  }
+
+  const userId = signUpData.user?.id
+
+  if (isMinor && userId && parentEmail) {
+    const serviceClient = await createServiceClient()
+    await serviceClient.from("profiles").update({ is_minor: true }).eq("id", userId)
+    const token = randomBytes(32).toString("hex")
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    await serviceClient.from("parental_consents").insert({
+      minor_user_id: userId,
+      parent_email: parentEmail,
+      token,
+      token_expires_at: expires.toISOString(),
+    })
+    try {
+      await sendParentalConsentRequestEmail({
+        to: parentEmail,
+        minorFirstName: firstName,
+        consentUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://tee365.org"}/minor-consent/${token}`,
+      })
+    } catch { /* non-fatal */ }
+    revalidatePath("/", "layout")
+    redirect("/account/awaiting-consent")
   }
 
   revalidatePath("/", "layout")
