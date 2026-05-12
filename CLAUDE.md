@@ -19,15 +19,17 @@ Next.js 16, Supabase (auth + Postgres), Stripe, Twilio, Resend, Vercel
 - **Booking confirmation email** — fires on `payment_intent.succeeded` and admin manual confirm. Full receipt. `lib/resend/email.ts`. RESEND_API_KEY confirmed in Vercel.
 - **Security** — Cloudflare orange-cloud, Turnstile on login + signup, RLS on all tables, security headers.
 
-## Disclosures (overhauled 2026-05-12)
+## Disclosures (last updated 2026-05-12)
 Three disclosures live in DB: Liability Waiver, Facility Rules, Guest & Age Policy. `disclosure_acknowledgments` stores `body_snapshot` (exact text agreed to at time of booking) and `booking_id`. Key policy points:
-- Card storage disclosed in Liability Waiver
-- Overstay: 15-min grace, then booked rate, card on file may be charged (contact first)
-- Equipment damage: full repair/replacement cost, card on file, contact first
-- Cameras: disclosed ("monitored by security cameras")
+- Food & beverage: outside food and non-alcoholic drinks permitted inside the facility (not just bays)
+- Alcohol: zero-tolerance, immediate removal without refund, permanent ban, forfeiture of all membership benefits including Founder's Club
+- Overstay: 15-min grace, then one full additional hour at booked rate regardless of duration; contact before charging
+- Capacity: "up to 4 patrons" per bay (not "4 guests" — avoids booker+4 ambiguity)
+- Payment method: customer removes via tee365.org/account (self-serve)
+- Equipment damage: full repair/replacement cost, card on file, contact before charging (48h to respond)
+- Cameras: facility and bays monitored by security cameras
 - Closure: 24h+ notice = full refund or reschedule; same-day = full refund
 - Minors: 16-17 with parental consent on file; under 16 with adult present
-- Capacity: 4 per bay (6 is physical max, not advertised)
 
 ## SMS (Twilio)
 A2P 10DLC rejected 4 times. Pending resubmission. Campaign copy at `docs/twilio-a2p-campaign.md`. Twilio number: (574) 406-2332. **Blocked.**
