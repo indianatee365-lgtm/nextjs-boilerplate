@@ -167,9 +167,13 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [x] Cloudflare Turnstile wired to login + signup forms — live and working (Apr 28 2026)
 - [x] Turnstile env vars added in Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`)
 - [x] **Put Cloudflare in front of tee365.org** (orange-cloud DNS mode) — nameservers pointed Apr 29 2026, active and proxying
-- [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate webhook delivery side-effects (duplicate coupon/gift card deductions)
 - [x] Supabase RLS audit — all 16 tables have RLS on with correct policies; fixed `profiles` UPDATE missing `with_check` (users could self-escalate to admin role)
-- [ ] Content Security Policy — complex with Stripe Elements + Turnstile; do after those are stable in prod
+- [x] Content Security Policy — nonce-based CSP via proxy.ts; covers Stripe, Google Analytics, Turnstile, Supabase; HTTP Observatory A+ (115/100, 10/10) — May 13 2026
+- [x] Next.js upgraded 16.1.6 → 16.2.6 — patched proxy bypass (GHSA-492v-c6pp-mqqv, GHSA-267c-6grr-h53f) and CSP nonce XSS (GHSA-ffhc-5mcf-pf4q) CVEs — May 13 2026
+- [x] npm dependency audit — axios, flatted, picomatch high CVEs patched; 3 moderate PostCSS (build-time only, no fix available) — May 13 2026
+- [x] RLS audit updated — all 17 tables confirmed enabled (parental_consents added since Apr 28 audit)
+- [ ] Rate limiting — Cloudflare already proxying; configure rate limiting rules in Cloudflare dashboard (no code needed). Priority routes: auth (login/signup), gift card balance, coupon redemption. Evaluate Cloudflare free tier vs. paid WAF rules.
+- [ ] Stripe webhook idempotency — move this above rate limiting; store processed event.id to prevent duplicate side-effects
 
 ### 🟡 Shortly after launch
 - [ ] Admin: bay management (activate/deactivate bays)
