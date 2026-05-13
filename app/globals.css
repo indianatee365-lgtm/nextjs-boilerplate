@@ -84,6 +84,13 @@ body::before {
 
 select.input {
   @apply cursor-pointer;
+  background-color: #171717;
+  color: white;
+}
+
+select.input option {
+  background-color: #171717;
+  color: white;
 }
 
 .field-error {
