@@ -6,8 +6,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { z } from "zod"
 import { randomBytes } from "crypto"
 import { sendParentalConsentRequestEmail } from "@/lib/resend/email"
-import { request } from "@arcjet/next"
-import { authAj } from "@/lib/arcjet"
+import { headers } from "next/headers"
+import { authRatelimit } from "@/lib/ratelimit"
 
 async function verifyTurnstile(token: string | null): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY
@@ -41,11 +41,9 @@ export async function signup(
   prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
-  const req = await request()
-  const decision = await authAj.protect(req)
-  if (decision.isDenied()) {
-    return { message: "Too many attempts. Please try again later." }
-  }
+  const ip = (await headers()).get("cf-connecting-ip") ?? (await headers()).get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await authRatelimit.limit(ip)
+  if (!success) return { message: "Too many attempts. Please try again later." }
 
   if (!(await verifyTurnstile(formData.get("cf-turnstile-response") as string | null))) {
     return { message: "Bot verification failed. Please try again." }
@@ -122,11 +120,9 @@ export async function login(
   prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
-  const req = await request()
-  const decision = await authAj.protect(req)
-  if (decision.isDenied()) {
-    return { message: "Too many attempts. Please try again later." }
-  }
+  const ip = (await headers()).get("cf-connecting-ip") ?? (await headers()).get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await authRatelimit.limit(ip)
+  if (!success) return { message: "Too many attempts. Please try again later." }
 
   if (!(await verifyTurnstile(formData.get("cf-turnstile-response") as string | null))) {
     return { message: "Bot verification failed. Please try again." }
@@ -166,11 +162,9 @@ export async function requestPasswordReset(
   prevState: SignupState,
   formData: FormData
 ): Promise<SignupState> {
-  const req = await request()
-  const decision = await authAj.protect(req)
-  if (decision.isDenied()) {
-    return { message: "Too many attempts. Please try again later." }
-  }
+  const ip = (await headers()).get("cf-connecting-ip") ?? (await headers()).get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await authRatelimit.limit(ip)
+  if (!success) return { message: "Too many attempts. Please try again later." }
 
   const email = (formData.get("email") as string)?.trim()
   if (!email) return { message: "Email is required" }

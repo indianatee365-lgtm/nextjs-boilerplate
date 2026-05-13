@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { giftCardAj } from "@/lib/arcjet"
+import { giftCardRatelimit } from "@/lib/ratelimit"
 
 export async function GET(request: NextRequest) {
-  const decision = await giftCardAj.protect(request)
-  if (decision.isDenied()) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 })
-  }
+  const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await giftCardRatelimit.limit(ip)
+  if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
 
   const code = request.nextUrl.searchParams.get("code")?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-")
   if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 })
