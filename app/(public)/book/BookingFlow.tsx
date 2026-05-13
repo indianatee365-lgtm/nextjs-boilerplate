@@ -60,8 +60,7 @@ function PaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as any }} />
+      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
       <button type="submit" disabled={submitting || !stripe} className="btn-primary w-full">
         {submitting ? "Processing…" : `Pay $${total.toFixed(2)}`}
       </button>

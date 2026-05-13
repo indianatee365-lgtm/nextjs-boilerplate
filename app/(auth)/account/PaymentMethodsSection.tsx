@@ -42,8 +42,7 @@ function AddCardForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as any }} />
+      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex gap-3">
         <button type="submit" disabled={submitting} className="btn-primary px-4 py-2 text-sm">

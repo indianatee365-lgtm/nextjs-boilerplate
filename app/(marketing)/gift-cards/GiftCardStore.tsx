@@ -51,8 +51,7 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
       </div>
       <div>
         <p className="label mb-2">Payment</p>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as any }} />
+        <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={!stripe || submitting} className="btn-primary w-full py-3 text-base">

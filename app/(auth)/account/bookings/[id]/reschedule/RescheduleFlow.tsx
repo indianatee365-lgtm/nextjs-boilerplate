@@ -101,8 +101,7 @@ function PaymentForm({
 
   return (
     <form onSubmit={handlePay} className="space-y-5">
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as any }} />
+      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={submitting || !stripe} className="btn-primary w-full">
         {submitting ? "Processing…" : `Pay ${fmt(netCharge)} & reschedule`}
