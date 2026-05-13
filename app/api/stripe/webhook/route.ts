@@ -35,6 +35,21 @@ export async function POST(request: NextRequest) {
   const supabase = await createServiceClient()
 
   if (event.type === "payment_intent.succeeded") {
+    const _pi = event.data.object as Stripe.PaymentIntent
+    if (_pi.metadata?.type === "gift_card") {
+      const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
+      const amount = parseInt(amountCents) / 100
+      const { data: existing } = await supabase.from("gift_cards").select("id").eq("stripe_payment_id", _pi.id).maybeSingle()
+      if (!existing) {
+        const code = Array.from(require("crypto").randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)).join("-")
+        await supabase.from("gift_cards").insert({ code, original_amount: amount, balance: amount, active: true, recipient_name: recipientName, recipient_email: recipientEmail, purchased_by: senderName, stripe_payment_id: _pi.id })
+        try { await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount }) } catch {}
+      }
+      return NextResponse.json({ received: true })
+    }
+  }
+
+  if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
 
     const { data: booking } = await supabase

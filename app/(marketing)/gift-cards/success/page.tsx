@@ -19,29 +19,26 @@ function generateCode(): string {
 export default async function GiftCardSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session_id?: string }>
+  searchParams: Promise<{ payment_intent?: string; redirect_status?: string }>
 }) {
-  const { session_id } = await searchParams
-  if (!session_id) redirect("/gift-cards")
+  const { payment_intent, redirect_status } = await searchParams
+  if (!payment_intent || redirect_status !== "succeeded") redirect("/gift-cards")
 
-  let session: Stripe.Checkout.Session
+  let pi: Stripe.PaymentIntent
   try {
-    session = await getStripe().checkout.sessions.retrieve(session_id)
+    pi = await getStripe().paymentIntents.retrieve(payment_intent)
   } catch {
     redirect("/gift-cards")
   }
 
-  if (session.payment_status !== "paid" || session.metadata?.type !== "gift_card") {
-    redirect("/gift-cards")
-  }
+  if (pi.status !== "succeeded" || pi.metadata?.type !== "gift_card") redirect("/gift-cards")
 
-  const { recipientName, recipientEmail, senderName, amountCents } = session.metadata!
+  const { recipientName, recipientEmail, senderName, amountCents } = pi.metadata!
   const amount = parseInt(amountCents) / 100
-  const stripePaymentId = session.payment_intent as string
+  const stripePaymentId = pi.id
 
   const supabase = await createServiceClient()
 
-  // Idempotency: check if already created for this payment
   const { data: existing } = await supabase
     .from("gift_cards")
     .select("code, balance")
@@ -84,18 +81,13 @@ export default async function GiftCardSuccessPage({
         <p className="text-neutral-400 mb-8">
           A ${amount.toFixed(2)} gift card has been emailed to <strong className="text-white">{recipientEmail}</strong>.
         </p>
-
         <div className="bg-black/30 rounded-xl px-6 py-5 mb-4">
           <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Gift card code</p>
           <p className="text-2xl font-bold tracking-[6px] text-white font-mono">{code}</p>
           <p className="text-xs text-neutral-500 mt-2">Balance: ${balance.toFixed(2)}</p>
         </div>
-
-        <p className="text-xs text-neutral-500">
-          Save this code for your records. It can be entered at checkout on any Tee365 booking.
-        </p>
+        <p className="text-xs text-neutral-500">Save this code for your records. It can be entered at checkout on any Tee365 booking.</p>
       </div>
-
       <div className="flex gap-3 justify-center">
         <Link href="/gift-cards" className="btn-secondary px-5 py-2.5">Buy another</Link>
         <Link href="/book" className="btn-primary px-5 py-2.5">Book a bay</Link>
