@@ -30,7 +30,7 @@ export default async function AdminPage() {
   const todayUTC = new Date(today.getTime() + etOffset)
   const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
 
-  const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }, { data: recentCancellations }] =
+  const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }, { data: recentCancellations }, { data: activeCoupons }] =
     await Promise.all([
       serviceClient
         .from("bookings")
@@ -56,6 +56,12 @@ export default async function AdminPage() {
         .not("cancelled_at", "is", null)
         .order("cancelled_at", { ascending: false })
         .limit(20),
+      serviceClient
+        .from("coupons")
+        .select("id, name, code, discount_type, discount_value, uses_count, max_uses, expires_at")
+        .eq("active", true)
+        .order("uses_count", { ascending: false })
+        .limit(5),
     ])
 
   return (
@@ -187,6 +193,40 @@ export default async function AdminPage() {
           </div>
         ) : (
           <p className="text-sm text-neutral-500">No cancellations yet.</p>
+        )}
+      </div>
+
+      {/* Active coupons */}
+      <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-white">Active coupons</h2>
+          <a href="/admin/coupons" className="text-xs text-brand hover:underline">Manage →</a>
+        </div>
+        {activeCoupons && activeCoupons.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-neutral-500 border-b border-white/10">
+                <th className="pb-2">Code</th>
+                <th className="pb-2">Name</th>
+                <th className="pb-2">Discount</th>
+                <th className="pb-2">Uses</th>
+                <th className="pb-2">Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeCoupons.map((c) => (
+                <tr key={c.id} className="border-b border-white/5 text-neutral-300">
+                  <td className="py-2 font-mono text-xs font-medium">{c.code}</td>
+                  <td className="py-2 text-neutral-400 text-xs">{(c as any).name ?? "—"}</td>
+                  <td className="py-2">{c.discount_type === "percent" ? `${c.discount_value}%` : `$${Number(c.discount_value).toFixed(2)}`}</td>
+                  <td className="py-2">{c.uses_count}{c.max_uses ? ` / ${c.max_uses}` : ""}</td>
+                  <td className="py-2 text-neutral-400 text-xs">{c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-neutral-500">No active coupons.</p>
         )}
       </div>
     </main>

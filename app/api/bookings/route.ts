@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     if (couponCode) {
       const { data: coupon } = await serviceClient
         .from("coupons")
-        .select("id, discount_type, discount_value, max_uses, uses_count, expires_at")
+        .select("id, discount_type, discount_value, max_uses, uses_count, expires_at, max_uses_per_user")
         .eq("code", couponCode.toUpperCase())
         .eq("active", true)
         .single()
@@ -132,6 +132,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Coupon has reached its usage limit" }, { status: 400 })
       }
 
+
+      const c = coupon as typeof coupon & { max_uses_per_user: number | null }
+      if (c.max_uses_per_user !== null) {
+        const { count } = await serviceClient
+          .from("coupon_uses")
+          .select("id", { count: "exact", head: true })
+          .eq("coupon_id", coupon.id)
+          .eq("user_id", user.id)
+        if ((count ?? 0) >= c.max_uses_per_user) {
+          return NextResponse.json({ error: "You have already used this coupon" }, { status: 400 })
+        }
+      }
       couponId = coupon.id
       couponDiscountType = coupon.discount_type as "percent" | "fixed"
       couponDiscountValue = Number(coupon.discount_value)

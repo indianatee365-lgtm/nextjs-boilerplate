@@ -329,6 +329,8 @@ export type Database = {
           expires_at: string | null
           id: string
           max_uses: number | null
+          max_uses_per_user: number | null
+          name: string | null
           uses_count: number
         }
         Insert: {
@@ -341,6 +343,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           max_uses?: number | null
+          max_uses_per_user?: number | null
+          name?: string | null
           uses_count?: number
         }
         Update: {
@@ -353,6 +357,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           max_uses?: number | null
+          max_uses_per_user?: number | null
+          name?: string | null
           uses_count?: number
         }
         Relationships: [
