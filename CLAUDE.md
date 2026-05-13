@@ -55,6 +55,11 @@ Option B — yes/no age question at signup (no DOB collected). Adults click yes,
 - Booking gate: wrapped in `if (user)` so it survives auth gate removal at launch
 - **At launch:** remove the one line marked `// LAUNCH: remove this line` in `app/(public)/book/page.tsx`
 
+## Coupon system
+Admin can issue coupons at `/admin/coupons`. Fields: internal name, code (randomizable), percent or flat discount, max total uses, max per customer (blank = unlimited), expiry. Deactivate/activate toggle per row. Dashboard shows top 5 active coupons.
+
+Booking API enforces `max_uses_per_user`: checks `coupon_uses` table before applying. Partnership pattern: `max_uses_per_user = 1` + shared code = each partner member gets one use.
+
 ## Recourse process
 Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
 
