@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",
+      payment_method_types: ["card"],
       customer: stripeCustomerId,
       setup_future_usage: "off_session",
       metadata: {
