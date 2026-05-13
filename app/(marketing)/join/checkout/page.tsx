@@ -94,7 +94,8 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <PaymentElement />
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as any }} />
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}
