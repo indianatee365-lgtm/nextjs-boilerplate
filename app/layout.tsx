@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
 const LOCAL_BUSINESS_SCHEMA = {
@@ -61,11 +62,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en">
       <head>
@@ -73,13 +76,14 @@ export default function RootLayout({
       </head>
       <body className="relative overflow-x-hidden">
         <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_SCHEMA) }}
         />
         <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)" }} />
         {children}
       </body>
-      <GoogleAnalytics gaId="G-LJZ2L1GD7Y" />
+      <GoogleAnalytics gaId="G-LJZ2L1GD7Y" nonce={nonce} />
     </html>
   );
 }
