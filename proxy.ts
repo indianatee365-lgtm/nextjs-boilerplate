@@ -6,12 +6,12 @@ export async function proxy(request: NextRequest) {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "' 'strict-dynamic' https://js.stripe.com https://www.googletagmanager.com",
+    "script-src 'self' 'nonce-" + nonce + "' 'strict-dynamic' https://js.stripe.com https://www.googletagmanager.com https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.stripe.com https://www.google-analytics.com",
     "font-src 'self'",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://r.stripe.com https://errors.stripe.com https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com",
-    "frame-src https://js.stripe.com https://hooks.stripe.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://r.stripe.com https://errors.stripe.com https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com",
+    "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
