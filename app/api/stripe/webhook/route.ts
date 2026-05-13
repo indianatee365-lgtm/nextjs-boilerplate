@@ -39,11 +39,16 @@ export async function POST(request: NextRequest) {
     if (_pi.metadata?.type === "gift_card") {
       const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
       const amount = parseInt(amountCents) / 100
-      const { data: existing } = await supabase.from("gift_cards").select("id").eq("stripe_payment_id", _pi.id).maybeSingle()
-      if (!existing) {
-        const code = Array.from(require("crypto").randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)).join("-")
-        await supabase.from("gift_cards").insert({ code, original_amount: amount, balance: amount, active: true, recipient_name: recipientName, recipient_email: recipientEmail, purchased_by: senderName, stripe_payment_id: _pi.id })
+      const code = generateGiftCardCode()
+      const { error: insertError } = await supabase.from("gift_cards").insert({
+        code, original_amount: amount, balance: amount, active: true,
+        recipient_name: recipientName, recipient_email: recipientEmail,
+        purchased_by: senderName, stripe_payment_id: _pi.id,
+      })
+      if (!insertError) {
         try { await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount }) } catch {}
+      } else if ((insertError as { code?: string }).code !== "23505") {
+        console.error("Gift card webhook insert failed", insertError)
       }
       return NextResponse.json({ received: true })
     }
