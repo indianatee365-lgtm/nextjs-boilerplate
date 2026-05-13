@@ -60,6 +60,16 @@ Admin can issue coupons at `/admin/coupons`. Fields: internal name, code (random
 
 Booking API enforces `max_uses_per_user`: checks `coupon_uses` table before applying. Partnership pattern: `max_uses_per_user = 1` + shared code = each partner member gets one use.
 
+## Payment methods
+Accepted: **Card, Apple Pay, Google Pay, Cash App Pay**. Everything else blocked.
+- `payment_method_types: ["card", "cashapp"]` on all PaymentIntents (bookings + gift cards)
+- `wallets: { link: "never" }` on all PaymentElement instances — suppresses Link bank tab client-side
+- ACH/bank blocked: 3-day settlement means booking stays pending with no confirmation or access code
+- Apple Pay: Safari only (iPhone, iPad, Mac). Domain verified — `public/.well-known/apple-developer-merchantid-domain-association` deployed, tee365.org registered in Stripe → Settings → Payment method domains
+- Google Pay: Chrome on any platform (Android, Windows, Mac)
+- Venmo: not available via Stripe (PayPal-owned)
+- Note: `// eslint-disable` comments render as visible text in JSX — use `as never` type cast instead
+
 ## Recourse process
 Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
 

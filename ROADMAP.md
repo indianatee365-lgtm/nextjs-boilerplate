@@ -118,7 +118,7 @@ Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichev
 - [ ] Annual refund calculation in admin panel
 
 #### Gift cards
-- [x] Customer-facing gift card purchase flow — `/gift-cards` (login required until Stripe goes live); $25/$50/$100/custom ($10–$500); recipient name + email; Stripe Checkout; branded gift email with code; webhook backup for reliability
+- [x] Customer-facing gift card purchase flow — `/gift-cards` (login required until Stripe goes live); $25/$50/$100/custom ($10–$500); embedded PaymentElement (not Stripe Checkout); idempotent via unique constraint on stripe_payment_id; optimistic insert in webhook catches 23505 silently; branded gift email to recipient
 - [x] Balance checker — on `/gift-cards` page (login required)
 - [x] Admin: gift card issuance UI — "Issue gift card" modal on `/admin/gift-cards`; optional email send
 - [ ] Remove login gate from `/gift-cards` and balance checker once Stripe is on live keys; update FAQ gift card answer to "now live"
@@ -197,3 +197,4 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [ ] Membership renewal / cancellation self-serve
 - [ ] Public availability calendar (unauthenticated preview)
 - [x] Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup — added to sandbox endpoint 2026-05-12; repeat for live endpoint when switching keys)
+- [x] Payment methods locked down — card + Apple Pay + Google Pay + Cash App Pay; bank/ACH blocked at PaymentIntent level (payment_method_types) and client level (wallets.link: never); Apple Pay domain verified (public/.well-known/apple-developer-merchantid-domain-association deployed, tee365.org registered in Stripe)
