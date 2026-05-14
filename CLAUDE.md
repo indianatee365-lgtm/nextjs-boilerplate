@@ -74,9 +74,9 @@ Accepted: **Card, Apple Pay, Google Pay, Cash App Pay**. Everything else blocked
 Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
 
 ## Pre-launch checklist (short version)
-1. Sign up at telnyx.com, buy US local number, register brand + campaign (Messaging > Numbers > 10DLC)
-2. Migrate SMS code (lib/twilio/sms.ts -> lib/telnyx/sms.ts, swap env vars)
-3. Verify SMS end-to-end once Telnyx A2P approved (blocked on approval)
+1. [x] Telnyx account, number (+15744449365), brand + campaign registered 2026-05-14
+2. [x] SMS code migrated (lib/telnyx/sms.ts), env vars in Vercel
+3. Verify SMS end-to-end once Telnyx A2P approved — campaign submitted 2026-05-14, pending TCR (1-3 days)
 4. Wire up access control API — `lib/access-control/index.ts` stub *(blocked on hardware)*
 5. Switch Stripe to live keys (also add `checkout.session.completed` to the live webhook endpoint when doing this)
 6. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026

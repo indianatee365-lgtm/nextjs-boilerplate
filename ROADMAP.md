@@ -52,7 +52,7 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] Access code flow: generated at 15-min mark (not at payment), sent via cron
 - [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
 - [x] ~~Twilio~~ → **migrating to Telnyx** (decided 2026-05-14 after 5 A2P rejections and 4+ day non-response on final resubmission)
-- [ ] **Telnyx: sign up, buy US local number, start brand + campaign registration** (abandoning Twilio number — no customers have it pre-launch)
+- [x] Telnyx account created, number purchased (+15744449365), brand registered, campaign submitted 2026-05-14 ($40 upfront; $10/mo after 3 months)
 - [x] A2P 10DLC — resubmitted 4 times; May 5 2026 changes: added explicit SMS consent checkbox to signup (required, server-validated), added "Reply STOP to opt out, HELP for info. Msg & data rates may apply." to booking confirmation SMS, added "Reply STOP to opt out." to access code SMS. Campaign copy saved in `docs/twilio-a2p-campaign.md`. **Pending resubmission.**
 - [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
 - [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
