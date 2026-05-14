@@ -3,51 +3,28 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { giftCardRatelimit } from "@/lib/ratelimit"
 
 export async function GET(request: NextRequest) {
-  try {
-    const url = process.env.UPSTASH_REDIS_REST_URL
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN
-    if (!url || !token) {
-      return NextResponse.json({
-        debug: "env vars missing",
-        hasUrl: !!url,
-        hasToken: !!token,
-      }, { status: 500 })
-    }
+  const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await giftCardRatelimit.limit(ip)
+  if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
 
-    const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
-    const { success } = await giftCardRatelimit.limit(ip)
-    if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+  const code = request.nextUrl.searchParams.get("code")?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-")
+  if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 })
 
-    const code = request.nextUrl.searchParams.get("code")?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-")
-    if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 })
+  const supabase = await createServiceClient()
+  const { data: card } = await supabase
+    .from("gift_cards")
+    .select("balance, original_amount, active, expires_at")
+    .eq("code", code)
+    .single()
 
-    const supabase = await createServiceClient()
-    const { data: card } = await supabase
-      .from("gift_cards")
-      .select("balance, original_amount, active, expires_at")
-      .eq("code", code)
-      .single()
+  if (!card) return NextResponse.json({ error: "Gift card not found" }, { status: 404 })
 
-    if (!card) return NextResponse.json({ error: "Gift card not found" }, { status: 404 })
+  const expired = card.expires_at && new Date(card.expires_at) < new Date()
 
-    const expired = card.expires_at && new Date(card.expires_at) < new Date()
-
-    return NextResponse.json({
-      balance: Number(card.balance),
-      originalAmount: Number(card.original_amount),
-      active: card.active && !expired,
-      expiresAt: card.expires_at,
-    })
-  } catch (e) {
-    const url = process.env.UPSTASH_REDIS_REST_URL
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN
-    return NextResponse.json({
-      error: String(e),
-      urlLength: url?.length,
-      tokenLength: token?.length,
-      urlStartsWith: url?.substring(0, 10),
-      tokenStartsWith: token?.substring(0, 6),
-      tokenEndsWith: token?.slice(-4),
-    }, { status: 500 })
-  }
+  return NextResponse.json({
+    balance: Number(card.balance),
+    originalAmount: Number(card.original_amount),
+    active: card.active && !expired,
+    expiresAt: card.expires_at,
+  })
 }
