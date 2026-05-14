@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { randomInt } from "crypto"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendAccessCodeReminder } from "@/lib/twilio/sms"
+import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { grantBayAccess } from "@/lib/access-control"
 
 export const runtime = "nodejs"

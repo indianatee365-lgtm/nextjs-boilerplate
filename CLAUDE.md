@@ -3,7 +3,7 @@
 Live codebase, deploys to **tee365.org** via Vercel. Supabase CLI is linked — Claude can run SQL directly with `supabase db query --linked`. SSH from labwork (Windows) to labserver works.
 
 ## Stack
-Next.js 16, Supabase (auth + Postgres), Stripe, Twilio, Resend, Vercel
+Next.js 16, Supabase (auth + Postgres), Stripe, Telnyx, Resend, Vercel
 
 ## What's built and working
 - **Booking flow** — date → time → review → Stripe payment. Server-confirmed pricing with membership discounts, coupons, gift cards, 7% Indiana sales tax. Payment confirmation gated via `/book/return` (checks Stripe `redirect_status=succeeded` before showing banner).
@@ -31,8 +31,8 @@ Three disclosures live in DB: Liability Waiver, Facility Rules, Guest & Age Poli
 - Closure: 24h+ notice = full refund or reschedule; same-day = full refund
 - Minors: 16-17 with parental consent on file; under 16 with adult present
 
-## SMS (Twilio)
-A2P 10DLC rejected 4 times. Pending resubmission. Campaign copy at `docs/twilio-a2p-campaign.md`. Twilio number: (574) 406-2332. **Blocked.**
+## SMS + Voice (Telnyx)
+Switched from Twilio 2026-05-14 after 5 A2P rejections. Single Telnyx number handles SMS + inbound voice. SMS migration: lib/twilio/sms.ts -> lib/telnyx/sms.ts, swap TWILIO_* env vars for TELNYX_API_KEY + TELNYX_PHONE_NUMBER. Campaign copy at docs/twilio-a2p-campaign.md carries over. Voice agent: OpenAI Realtime API on labserver Docker, troubleshooting tree, escalates to cell, after-hours voicemail. See ROADMAP Voice Agent section.
 
 ## Sales tax
 7% Indiana flat rate on post-discount amount before gift cards. Stored in `bookings.tax`. Membership fee taxability TBD (pending accountant).
@@ -74,13 +74,14 @@ Accepted: **Card, Apple Pay, Google Pay, Cash App Pay**. Everything else blocked
 Templates for damage/overstay at `docs/templates/recourse-contact.md`. Always contact customer before charging. Process: document → contact (48h) → charge if no response → send receipt.
 
 ## Pre-launch checklist (short version)
-1. Resubmit Twilio A2P campaign — `docs/twilio-a2p-campaign.md` *(blocked)*
-2. Verify SMS end-to-end once A2P approved *(blocked)*
-3. Wire up access control API — `lib/access-control/index.ts` stub *(blocked on hardware)*
-4. Switch Stripe to live keys (also add `checkout.session.completed` to the live webhook endpoint when doing this)
-5. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
-6. Remove login gate from `/gift-cards` + update FAQ gift card answer
-7. Remove auth gate from `/book` — one line marked `// LAUNCH: remove this line` in `app/(public)/book/page.tsx`
+1. Sign up at telnyx.com, buy US local number, register brand + campaign (Messaging > Numbers > 10DLC)
+2. Migrate SMS code (lib/twilio/sms.ts -> lib/telnyx/sms.ts, swap env vars)
+3. Verify SMS end-to-end once Telnyx A2P approved (blocked on approval)
+4. Wire up access control API — `lib/access-control/index.ts` stub *(blocked on hardware)*
+5. Switch Stripe to live keys (also add `checkout.session.completed` to the live webhook endpoint when doing this)
+6. Schedule pg_cron: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
+7. Remove login gate from `/gift-cards` + update FAQ gift card answer
+8. Remove auth gate from `/book` — one line marked `// LAUNCH: remove this line` in `app/(public)/book/page.tsx`
 
 Full checklist: `ROADMAP.md`
 

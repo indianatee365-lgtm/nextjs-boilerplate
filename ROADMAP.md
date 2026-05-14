@@ -23,7 +23,7 @@ The main marketing site (`tee365.org`) and the booking app have been merged into
 - Next.js 16.1.6 (Turbopack, `proxy.ts` middleware convention)
 - Supabase (auth + Postgres) — email confirmation disabled, signups working
 - Stripe (payments, webhook at `/api/stripe/webhook`) — test keys active
-- Twilio (SMS)
+- Telnyx (SMS + Voice)
 - Vercel (hosting, tee365.org domain)
 
 ### Repo situation
@@ -51,14 +51,14 @@ Get the booking flow production-ready and open it to customers. Then build out t
 - [x] Stripe webhook fixed — duplicate endpoints removed, signing secret matched
 - [x] Access code flow: generated at 15-min mark (not at payment), sent via cron
 - [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
-- [x] Twilio credentials set in Vercel — SMS blocked by A2P 10DLC (not a code issue)
-- [x] Twilio number purchased: (574) 406-2332
+- [x] ~~Twilio~~ → **migrating to Telnyx** (decided 2026-05-14 after 5 A2P rejections and 4+ day non-response on final resubmission)
+- [ ] **Telnyx: sign up, buy US local number, start brand + campaign registration** (abandoning Twilio number — no customers have it pre-launch)
 - [x] A2P 10DLC — resubmitted 4 times; May 5 2026 changes: added explicit SMS consent checkbox to signup (required, server-validated), added "Reply STOP to opt out, HELP for info. Msg & data rates may apply." to booking confirmation SMS, added "Reply STOP to opt out." to access code SMS. Campaign copy saved in `docs/twilio-a2p-campaign.md`. **Pending resubmission.**
 - [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
 - [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
 - [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
 - [x] Next available slot scans all 4 bays correctly
-- [ ] **Verify SMS end-to-end once A2P 10DLC approved** — book session, confirm SMS + 15-min access code
+- [ ] **Verify SMS end-to-end once Telnyx A2P approved** — book session, confirm SMS + 15-min access code
 - [x] Fix CRON_SECRET mismatch — pg_cron getting 401 on `/api/cron/booking-reminders`
 - [ ] Wire up access control API in `lib/access-control/index.ts`
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
@@ -185,6 +185,22 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $5 flat reschedule fee; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion; cutoff is 4h before session (not 24h)
 - [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
 
+### 🔵 Voice Agent (Telnyx + OpenAI Realtime)
+Single Telnyx number handles both SMS and inbound voice. Customer calls → AI agent greets and walks through troubleshooting tree → unresolved → transfers to Jerrod's cell. After-hours: skip transfer, play voicemail message. Personal cell never exposed to customers.
+
+**Architecture:** Telnyx inbound call webhook → Next.js answers call → Telnyx streams audio over WebSocket → separate Node.js WebSocket bridge on labserver → OpenAI Realtime API (voice-to-voice) → Telnyx Call Control for transfer/hangup. Runs as Docker container on labserver (Vercel doesn't support long-running WebSockets).
+
+- [ ] Telnyx voice webhook configured (inbound call URL: tee365.org/api/voice/inbound)
+- [ ]  Docker service: Node.js WS bridge + OpenAI Realtime API integration
+- [ ] Write troubleshooting tree system prompt ()
+- [ ] Call transfer to Jerrod's cell on escalation via Telnyx Call Control transfer command
+- [ ] After-hours logic: no transfer midnight–7am ET, play recorded/TTS voicemail message instead
+- [ ] Add to docker-compose on labserver + expose WS port
+- [ ] End-to-end test: call Telnyx number → agent greets → troubleshoot → escalate → cell rings
+- [ ] Inbound SMS webhook — set Messaging Profile webhook URL to https://tee365.org/api/sms/inbound once handler is built
+
+**Env vars needed:**  (shared), ,  (Jerrod's cell, never committed)
+
 ### 🟡 Phone OTP verification (scaffold in place — not live)
 - [ ] Add `phone_otp_hash` and `phone_otp_expires_at` columns to profiles
 - [ ] Implement `POST /api/auth/send-phone-otp` — generate 6-digit OTP, store hashed, send via Twilio
@@ -202,3 +218,6 @@ Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost cer
 - [ ] Public availability calendar (unauthenticated preview)
 - [x] Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup — added to sandbox endpoint 2026-05-12; repeat for live endpoint when switching keys)
 - [x] Payment methods locked down — card + Apple Pay + Google Pay + Cash App Pay; bank/ACH blocked at PaymentIntent level (payment_method_types) and client level (wallets.link: never); Apple Pay domain verified (public/.well-known/apple-developer-merchantid-domain-association deployed, tee365.org registered in Stripe)
+
+### 💡 Maybe Do
+- [ ] **Drop Zoho, switch to Cloudflare Email Routing** — inbound forwarding to Gmail is free; outbound Send-as from Gmail stays unchanged. Saves Zoho subscription cost. Low priority, do when convenient.

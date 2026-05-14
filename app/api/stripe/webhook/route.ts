@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation } from "@/lib/twilio/sms"
+import { sendBookingConfirmation } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail, sendGiftCardEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 
