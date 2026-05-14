@@ -4,6 +4,16 @@ import { giftCardRatelimit } from "@/lib/ratelimit"
 
 export async function GET(request: NextRequest) {
   try {
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    if (!url || !token) {
+      return NextResponse.json({
+        debug: "env vars missing",
+        hasUrl: !!url,
+        hasToken: !!token,
+      }, { status: 500 })
+    }
+
     const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
     const { success } = await giftCardRatelimit.limit(ip)
     if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
@@ -29,6 +39,15 @@ export async function GET(request: NextRequest) {
       expiresAt: card.expires_at,
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    return NextResponse.json({
+      error: String(e),
+      urlLength: url?.length,
+      tokenLength: token?.length,
+      urlStartsWith: url?.substring(0, 10),
+      tokenStartsWith: token?.substring(0, 6),
+      tokenEndsWith: token?.slice(-4),
+    }, { status: 500 })
   }
 }
