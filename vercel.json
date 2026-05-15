@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/booking-reminders",
+      "path": "/api/cron/cancel-stale",
       "schedule": "0 0 * * *"
     }
   ]

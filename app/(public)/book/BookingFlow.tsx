@@ -3,16 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
-import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, DollarSign, Timer } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+const EXPIRY_SECONDS = 900
 
 interface Bay { id: string; number: number; name: string }
-interface Disclosure { id: string; title: string; body: string }
 interface SlotData {
   startsAt: string
   endsAt: string
@@ -22,67 +21,26 @@ interface SlotData {
   context: { seasonType: string; dayType: string; timeType: string }
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
-interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
+interface ReservedBooking { id: string; clientSecret: string; expiresAt: Date }
 
-type Step = "date" | "time" | "review" | "payment"
+type Step = "date" | "bay" | "time" | "review" | "payment"
 
-// ── Inner payment form (must be inside <Elements>) ────────────────────────────
-function PaymentForm({
-  clientSecret,
-  bookingId,
-  total,
-  onError,
-}: {
-  clientSecret: string
-  bookingId: string
-  total: number
-  onError: (msg: string) => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [submitting, setSubmitting] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!stripe || !elements) return
-    setSubmitting(true)
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/book/return?bookingId=${bookingId}`,
-      },
-    })
-    if (error) {
-      onError(error.message ?? "Payment failed")
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
-      <button type="submit" disabled={submitting || !stripe} className="btn-primary w-full">
-        {submitting ? "Processing…" : `Pay $${total.toFixed(2)}`}
-      </button>
-    </form>
-  )
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-// ── Main booking flow ─────────────────────────────────────────────────────────
 export default function BookingFlow({
   bays,
   advanceDays,
   membershipSlug,
   userName,
-  disclosures,
-  isAuthenticated,
 }: {
   bays: Bay[]
   advanceDays: number
   membershipSlug: string | null
   userName: string
-  disclosures: Disclosure[]
-  isAuthenticated: boolean
 }) {
   const [step, setStep] = useState<Step>("date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -96,180 +54,139 @@ export default function BookingFlow({
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [bookingError, setBookingError] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [acknowledgedDisclosures, setAcknowledgedDisclosures] = useState<Set<string>>(new Set())
-  const [expandedDisclosure, setExpandedDisclosure] = useState<string | null>(disclosures[0]?.id ?? null)
-  const [nextAvailable, setNextAvailable] = useState<NextAvailable | null | "loading">("loading")
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  const [confirmedPricing, setConfirmedPricing] = useState<{
-    total: number; subtotal: number; membershipDiscount: number; couponDiscount: number; tax: number; giftCardApplied: number
-  } | null>(null)
-  const allDisclosuresAcknowledged = disclosures.every((d) => acknowledgedDisclosures.has(d.id))
+  const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
+  const [reserving, setReserving] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(EXPIRY_SECONDS)
+  const [expiredError, setExpiredError] = useState("")
+  const cancellingRef = useRef(false)
 
-  // Start with epoch so SSR renders all dates as selectable — useEffect sets correct local today after hydration
-  const [today, setToday] = useState(new Date(0))
-  useEffect(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    setToday(d)
-  }, [])
-  const maxDate = new Date(today.getTime() > 0 ? today : new Date())
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
-  // Pending slot ref: set when returning from auth, used to auto-select the saved slot after availability loads
-  const pendingSlotRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!isAuthenticated) return
-    try {
-      const saved = sessionStorage.getItem("tee365_pending_booking")
-      if (!saved) return
-      sessionStorage.removeItem("tee365_pending_booking")
-      const { dateISO, startsAt, durationMinutes: dur } = JSON.parse(saved)
-      if (!dateISO || !startsAt) return
-      const date = new Date(dateISO)
-      if (isNaN(date.getTime())) return
-      date.setHours(0, 0, 0, 0)
-      setSelectedDate(date)
-      setSelectedDuration(dur ?? 60)
-      pendingSlotRef.current = startsAt
-      setStep("time")
-    } catch { /* ignore malformed sessionStorage */ }
-  }, [isAuthenticated])
-
-  const loadAvailability = useCallback(async (date: Date) => {
+  const loadAvailability = useCallback(async (date: Date, bayId?: string) => {
     setLoadingSlots(true)
     try {
-      const res = await fetch(`/api/availability?date=${date.toISOString()}`)
+      const params = new URLSearchParams({ date: date.toISOString() })
+      if (bayId) params.set("bayId", bayId)
+      const res = await fetch(`/api/availability?${params}`)
       const data = await res.json()
-      const bayData: BayAvailability[] = Array.isArray(data) ? data : []
-      setAvailability(bayData)
-
-      // If returning from auth, try to auto-select the saved slot
-      const pending = pendingSlotRef.current
-      if (pending) {
-        pendingSlotRef.current = null
-        for (const bayAvail of bayData) {
-          const slot = bayAvail.slots.find((s) => s.startsAt === pending && s.available)
-          if (slot) {
-            setSelectedStart(slot)
-            setSelectedBay(bayAvail.bay)
-            setStep("review")
-            break
-          }
-        }
-      }
+      setAvailability(Array.isArray(data) ? data : [])
     } finally {
       setLoadingSlots(false)
     }
   }, [])
 
   useEffect(() => {
-    async function findNextAvailable() {
-      const now = new Date()
-      for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
-        const d = new Date(now)
-        d.setDate(d.getDate() + offset)
-        d.setHours(0, 0, 0, 0)
-        const res = await fetch(`/api/availability?date=${d.toISOString()}`)
-        const data: BayAvailability[] = await res.json()
-        if (!Array.isArray(data)) continue
-
-        // Find the earliest available slot across ALL bays (not just the first bay)
-        let earliest: NextAvailable | null = null
-        for (const bayAvail of data) {
-          for (let i = 0; i < bayAvail.slots.length - 1; i++) {
-            const slot = bayAvail.slots[i]
-            const next = bayAvail.slots[i + 1]
-            if (slot.available && next.available) {
-              if (!earliest || new Date(slot.startsAt) < new Date(earliest.slot.startsAt)) {
-                earliest = { date: d, slot, bay: bayAvail.bay }
-              }
-              break // no need to check more slots on this bay
-            }
-          }
-        }
-        if (earliest) {
-          setNextAvailable(earliest)
-          return
-        }
-      }
-      setNextAvailable(null)
-    }
-    findNextAvailable()
-  }, [advanceDays])
-
-  useEffect(() => {
-    if (selectedDate && step === "time") {
+    if (selectedDate && step === "bay") {
       loadAvailability(selectedDate)
     }
-  }, [selectedDate, step, loadAvailability])
+    if (selectedDate && selectedBay && step === "time") {
+      loadAvailability(selectedDate, selectedBay.id)
+    }
+  }, [selectedDate, selectedBay, step, loadAvailability])
 
-  function getMergedSlots(): SlotData[] {
-    const seen = new Map<string, SlotData>()
-    const midnight = selectedDate
-      ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1)
-      : null
-
-    for (const bayAvail of availability) {
-      for (const slot of bayAvail.slots) {
-        const slotTime = new Date(slot.startsAt)
-        if (selectedDate && slotTime < selectedDate) continue
-        if (midnight && slotTime >= midnight) continue
-        if (!seen.has(slot.startsAt)) {
-          seen.set(slot.startsAt, { ...slot, available: false })
+  // Create reservation when entering review step
+  useEffect(() => {
+    if (step !== "review" || !selectedBay || !selectedStart || reservedBooking || reserving) return
+    let cancelled = false
+    setReserving(true)
+    setBookingError("")
+    fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bayId: selectedBay.id,
+        startsAt: selectedStart.startsAt,
+        durationMinutes: selectedDuration,
+        couponCode: couponCode || undefined,
+        giftCardCode: giftCardCode || undefined,
+      }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (cancelled) return
+        if (!ok) {
+          setBookingError(data.error ?? "Could not reserve slot")
+          setStep("time")
+          return
         }
-        if (slot.available) {
-          seen.set(slot.startsAt, { ...slot, available: true })
+        setReservedBooking({
+          id: data.bookingId,
+          clientSecret: data.clientSecret,
+          expiresAt: new Date(Date.now() + EXPIRY_SECONDS * 1000),
+        })
+        setTimeLeft(EXPIRY_SECONDS)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBookingError("Could not reserve slot — please try again")
+          setStep("time")
         }
-      }
+      })
+      .finally(() => {
+        if (!cancelled) setReserving(false)
+      })
+    return () => { cancelled = true }
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Countdown timer
+  useEffect(() => {
+    if (step !== "review" || !reservedBooking) return
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          handleExpiry()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [step, reservedBooking]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function cancelReservation(id: string) {
+    if (cancellingRef.current) return
+    cancellingRef.current = true
+    try {
+      await fetch(`/api/bookings/${id}`, { method: "DELETE" })
+    } finally {
+      cancellingRef.current = false
     }
-    return Array.from(seen.values())
   }
 
-  function canFitDurationOnAnyBay(slotStartsAt: string, durationMins: number): boolean {
-    const needed = durationMins / 30
-    for (const bayAvail of availability) {
-      const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
-      if (startIdx === -1) continue
-      let fits = true
-      for (let i = 0; i < needed; i++) {
-        if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
-      }
-      if (fits) return true
-    }
-    return false
-  }
-
-  function findBayForSlot(slotStartsAt: string, durationMins: number): Bay | null {
-    const needed = durationMins / 30
-    for (const bayAvail of availability) {
-      const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
-      if (startIdx === -1) continue
-      let fits = true
-      for (let i = 0; i < needed; i++) {
-        if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
-      }
-      if (fits) return bayAvail.bay
-    }
-    return null
-  }
-
-  function selectDate(date: Date) {
-    setSelectedDate(date)
-    setSelectedStart(null)
+  function handleExpiry() {
+    const id = reservedBooking?.id
+    setReservedBooking(null)
+    setTimeLeft(EXPIRY_SECONDS)
+    setStep("date")
     setSelectedBay(null)
-    setStep("time")
+    setSelectedStart(null)
+    setExpiredError("Your reservation expired. Please start over and complete payment within 15 minutes.")
+    if (id) cancelReservation(id)
   }
 
-  function quickBook(na: NextAvailable) {
-    setSelectedDate(na.date)
-    setSelectedBay(na.bay)
-    setSelectedStart(na.slot)
-    setSelectedDuration(60)
-    setStep("review")
-    // Load availability in background so back-navigation works
-    loadAvailability(na.date)
+  async function handleConfirmBooking() {
+    if (!reservedBooking) return
+    setSubmitting(true)
+    setBookingError("")
+    try {
+      const stripe = await stripePromise
+      if (!stripe) return
+      const { error } = await stripe.confirmPayment({
+        clientSecret: reservedBooking.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/account/bookings?confirmed=${reservedBooking.id}`,
+        },
+      })
+      if (error) {
+        setBookingError(error.message ?? "Payment failed")
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function buildCalendarDays(month: Date): (Date | null)[] {
@@ -291,19 +208,15 @@ export default function BookingFlow({
     return d >= today && d <= maxDate
   }
 
-  function formatSlotTime(isoString: string): string {
-    return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-  }
+  const currentBaySlots =
+    availability.find((a) => a.bay.id === selectedBay?.id)?.slots ?? []
 
-  function formatNextAvailableDate(date: Date): string {
-    const d = new Date(date)
-    d.setHours(0, 0, 0, 0)
-    const t = new Date()
-    t.setHours(0, 0, 0, 0)
-    const diff = Math.round((d.getTime() - t.getTime()) / 86400000)
-    if (diff === 0) return "Today"
-    if (diff === 1) return "Tomorrow"
-    return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
+  function countAvailableConsecutive(startIndex: number, durationMins: number): boolean {
+    const needed = durationMins / 30
+    for (let i = 0; i < needed; i++) {
+      if (!currentBaySlots[startIndex + i]?.available) return false
+    }
+    return true
   }
 
   const pricingPreview = selectedStart
@@ -314,48 +227,14 @@ export default function BookingFlow({
       })
     : null
 
-  async function handleCreateBooking() {
-    if (!selectedBay || !selectedStart) return
-    setSubmitting(true)
-    setBookingError("")
-    try {
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bayId: selectedBay.id,
-          startsAt: selectedStart.startsAt,
-          durationMinutes: selectedDuration,
-          couponCode: couponCode || undefined,
-          giftCardCode: giftCardCode || undefined,
-          disclosureIds: Array.from(acknowledgedDisclosures),
-        }),
-      })
-      let data: Record<string, unknown> = {}
-      try { data = await res.json() } catch { /* non-JSON body */ }
-      if (!res.ok) {
-        setBookingError((data.error as string) ?? `Server error (${res.status})`)
-        return
-      }
-      setClientSecret(data.clientSecret as string)
-      setBookingId(data.bookingId as string)
-      setConfirmedPricing(data.pricing as typeof confirmedPricing)
-      setStep("payment")
-    } catch (err) {
-      setBookingError(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const calendarDays = buildCalendarDays(calendarMonth)
-  const mergedSlots = getMergedSlots()
+  const urgentTimer = timeLeft <= 120
 
   return (
     <div className="mt-8 space-y-6">
       {/* Step indicators */}
       <div className="flex items-center gap-2 text-sm">
-        {(["date", "time", "review", "payment"] as Step[]).map((s, i) => (
+        {(["date", "bay", "time", "review"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span className="text-neutral-600">›</span>}
             <span className={step === s ? "font-semibold text-brand" : "text-neutral-500 capitalize"}>
@@ -365,58 +244,54 @@ export default function BookingFlow({
         ))}
       </div>
 
-      {/* ── Next available block ── */}
-      {step === "date" && nextAvailable && nextAvailable !== "loading" && (
-        <div className="rounded-2xl border border-brand/30 bg-brand/10 p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Zap size={18} className="text-brand shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Next available: {formatNextAvailableDate(nextAvailable.date)} at {formatSlotTime(nextAvailable.slot.startsAt)}
-                </p>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  ${nextAvailable.slot.pricePerHour}/hr · 1 hr session · click to book instantly
-                </p>
-              </div>
-            </div>
-            <button onClick={() => quickBook(nextAvailable)} className="btn-primary shrink-0 text-sm px-4 py-2">
-              Book now
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Step 1: Date ── */}
       {step === "date" && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          {expiredError && (
+            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {expiredError}
+            </div>
+          )}
           <h2 className="mb-4 text-lg font-semibold text-white">Select a date</h2>
+
           <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))} className="btn-ghost p-2">
+            <button
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}
+              className="btn-ghost p-2"
+            >
               <ChevronLeft size={18} />
             </button>
-            <span className="font-medium text-white">{MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}</span>
-            <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))} className="btn-ghost p-2">
+            <span className="font-medium text-white">
+              {MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+            </span>
+            <button
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}
+              className="btn-ghost p-2"
+            >
               <ChevronRight size={18} />
             </button>
           </div>
+
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500 mb-1">
             {DAYS.map((d) => <div key={d}>{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date, i) => {
               const selectable = isDateSelectable(date)
-              const isSelected = selectedDate && date && date.toDateString() === selectedDate.toDateString()
+              const isSelected = selectedDate && date &&
+                date.toDateString() === selectedDate.toDateString()
               return (
                 <button
                   key={i}
                   disabled={!selectable}
-                  onClick={() => date && selectDate(date)}
+                  onClick={() => { if (date) { setSelectedDate(date); setExpiredError("") } }}
                   className={[
                     "rounded-lg py-2 text-sm transition",
                     !date ? "invisible" : "",
                     selectable
-                      ? isSelected ? "bg-brand text-white font-semibold" : "text-white hover:bg-white/10"
+                      ? isSelected
+                        ? "bg-brand text-white font-semibold"
+                        : "text-white hover:bg-white/10"
                       : "cursor-not-allowed text-neutral-700",
                   ].join(" ")}
                 >
@@ -425,28 +300,75 @@ export default function BookingFlow({
               )
             })}
           </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              disabled={!selectedDate}
+              onClick={() => setStep("bay")}
+              className="btn-primary"
+            >
+              Continue
+            </button>
+          </div>
         </div>
       )}
 
-      {/* ── Step 2: Time + duration ── */}
-      {step === "time" && (
+      {/* ── Step 2: Bay selection ── */}
+      {step === "bay" && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <button onClick={() => setStep("date")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
             <ChevronLeft size={14} /> Back
           </button>
-          <h2 className="mb-1 text-lg font-semibold text-white">
-            {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          <h2 className="mb-4 text-lg font-semibold text-white">
+            Select a bay — {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h2>
+
+          {loadingSlots ? (
+            <p className="text-sm text-neutral-400">Checking availability…</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {bays.map((bay) => {
+                const bayData = availability.find((a) => a.bay.id === bay.id)
+                const openSlots = bayData?.slots.filter((s) => s.available).length ?? 0
+                return (
+                  <button
+                    key={bay.id}
+                    onClick={() => { setSelectedBay(bay); setStep("time") }}
+                    className="rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-brand/50 hover:bg-brand/10"
+                  >
+                    <p className="font-semibold text-white">{bay.name}</p>
+                    <p className="mt-1 text-xs text-neutral-400">{openSlots} slots open</p>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 3: Time + duration ── */}
+      {step === "time" && selectedBay && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <button onClick={() => setStep("bay")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
+            <ChevronLeft size={14} /> Back
+          </button>
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            {selectedBay.name} — {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          </h2>
+
+          {/* Duration selector */}
           <div className="mb-5 mt-4">
             <p className="mb-2 text-sm text-neutral-400">Session length</p>
             <div className="flex flex-wrap gap-2">
               {[60, 90, 120, 150, 180, 210, 240].map((mins) => (
                 <button
                   key={mins}
-                  onClick={() => { setSelectedDuration(mins); setSelectedStart(null); setSelectedBay(null) }}
+                  onClick={() => { setSelectedDuration(mins); setSelectedStart(null) }}
                   className={[
                     "rounded-lg border px-3 py-1.5 text-sm transition",
-                    selectedDuration === mins ? "border-brand bg-brand/20 text-brand" : "border-white/10 text-neutral-300 hover:border-white/30",
+                    selectedDuration === mins
+                      ? "border-brand bg-brand/20 text-brand"
+                      : "border-white/10 text-neutral-300 hover:border-white/30",
                   ].join(" ")}
                 >
                   {mins < 60 ? `${mins}m` : `${mins / 60}hr${mins > 60 ? "s" : ""}`}
@@ -454,41 +376,41 @@ export default function BookingFlow({
               ))}
             </div>
           </div>
+
           {loadingSlots ? (
             <p className="text-sm text-neutral-400">Loading slots…</p>
           ) : (
             <>
               <p className="mb-3 text-sm text-neutral-400">Select start time</p>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                {mergedSlots.map((slot) => {
-                  const canFit = canFitDurationOnAnyBay(slot.startsAt, selectedDuration)
+                {currentBaySlots.map((slot, i) => {
+                  const canFit = countAvailableConsecutive(i, selectedDuration)
                   const isSelected = selectedStart?.startsAt === slot.startsAt
                   return (
                     <button
                       key={slot.startsAt}
                       disabled={!slot.available || !canFit}
-                      onClick={() => {
-                        const bay = findBayForSlot(slot.startsAt, selectedDuration)
-                        setSelectedStart(slot)
-                        setSelectedBay(bay)
-                      }}
+                      onClick={() => setSelectedStart(slot)}
                       className={[
                         "rounded-lg border py-2 text-xs transition",
                         slot.available && canFit
-                          ? isSelected ? "border-brand bg-brand/20 text-brand font-semibold" : "border-white/10 text-white hover:border-white/30"
+                          ? isSelected
+                            ? "border-brand bg-brand/20 text-brand font-semibold"
+                            : "border-white/10 text-white hover:border-white/30"
                           : "cursor-not-allowed border-white/5 text-neutral-700",
                       ].join(" ")}
                     >
-                      {formatSlotTime(slot.startsAt)}
+                      {slot.label}
                     </button>
                   )
                 })}
               </div>
+
               {selectedStart && pricingPreview && (
                 <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-neutral-300">
-                      <Clock size={14} /> {selectedDuration / 60}hr session starting {formatSlotTime(selectedStart.startsAt)}
+                      <Clock size={14} /> {selectedDuration / 60}hr session starting {selectedStart.label}
                     </span>
                     <span className="flex items-center gap-1 font-semibold text-white">
                       <DollarSign size={14} />{pricingPreview.subtotal.toFixed(2)}
@@ -502,24 +424,14 @@ export default function BookingFlow({
                   </p>
                 </div>
               )}
+
               <div className="mt-6 flex justify-end">
                 <button
                   disabled={!selectedStart}
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      sessionStorage.setItem("tee365_pending_booking", JSON.stringify({
-                        dateISO: selectedDate?.toISOString(),
-                        startsAt: selectedStart?.startsAt,
-                        durationMinutes: selectedDuration,
-                      }))
-                      window.location.href = `/login?return=/book`
-                      return
-                    }
-                    setStep("review")
-                  }}
+                  onClick={() => setStep("review")}
                   className="btn-primary"
                 >
-                  {isAuthenticated ? "Review booking" : "Sign in to book"}
+                  Review booking
                 </button>
               </div>
             </>
@@ -527,21 +439,55 @@ export default function BookingFlow({
         </div>
       )}
 
-      {/* ── Step 3: Review + discounts ── */}
+      {/* ── Step 4: Review + discounts ── */}
       {step === "review" && selectedStart && selectedBay && pricingPreview && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <button onClick={() => setStep("time")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
-            <ChevronLeft size={14} /> Back
-          </button>
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              onClick={async () => {
+                const id = reservedBooking?.id
+                setReservedBooking(null)
+                setTimeLeft(EXPIRY_SECONDS)
+                setStep("time")
+                if (id) await cancelReservation(id)
+              }}
+              className="flex items-center gap-1 text-sm text-neutral-400 hover:text-white"
+            >
+              <ChevronLeft size={14} /> Back
+            </button>
+            {reservedBooking && (
+              <div className={[
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+                urgentTimer
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+              ].join(" ")}>
+                <Timer size={12} />
+                {formatCountdown(timeLeft)}
+              </div>
+            )}
+          </div>
+
           <h2 className="mb-5 text-lg font-semibold text-white">Review your booking</h2>
+
+          {reserving && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              Reserving your slot…
+            </div>
+          )}
+
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-300">
-              <span>Date</span>
-              <span>{selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
+              <span>{selectedBay.name}</span>
+              <span>{selectedDate?.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Start time</span>
-              <span>{formatSlotTime(selectedStart.startsAt)}</span>
+              <span>{new Date(selectedStart.startsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Duration</span>
@@ -557,147 +503,53 @@ export default function BookingFlow({
                 <span>−${pricingPreview.membershipDiscount.toFixed(2)}</span>
               </div>
             )}
-            {pricingPreview.couponDiscount > 0 && (
-              <div className="flex justify-between text-green-400">
-                <span>Coupon</span>
-                <span>−${pricingPreview.couponDiscount.toFixed(2)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-neutral-400 text-sm">
-              <span>Indiana sales tax (7%)</span>
-              <span>${pricingPreview.tax.toFixed(2)}</span>
-            </div>
-            {pricingPreview.giftCardApplied > 0 && (
-              <div className="flex justify-between text-green-400">
-                <span>Gift card</span>
-                <span>−${pricingPreview.giftCardApplied.toFixed(2)}</span>
-              </div>
-            )}
           </div>
+
+          {/* Coupon code */}
           <div className="mt-5">
             <label className="label" htmlFor="couponCode">Coupon code</label>
-            <input id="couponCode" type="text" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="Enter code" className="input mt-1" />
+            <input
+              id="couponCode"
+              type="text"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="Enter code"
+              className="input mt-1"
+            />
           </div>
+
+          {/* Gift card */}
           <div className="mt-3">
             <label className="label" htmlFor="giftCardCode">Gift card</label>
-            <input id="giftCardCode" type="text" value={giftCardCode} onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())} placeholder="Enter code" className="input mt-1" />
+            <input
+              id="giftCardCode"
+              type="text"
+              value={giftCardCode}
+              onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
+              placeholder="Enter code"
+              className="input mt-1"
+            />
           </div>
+
           <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
             <span className="font-semibold text-white">Total due</span>
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
-          {disclosures.length > 0 && (
-            <div className="mt-6 space-y-3">
-              <p className="text-sm font-medium text-white">Please read and acknowledge the following before booking:</p>
-              {disclosures.map((d) => (
-                <div key={d.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                  <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left" onClick={() => setExpandedDisclosure(expandedDisclosure === d.id ? null : d.id)}>
-                    <span className="text-sm font-medium text-white">{d.title}</span>
-                    {expandedDisclosure === d.id ? <ChevronUp size={16} className="text-neutral-400 shrink-0" /> : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
-                  </button>
-                  {expandedDisclosure === d.id && (
-                    <div className="border-t border-white/10 px-4 py-3">
-                      <div className="max-h-48 overflow-y-auto text-xs leading-5 text-neutral-300 whitespace-pre-wrap">{d.body}</div>
-                    </div>
-                  )}
-                  <div className="border-t border-white/10 px-4 py-3">
-                    <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-300">
-                      <input
-                        type="checkbox"
-                        checked={acknowledgedDisclosures.has(d.id)}
-                        onChange={() => setAcknowledgedDisclosures((prev) => {
-                          const next = new Set(prev)
-                          next.has(d.id) ? next.delete(d.id) : next.add(d.id)
-                          return next
-                        })}
-                        className="h-4 w-4 rounded border-white/20 bg-white/10 accent-brand"
-                      />
-                      I have read and agree to the {d.title}
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {bookingError && (
+            <p className="mt-3 text-sm text-red-400">{bookingError}</p>
           )}
 
-          {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
-
           <button
-            onClick={handleCreateBooking}
-            disabled={submitting || !allDisclosuresAcknowledged}
+            onClick={handleConfirmBooking}
+            disabled={submitting || reserving || !reservedBooking}
             className="btn-primary mt-5 w-full"
           >
-            {submitting ? "Processing…" : `Continue to payment — $${pricingPreview.total.toFixed(2)}`}
+            {submitting ? "Processing…" : reserving ? "Reserving…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}
           </button>
-          <p className="mt-2 text-center text-xs text-neutral-500">Payment processed securely by Stripe</p>
-        </div>
-      )}
-
-      {/* ── Step 4: Payment ── */}
-      {step === "payment" && clientSecret && bookingId && confirmedPricing && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-
-          {/* Left — booking summary */}
-          <div className="lg:sticky lg:top-10">
-            <p className="text-xs font-semibold tracking-widest uppercase text-brand mb-2">Tee365 Bay Booking</p>
-            <h2 className="text-2xl font-bold text-white mb-1">{selectedBay?.name ?? "Bay Session"}</h2>
-            <p className="text-sm text-neutral-400 mb-6">
-              {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            </p>
-
-            <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3 text-sm mb-6">
-              <div className="flex justify-between text-neutral-300">
-                <span>Time</span>
-                <span>{selectedStart && formatSlotTime(selectedStart.startsAt)} · {selectedDuration / 60} hr</span>
-              </div>
-              <div className="flex justify-between text-neutral-300 border-t border-white/10 pt-3">
-                <span>Subtotal</span>
-                <span>${confirmedPricing.subtotal.toFixed(2)}</span>
-              </div>
-              {confirmedPricing.membershipDiscount > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>Member discount</span>
-                  <span>−${confirmedPricing.membershipDiscount.toFixed(2)}</span>
-                </div>
-              )}
-              {confirmedPricing.couponDiscount > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>Coupon</span>
-                  <span>−${confirmedPricing.couponDiscount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-neutral-400">
-                <span>Indiana sales tax (7%)</span>
-                <span>${confirmedPricing.tax.toFixed(2)}</span>
-              </div>
-              {confirmedPricing.giftCardApplied > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>Gift card</span>
-                  <span>−${confirmedPricing.giftCardApplied.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-white text-base border-t border-white/10 pt-3">
-                <span>Total due</span>
-                <span>${confirmedPricing.total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-neutral-600 text-center">Secured by Stripe · tee365.org</p>
-          </div>
-
-          {/* Right — Stripe payment form */}
-          <div>
-            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-              <PaymentForm
-                clientSecret={clientSecret}
-                bookingId={bookingId}
-                total={confirmedPricing.total}
-                onError={(msg) => setBookingError(msg)}
-              />
-            </Elements>
-            {bookingError && <p className="mt-3 text-sm text-red-400">{bookingError}</p>}
-          </div>
+          <p className="mt-2 text-center text-xs text-neutral-500">
+            Payment processed securely by Stripe
+          </p>
         </div>
       )}
     </div>
