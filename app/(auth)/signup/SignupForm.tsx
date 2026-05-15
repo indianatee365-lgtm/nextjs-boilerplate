@@ -41,7 +41,7 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         <label className="mt-2 flex items-start gap-2 cursor-pointer">
           <input type="checkbox" name="smsConsent" className="mt-0.5 shrink-0 accent-green-500" />
           <span className="text-xs text-neutral-500">
-            I agree to receive SMS messages from Tee365, including booking confirmations, access codes, and occasional member deals &amp; promotions. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info.{" "}
+            I agree to receive SMS messages from Tee365, including booking confirmations, access codes, and occasional promotions, sale alerts, and updates. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info.{" "}
             <a href="/privacy" className="underline hover:text-neutral-300">Privacy Policy</a>
           </span>
         </label>

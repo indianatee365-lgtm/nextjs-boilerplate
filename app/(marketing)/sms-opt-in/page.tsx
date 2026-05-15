@@ -26,7 +26,7 @@ export default function SmsOptInPage() {
           <p className="mt-3">The optional checkbox reads verbatim:</p>
           <blockquote className="mt-3 border-l-4 border-brand/50 pl-4 py-2 bg-white/5 rounded-r-lg text-neutral-200 italic">
             "I agree to receive SMS messages from Tee365, including booking confirmations, access codes,
-            and occasional member deals &amp; promotions. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info."
+            and occasional promotions, sale alerts, and updates. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info."
           </blockquote>
           <p className="mt-3">
             Consent status is recorded at the time of account creation and linked to the customer's phone number.
