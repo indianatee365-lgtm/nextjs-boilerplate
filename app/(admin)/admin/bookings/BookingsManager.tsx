@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
-import { cancelBooking, blockTime } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually } from "./actions"
 
 interface Booking {
   id: string
@@ -71,6 +71,14 @@ export default function BookingsManager({
     })
   }
 
+  function handleConfirm(bookingId: string) {
+    if (!confirm("Manually confirm this booking and send SMS to customer?")) return
+    startTransition(async () => {
+      await confirmBookingManually(bookingId)
+      router.refresh()
+    })
+  }
+
   async function handleBlock(e: React.FormEvent) {
     e.preventDefault()
     const startsAt = new Date(`${blockForm.date}T${blockForm.startTime}:00`)
@@ -89,7 +97,8 @@ export default function BookingsManager({
 
   return (
     <div className="mt-6 space-y-6">
-      {pendingMode ? (
+      {/* Pending payments view */}
+      {pendingMode && (
         <div>
           <div className="mb-4 flex items-center justify-between">
             <button
@@ -123,16 +132,12 @@ export default function BookingsManager({
                       </td>
                       <td className="px-4 py-3">{b.bays?.name ?? "—"}</td>
                       <td className="px-4 py-3">
-                        {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
-                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" "}
+                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </td>
                       <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-neutral-500">
-                        {b.created_at ? getAge(b.created_at) : "—"}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-neutral-600">
-                        {b.stripe_payment_intent_id ?? "—"}
-                      </td>
+                      <td className="px-4 py-3 text-neutral-500">{b.created_at ? getAge(b.created_at) : "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-neutral-600">{b.stripe_payment_intent_id ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -140,89 +145,98 @@ export default function BookingsManager({
             </div>
           )}
         </div>
-      ) : (
-        <>
-          {/* Date navigation */}
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigateDate(-1)} className="btn-ghost p-2"><ChevronLeft size={18} /></button>
-            <span className="text-lg font-medium text-white">
-              {displayDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-            </span>
-            <button onClick={() => navigateDate(1)} className="btn-ghost p-2"><ChevronRight size={18} /></button>
-            <button onClick={() => setBlocking(true)} className="ml-auto btn-secondary flex items-center gap-2 text-sm">
-              <Lock size={14} /> Block Time
-            </button>
-          </div>
-
-          {/* Bay grid view */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
-              {/* Header */}
-              <div className="grid text-xs text-neutral-500 mb-1" style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}>
-                <div />
-                {bays.map((bay) => (
-                  <div key={bay.id} className="px-2 text-center font-medium text-neutral-300">{bay.name}</div>
-                ))}
-              </div>
-
-              {/* Hour rows */}
-              {HOURS.map((hour) => {
-                const hourLabel = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
-                return (
-                  <div
-                    key={hour}
-                    className="grid border-t border-white/5"
-                    style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}
-                  >
-                    <div className="py-2 pr-3 text-right text-xs text-neutral-600">{hourLabel}</div>
-                    {bays.map((bay) => {
-                      const slotBookings = bookings.filter((b) => {
-                        if (b.bays?.id !== bay.id) return false
-                        const start = new Date(b.starts_at)
-                        return start.getHours() === hour
-                      })
-                      return (
-                        <div key={bay.id} className="min-h-[40px] border-l border-white/5 px-1 py-1">
-                          {slotBookings.map((booking) => (
-                            <div
-                              key={booking.id}
-                              className={`rounded px-2 py-1 text-xs ${
-                                booking.status === "confirmed"
-                                  ? "bg-brand/20 text-brand"
-                                  : booking.status === "cancelled"
-                                  ? "bg-red-500/20 text-red-400 line-through"
-                                  : "bg-yellow-500/20 text-yellow-400"
-                              }`}
-                            >
-                              <div className="font-medium">
-                                {booking.profiles?.first_name} {booking.profiles?.last_name?.[0]}.
-                              </div>
-                              <div className="opacity-75">
-                                {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                                {" – "}
-                                {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                              </div>
-                              {booking.status === "confirmed" && (
-                                <button
-                                  onClick={() => handleCancel(booking.id)}
-                                  className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
-                                >
-                                  <X size={10} /> Cancel
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
       )}
+      {/* Date navigation + grid (hidden in pending mode) */}
+      {!pendingMode && (
+      <>
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigateDate(-1)} className="btn-ghost p-2"><ChevronLeft size={18} /></button>
+        <span className="text-lg font-medium text-white">
+          {displayDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        </span>
+        <button onClick={() => navigateDate(1)} className="btn-ghost p-2"><ChevronRight size={18} /></button>
+        <button onClick={() => setBlocking(true)} className="ml-auto btn-secondary flex items-center gap-2 text-sm">
+          <Lock size={14} /> Block Time
+        </button>
+      </div>
 
+      {/* Bay grid view */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[700px]">
+          {/* Header */}
+          <div className="grid text-xs text-neutral-500 mb-1" style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}>
+            <div />
+            {bays.map((bay) => (
+              <div key={bay.id} className="px-2 text-center font-medium text-neutral-300">{bay.name}</div>
+            ))}
+          </div>
+
+          {/* Hour rows */}
+          {HOURS.map((hour) => {
+            const hourLabel = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
+            return (
+              <div
+                key={hour}
+                className="grid border-t border-white/5"
+                style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}
+              >
+                <div className="py-2 pr-3 text-right text-xs text-neutral-600">{hourLabel}</div>
+                {bays.map((bay) => {
+                  const slotBookings = bookings.filter((b) => {
+                    if (b.bays?.id !== bay.id) return false
+                    const start = new Date(b.starts_at)
+                    const etHour = parseInt(start.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Indiana/Indianapolis" })) % 24
+                    return etHour === hour
+                  })
+                  return (
+                    <div key={bay.id} className="min-h-[40px] border-l border-white/5 px-1 py-1">
+                      {slotBookings.map((booking) => (
+                        <div
+                          key={booking.id}
+                          className={`rounded px-2 py-1 text-xs ${
+                            booking.status === "confirmed"
+                              ? "bg-brand/20 text-brand"
+                              : booking.status === "cancelled"
+                              ? "bg-red-500/20 text-red-400 line-through"
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}
+                        >
+                          <div className="font-medium">
+                            {booking.profiles?.first_name} {booking.profiles?.last_name?.[0]}.
+                          </div>
+                          <div className="opacity-75">
+                            {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                            {" – "}
+                            {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                          </div>
+                          {booking.status === "confirmed" && (
+                            <button
+                              onClick={() => handleCancel(booking.id)}
+                              className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
+                            >
+                              <X size={10} /> Cancel
+                            </button>
+                          )}
+                          {booking.status === "pending" && (
+                            <button
+                              onClick={() => handleConfirm(booking.id)}
+                              className="mt-0.5 flex items-center gap-0.5 text-green-400 hover:text-green-300"
+                            >
+                              ✓ Confirm + SMS
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      </>
+      )}
       {/* Block time modal */}
       {blocking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">

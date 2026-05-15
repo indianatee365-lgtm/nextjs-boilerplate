@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingsManager from "./BookingsManager"
 
@@ -10,10 +10,11 @@ export default async function AdminBookingsPage({
   searchParams: Promise<{ date?: string; status?: string }>
 }) {
   const supabase = await createClient()
+  const serviceClient = await createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase
+  const { data: profile } = await serviceClient
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -24,15 +25,9 @@ export default async function AdminBookingsPage({
   const pendingMode = params.status === "pending"
   const dateStr = params.date ?? new Date().toISOString().split("T")[0]
 
-  const { data: bays } = await supabase
-    .from("bays")
-    .select("id, number, name")
-    .eq("active", true)
-    .order("number")
-
   let bookings
   if (pendingMode) {
-    const { data } = await supabase
+    const { data } = await serviceClient
       .from("bookings")
       .select(`
         id, starts_at, ends_at, status, total, duration_minutes,
@@ -48,7 +43,7 @@ export default async function AdminBookingsPage({
     const date = new Date(`${dateStr}T00:00:00`)
     const nextDay = new Date(date)
     nextDay.setDate(nextDay.getDate() + 1)
-    const { data } = await supabase
+    const { data } = await serviceClient
       .from("bookings")
       .select(`
         id, starts_at, ends_at, status, total, duration_minutes,
@@ -62,6 +57,12 @@ export default async function AdminBookingsPage({
       .order("starts_at")
     bookings = data
   }
+
+  const { data: bays } = await serviceClient
+    .from("bays")
+    .select("id, number, name")
+    .eq("active", true)
+    .order("number")
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
