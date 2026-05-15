@@ -39,7 +39,7 @@ export default function SmsOptInPage() {
             <strong className="text-white">Business name:</strong> Tee365<br />
             <strong className="text-white">Business type:</strong> Indoor golf simulator facility<br />
             <strong className="text-white">Location:</strong> South Bend, Indiana<br />
-            <strong className="text-white">SMS sender number:</strong> (574) 406-2332<br />
+            <strong className="text-white">SMS sender number:</strong> (574) 444-9365<br />
             <strong className="text-white">Message type:</strong> Transactional and marketing (booking confirmations, access codes, member deals &amp; promotions)
           </p>
         </section>

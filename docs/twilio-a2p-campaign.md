@@ -63,4 +63,4 @@ https://tee365.org/terms
 - No embedded links in messages
 - No age-gated content
 - No loan/financial content
-- Sending number: (574) 406-2332
+- Sending number: (574) 444-9365
