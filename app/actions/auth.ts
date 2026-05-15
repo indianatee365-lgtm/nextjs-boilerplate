@@ -27,7 +27,7 @@ const SignupSchema = z.object({
   isMinor: z.enum(["true", "false"]).transform((v) => v === "true"),
   parentEmail: z.string().email("Valid parent email required").optional().or(z.literal("")),
   lastName: z.string().min(1, "Last name is required"),
-  phone: z.string().min(10, "Valid phone number required"),
+  phone: z.string().min(10, "Valid phone number required").optional().or(z.literal("")),
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 })

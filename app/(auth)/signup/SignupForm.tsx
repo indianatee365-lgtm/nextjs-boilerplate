@@ -11,6 +11,7 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
   const [state, formAction, pending] = useActionState(signup, initialState)
   const [tsReady, setTsReady] = useState(!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const [isMinor, setIsMinor] = useState<boolean | null>(null)
+  const [wantsSms, setWantsSms] = useState<boolean | null>(null)
 
   return (
     <form action={formAction} className="space-y-5">
@@ -35,22 +36,6 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
       </div>
 
       <div>
-        <label className="label" htmlFor="phone">Phone number</label>
-        <input id="phone" name="phone" type="tel" required className="input" placeholder="+1 (555) 000-0000" />
-        {state.errors?.phone && <p className="field-error">{state.errors.phone[0]}</p>}
-        <label className="mt-2 flex items-start gap-2 cursor-pointer">
-          <input type="checkbox" name="smsConsent" className="mt-0.5 shrink-0 accent-green-500" />
-          <span className="text-xs text-neutral-500">
-            I agree to receive SMS messages from Tee365, including booking confirmations, access codes, and occasional promotions, sale alerts, and updates. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info.{" "}
-            <a href="/privacy" className="underline hover:text-neutral-300">Privacy Policy</a>
-          </span>
-        </label>
-        <p className="mt-1.5 text-xs text-neutral-500">
-          Without SMS consent, your access code will only be available in your account dashboard.
-        </p>
-      </div>
-
-      <div>
         <label className="label" htmlFor="email">Email address</label>
         <input id="email" name="email" type="email" required className="input" />
         {state.errors?.email && <p className="field-error">{state.errors.email[0]}</p>}
@@ -60,6 +45,55 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         <label className="label" htmlFor="password">Password</label>
         <input id="password" name="password" type="password" required minLength={8} className="input" />
         {state.errors?.password && <p className="field-error">{state.errors.password[0]}</p>}
+      </div>
+
+      {/* SMS opt-in */}
+      <div>
+        <p className="text-sm font-medium text-white">Get your access code by text.</p>
+        <p className="mt-0.5 text-xs text-neutral-500">
+          Your code arrives 15 minutes before you play, plus the occasional exclusive offer.
+        </p>
+        <div className="flex gap-3 mt-3">
+          <button
+            type="button"
+            onClick={() => setWantsSms(true)}
+            className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+              wantsSms === true
+                ? "border-brand bg-brand/10 text-white"
+                : "border-white/10 bg-white/5 text-neutral-400 hover:border-white/20"
+            }`}
+          >
+            I&apos;m in
+          </button>
+          <button
+            type="button"
+            onClick={() => setWantsSms(false)}
+            className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+              wantsSms === false
+                ? "border-white/30 bg-white/5 text-white"
+                : "border-white/10 bg-white/5 text-neutral-400 hover:border-white/20"
+            }`}
+          >
+            I&apos;ll use the app
+          </button>
+        </div>
+
+        <div className={`transition-all duration-300 overflow-hidden ${wantsSms === true ? "max-h-40 opacity-100 mt-3" : "max-h-0 opacity-0"}`}>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            required={wantsSms === true}
+            className="input w-full"
+            placeholder="+1 (555) 000-0000"
+          />
+          {state.errors?.phone && <p className="field-error">{state.errors.phone[0]}</p>}
+          <p className="mt-1.5 text-xs text-neutral-600">
+            Msg &amp; data rates may apply. Reply STOP anytime.
+          </p>
+        </div>
+
+        <input type="hidden" name="smsConsent" value={wantsSms === true ? "on" : "off"} />
       </div>
 
       <input type="hidden" name="isMinor" value={isMinor === true ? "true" : "false"} />
@@ -99,7 +133,7 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
           <input id="parentEmail" name="parentEmail" type="email" required className="input"
             placeholder="parent@example.com" />
           <p className="mt-1.5 text-xs text-neutral-500">
-            We'll send them a consent form. Your account activates once they sign it.
+            We&apos;ll send them a consent form. Your account activates once they sign it.
           </p>
           {state.errors?.parentEmail && <p className="field-error">{state.errors.parentEmail[0]}</p>}
         </div>
@@ -109,7 +143,7 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
 
       <button
         type="submit"
-        disabled={pending || !tsReady || isMinor === null}
+        disabled={pending || !tsReady || isMinor === null || wantsSms === null}
         className="btn-primary w-full"
       >
         {pending ? "Creating account…" : !tsReady ? "Verifying…" : "Create account"}
