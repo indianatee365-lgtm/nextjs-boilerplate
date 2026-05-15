@@ -1,6 +1,6 @@
 # Tee365 — Project Context for Claude
 
-Live codebase, deploys to **tee365.org** via Vercel. Supabase CLI is linked — Claude can run SQL directly with `supabase db query --linked`. SSH from labwork (Windows) to labserver works.
+Live codebase, deploys to **tee365.org** via Vercel. **GitHub repo: `indianatee365-lgtm/nextjs-boilerplate`** (NOT `tee365-app` — that repo is archived). Local path: `/home/jerrod/nextjs-boilerplate`. Supabase CLI is linked — Claude can run SQL directly with `supabase db query --linked`. SSH from labwork (Windows) to labserver works.
 
 ## Stack
 Next.js 16, Supabase (auth + Postgres), Stripe, Telnyx, Resend, Vercel
