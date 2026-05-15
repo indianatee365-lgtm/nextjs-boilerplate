@@ -132,17 +132,27 @@ export async function POST(request: NextRequest) {
       items: [{ price: stripePriceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+      expand: ["latest_invoice.payment_intent", "pending_setup_intent"],
       metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
     })
 
     const latestInvoice = subscription.latest_invoice as Stripe.Invoice & {
       payment_intent: Stripe.PaymentIntent | null
     }
-    const clientSecret = latestInvoice?.payment_intent?.client_secret
+
+    // In newer Stripe API versions, subscriptions with no default payment method may
+    // return a pending_setup_intent instead of a payment_intent on the invoice
+    const clientSecret =
+      latestInvoice?.payment_intent?.client_secret ??
+      (subscription.pending_setup_intent as Stripe.SetupIntent | null)?.client_secret
+
+    console.log("[checkout] sub status:", subscription.status,
+      "invoice status:", latestInvoice?.status,
+      "pi:", latestInvoice?.payment_intent?.id ?? "null",
+      "psi:", (subscription.pending_setup_intent as Stripe.SetupIntent | null)?.id ?? "null",
+      "secret present:", !!clientSecret)
 
     if (!clientSecret) {
-      // Subscription may already be active (free trial or $0) — handle gracefully
       return NextResponse.json({ error: "Unable to initialize payment" }, { status: 500 })
     }
 
