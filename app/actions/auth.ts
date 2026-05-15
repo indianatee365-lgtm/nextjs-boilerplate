@@ -49,10 +49,6 @@ export async function signup(
     return { message: "Bot verification failed. Please try again." }
   }
 
-  if (formData.get("smsConsent") !== "on") {
-    return { message: "You must agree to receive SMS messages to create an account." }
-  }
-
   const supabase = await createClient()
 
   const parsed = SignupSchema.safeParse({
@@ -88,6 +84,11 @@ export async function signup(
   }
 
   const userId = signUpData.user?.id
+
+  if (userId) {
+    const svcClient = await createServiceClient()
+    await svcClient.from("profiles").update({ sms_consent: formData.get("smsConsent") === "on" }).eq("id", userId)
+  }
 
   if (isMinor && userId && parentEmail) {
     const serviceClient = await createServiceClient()

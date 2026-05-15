@@ -199,16 +199,17 @@ export async function finalizeReschedule({
 
   // Send confirmation notifications
   const [{ data: profile }, { data: bay }, { data: { user: authUser } }] = await Promise.all([
-    serviceClient.from("profiles").select("first_name, phone").eq("id", user.id).single(),
+    serviceClient.from("profiles").select("first_name, phone, sms_consent").eq("id", user.id).single(),
     serviceClient.from("bays").select("name").eq("id", newBayId).single(),
     serviceClient.auth.admin.getUserById(user.id),
   ])
 
-  const firstName = (profile as { first_name: string; phone: string | null } | null)?.first_name ?? ""
-  const phone = (profile as { first_name: string; phone: string | null } | null)?.phone
+  const firstName = (profile as { first_name: string; phone: string | null; sms_consent: boolean } | null)?.first_name ?? ""
+  const phone = (profile as { first_name: string; phone: string | null; sms_consent: boolean } | null)?.phone
+  const smsConsent = (profile as { first_name: string; phone: string | null; sms_consent: boolean } | null)?.sms_consent ?? false
   const bayName = (bay as { name: string } | null)?.name ?? "Bay"
 
-  if (phone) {
+  if (phone && smsConsent) {
     try {
       await sendBookingConfirmation({ to: phone, firstName, bayName, startsAt: new Date(newStartsAt), endsAt: new Date(newEndsAt) })
     } catch { /* non-fatal */ }

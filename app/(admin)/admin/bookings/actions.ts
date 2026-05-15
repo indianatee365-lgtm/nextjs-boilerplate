@@ -26,7 +26,7 @@ export async function confirmBookingManually(bookingId: string) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select(`id, user_id, starts_at, ends_at, status, subtotal, tax, total, coupon_discount, membership_discount, gift_card_applied, bays(name), profiles!user_id(first_name, phone)`)
+    .select(`id, user_id, starts_at, ends_at, status, subtotal, tax, total, coupon_discount, membership_discount, gift_card_applied, bays(name), profiles!user_id(first_name, phone, sms_consent)`)
     .eq("id", bookingId)
     .single()
 
@@ -35,7 +35,7 @@ export async function confirmBookingManually(bookingId: string) {
     subtotal: number; tax: number; total: number
     coupon_discount: number; membership_discount: number; gift_card_applied: number
     bays: { name: string } | null
-    profiles: { first_name: string; phone: string | null } | null
+    profiles: { first_name: string; phone: string | null; sms_consent: boolean } | null
   } | null
   if (!b) throw new Error("Booking not found")
   if (b.status === "confirmed") return
@@ -48,7 +48,7 @@ export async function confirmBookingManually(bookingId: string) {
     })
     .eq("id", bookingId)
 
-  if (b.profiles?.phone && b.bays) {
+  if (b.profiles?.phone && b.profiles.sms_consent && b.bays) {
     try {
       await sendBookingConfirmation({
         to: b.profiles.phone,

@@ -19,17 +19,17 @@ export default function SmsOptInPage() {
           <p>
             When creating an account at{" "}
             <a href="https://tee365.org/signup" className="text-brand hover:underline">tee365.org/signup</a>,
-            customers are required to provide their phone number and check a mandatory SMS consent checkbox before
-            submitting the form. Account creation is not possible without checking this box.
+            customers provide their phone number and may optionally check an SMS consent checkbox. Without
+            SMS consent, access codes are available in the account dashboard and booking confirmations are
+            sent by email.
           </p>
-          <p className="mt-3">The checkbox reads verbatim:</p>
+          <p className="mt-3">The optional checkbox reads verbatim:</p>
           <blockquote className="mt-3 border-l-4 border-brand/50 pl-4 py-2 bg-white/5 rounded-r-lg text-neutral-200 italic">
-            "I agree to receive transactional SMS messages from Tee365 (booking confirmations and access codes).
-            Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info."
+            "I agree to receive SMS messages from Tee365, including booking confirmations, access codes,
+            and occasional member deals &amp; promotions. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info."
           </blockquote>
           <p className="mt-3">
-            This consent is server-validated — the form action rejects submissions where this field is absent.
-            The consent is recorded at the time of account creation and linked to the customer's phone number.
+            Consent status is recorded at the time of account creation and linked to the customer's phone number.
           </p>
         </section>
 
@@ -40,7 +40,7 @@ export default function SmsOptInPage() {
             <strong className="text-white">Business type:</strong> Indoor golf simulator facility<br />
             <strong className="text-white">Location:</strong> South Bend, Indiana<br />
             <strong className="text-white">SMS sender number:</strong> (574) 406-2332<br />
-            <strong className="text-white">Message type:</strong> Transactional only (no marketing or promotional messages)
+            <strong className="text-white">Message type:</strong> Transactional and marketing (booking confirmations, access codes, member deals &amp; promotions)
           </p>
         </section>
 
@@ -60,7 +60,7 @@ export default function SmsOptInPage() {
           </ul>
           <p className="mt-3">
             Message frequency depends on booking activity. Customers who book frequently will receive more messages;
-            customers who do not book will receive none. No recurring promotional or marketing messages are sent.
+            customers who do not book will receive few or none.
           </p>
         </section>
 

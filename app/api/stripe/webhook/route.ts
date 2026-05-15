@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         subtotal, tax, total, coupon_discount, membership_discount,
         coupon_id, gift_card_id, gift_card_applied,
         bays(name),
-        profiles!user_id(first_name, last_name, phone)
+        profiles!user_id(first_name, last_name, phone, sms_consent)
       `)
       .single()
 
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
 
-    const profile = booking.profiles as { first_name: string; last_name: string; phone: string | null } | null
+    const profile = booking.profiles as { first_name: string; last_name: string; phone: string | null; sms_consent: boolean } | null
     const bay = booking.bays as { name: string } | null
     const b = booking as typeof booking & {
       subtotal: number; tax: number; total: number
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send confirmation SMS — access code will be sent separately 15 min before session
-    if (profile?.phone && bay) {
+    if (profile?.phone && profile.sms_consent && bay) {
       try {
         await sendBookingConfirmation({
           to: profile.phone,

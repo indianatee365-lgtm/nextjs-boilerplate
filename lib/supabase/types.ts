@@ -880,6 +880,7 @@ export type Database = {
           phone: string | null
           phone_verified: boolean
           role: string
+          sms_consent: boolean
           stripe_customer_id: string | null
         }
         Insert: {
@@ -892,6 +893,7 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean
           role?: string
+          sms_consent?: boolean
           stripe_customer_id?: string | null
         }
         Update: {
@@ -904,6 +906,7 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean
           role?: string
+          sms_consent?: boolean
           stripe_customer_id?: string | null
         }
         Relationships: []

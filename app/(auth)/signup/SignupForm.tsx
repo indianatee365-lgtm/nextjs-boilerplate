@@ -39,12 +39,15 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
         <input id="phone" name="phone" type="tel" required className="input" placeholder="+1 (555) 000-0000" />
         {state.errors?.phone && <p className="field-error">{state.errors.phone[0]}</p>}
         <label className="mt-2 flex items-start gap-2 cursor-pointer">
-          <input type="checkbox" name="smsConsent" required className="mt-0.5 shrink-0 accent-green-500" />
+          <input type="checkbox" name="smsConsent" className="mt-0.5 shrink-0 accent-green-500" />
           <span className="text-xs text-neutral-500">
-            I agree to receive transactional SMS messages from Tee365 (booking confirmations and access codes). Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info.{" "}
+            I agree to receive SMS messages from Tee365, including booking confirmations, access codes, and occasional member deals &amp; promotions. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for info.{" "}
             <a href="/privacy" className="underline hover:text-neutral-300">Privacy Policy</a>
           </span>
         </label>
+        <p className="mt-1.5 text-xs text-neutral-500">
+          Without SMS consent, your access code will only be available in your account dashboard.
+        </p>
       </div>
 
       <div>

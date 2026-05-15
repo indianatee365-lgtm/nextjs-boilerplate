@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     .select(`
       id, starts_at, ends_at,
       bays(name),
-      profiles!user_id(first_name, phone)
+      profiles!user_id(first_name, phone, sms_consent)
     `)
     .eq("status", "confirmed")
     .is("reminder_sent_at", null)
@@ -44,11 +44,11 @@ export async function GET(request: NextRequest) {
   const results: { id: string; sent: boolean; error?: string }[] = []
 
   for (const booking of bookings ?? []) {
-    const profile = booking.profiles as { first_name: string; phone: string | null } | null
+    const profile = booking.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
     const bay = booking.bays as { name: string } | null
 
-    if (!profile?.phone || !bay) {
-      results.push({ id: booking.id, sent: false, error: "missing phone or bay" })
+    if (!profile?.phone || !profile.sms_consent || !bay) {
+      results.push({ id: booking.id, sent: false, error: "missing phone, sms consent, or bay" })
       continue
     }
 
