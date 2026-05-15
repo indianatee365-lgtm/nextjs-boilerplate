@@ -10,7 +10,7 @@ export default function SmsOptInPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-3xl font-bold text-white mb-2">SMS Opt-In Policy</h1>
-      <p className="text-sm text-neutral-500 mb-10">Last updated: May 8, 2026</p>
+      <p className="text-sm text-neutral-500 mb-10">Last updated: May 15, 2026</p>
 
       <div className="prose prose-invert prose-sm max-w-none space-y-8 text-neutral-300">
 
