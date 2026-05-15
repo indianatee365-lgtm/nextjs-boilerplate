@@ -120,7 +120,7 @@ export default async function AccountPage({
       ) : (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
           <p className="text-sm text-neutral-300">No active membership</p>
-          <Link href="/membership" className="mt-2 inline-block text-xs text-brand hover:underline">
+          <Link href="/join" className="mt-2 inline-block text-xs text-brand hover:underline">
             View membership plans →
           </Link>
         </div>
