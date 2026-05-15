@@ -126,31 +126,27 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create subscription with incomplete payment — returns a PaymentIntent client secret
+    // Create subscription — Stripe API 2026-03-25.dahlia returns client_secret via
+    // invoice.confirmation_secret.client_secret (not the old payment_intent field)
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
       items: [{ price: stripePriceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent", "pending_setup_intent"],
+      expand: ["latest_invoice"],
       metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
     })
 
-    const latestInvoice = subscription.latest_invoice as Stripe.Invoice & {
-      payment_intent: Stripe.PaymentIntent | null
-    }
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null
 
-    // In newer Stripe API versions, subscriptions with no default payment method may
-    // return a pending_setup_intent instead of a payment_intent on the invoice
+    // stripe ^22 / API 2026-03-25.dahlia: client_secret is on confirmation_secret
     const clientSecret =
-      latestInvoice?.payment_intent?.client_secret ??
-      (subscription.pending_setup_intent as Stripe.SetupIntent | null)?.client_secret
+      latestInvoice?.confirmation_secret?.client_secret ??
+      (latestInvoice as (Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent | null }) | null)
+        ?.payment_intent?.client_secret
 
-    console.log("[checkout] sub status:", subscription.status,
-      "invoice status:", latestInvoice?.status,
-      "pi:", latestInvoice?.payment_intent?.id ?? "null",
-      "psi:", (subscription.pending_setup_intent as Stripe.SetupIntent | null)?.id ?? "null",
-      "secret present:", !!clientSecret)
+    console.log("[checkout] sub:", subscription.id, "status:", subscription.status,
+      "invoice:", latestInvoice?.id, "cs:", !!clientSecret)
 
     if (!clientSecret) {
       return NextResponse.json({ error: "Unable to initialize payment" }, { status: 500 })
