@@ -52,6 +52,76 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ received: true })
     }
+
+    if (_pi.metadata?.type === "membership") {
+      const { user_id, plan_id, plan_slug, stripe_customer_id, stripe_price_id } = _pi.metadata
+
+      const { data: alreadyExists } = await supabase
+        .from("memberships")
+        .select("id")
+        .eq("user_id", user_id)
+        .in("status", ["active", "pending_opening"])
+        .maybeSingle()
+
+      if (!alreadyExists && stripe_price_id) {
+        const paymentMethodId = _pi.payment_method as string | null
+        if (paymentMethodId) {
+          await getStripe().customers.update(stripe_customer_id, {
+            invoice_settings: { default_payment_method: paymentMethodId },
+          }).catch(() => {})
+        }
+
+        // First month already paid — subscription starts billing after 30-day trial
+        const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+        const subscription = await getStripe().subscriptions.create({
+          customer: stripe_customer_id,
+          items: [{ price: stripe_price_id }],
+          trial_end: trialEnd,
+          ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
+          metadata: { user_id, plan_id, plan_slug },
+        })
+
+        const now = new Date()
+        const insertData: Record<string, unknown> = {
+          user_id,
+          plan_id,
+          plan_type: plan_slug,
+          status: "active",
+          stripe_customer_id,
+          stripe_subscription_id: subscription.id,
+          started_at: now.toISOString(),
+          current_period_end: new Date(trialEnd * 1000).toISOString(),
+          joining_fee_paid: plan_slug === "founder",
+          joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+        }
+
+        if (plan_slug === "eagle") {
+          insertData.signup_bonus_hours = 2
+          const bonusExpiry = new Date(now)
+          bonusExpiry.setDate(bonusExpiry.getDate() + 90)
+          insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+        }
+
+        if (plan_slug === "founder") {
+          const { data: maxRow } = await supabase
+            .from("memberships")
+            .select("founder_number")
+            .not("founder_number", "is", null)
+            .order("founder_number", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          insertData.founder_number =
+            ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
+          insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
+          insertData.signup_bonus_hours = 2
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await supabase.from("memberships").insert(insertData as any)
+      }
+
+      return NextResponse.json({ received: true })
+    }
   }
 
   if (event.type === "payment_intent.succeeded") {

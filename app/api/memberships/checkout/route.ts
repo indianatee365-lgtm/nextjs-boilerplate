@@ -115,44 +115,30 @@ export async function POST(request: NextRequest) {
       stripePriceId = price.id
     }
 
-    // Add one-time joining fee as a pending invoice item before creating subscription
-    const joiningFee = Number(plan.joining_fee ?? 0)
-    if (joiningFee > 0) {
-      await stripe.invoiceItems.create({
-        customer: stripeCustomerId,
-        amount: Math.round(joiningFee * 100),
-        currency: "usd",
-        description: "Founder's Club Joining Fee (one-time)",
-      })
-    }
+    // First payment = monthly price + one-time joining fee (if any).
+    // The recurring subscription is created by the webhook after this PI succeeds.
+    const monthlyAmountCents = Math.round(Number(plan.price_monthly) * 100)
+    const joiningFeeAmountCents = Math.round(Number(plan.joining_fee ?? 0) * 100)
+    const totalAmountCents = monthlyAmountCents + joiningFeeAmountCents
 
-    // Create subscription — Stripe API 2026-03-25.dahlia returns client_secret via
-    // invoice.confirmation_secret.client_secret (not the old payment_intent field)
-    const subscription = await stripe.subscriptions.create({
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalAmountCents,
+      currency: "usd",
       customer: stripeCustomerId,
-      items: [{ price: stripePriceId }],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice"],
-      metadata: { user_id: user.id, plan_id: plan.id, plan_slug: planSlug },
+      setup_future_usage: "off_session",
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        type: "membership",
+        user_id: user.id,
+        plan_id: plan.id,
+        plan_slug: planSlug,
+        stripe_customer_id: stripeCustomerId,
+        stripe_price_id: stripePriceId,
+      },
+      description: `Tee365 ${plan.display_name ?? plan.name} Membership`,
     })
 
-    const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null
-
-    // stripe ^22 / API 2026-03-25.dahlia: client_secret is on confirmation_secret
-    const clientSecret =
-      latestInvoice?.confirmation_secret?.client_secret ??
-      (latestInvoice as (Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent | null }) | null)
-        ?.payment_intent?.client_secret
-
-    console.log("[checkout] sub:", subscription.id, "status:", subscription.status,
-      "invoice:", latestInvoice?.id, "cs:", !!clientSecret)
-
-    if (!clientSecret) {
-      return NextResponse.json({ error: "Unable to initialize payment" }, { status: 500 })
-    }
-
-    return NextResponse.json({ clientSecret, planSlug })
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"
     console.error("[POST /api/memberships/checkout]", err)
