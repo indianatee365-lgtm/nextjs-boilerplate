@@ -74,7 +74,7 @@ export default function SignupForm({ returnUrl }: { returnUrl?: string }) {
                 : "border-white/10 bg-white/5 text-neutral-400 hover:border-white/20"
             }`}
           >
-            I&apos;ll use the app
+            Email is fine
           </button>
         </div>
 
