@@ -21,6 +21,7 @@ interface SlotData {
   context: { seasonType: string; dayType: string; timeType: string }
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
+interface Disclosure { id: string; title: string; body: string }
 interface ReservedBooking { id: string; clientSecret: string; expiresAt: Date }
 
 type Step = "date" | "bay" | "time" | "review" | "payment"
@@ -36,11 +37,15 @@ export default function BookingFlow({
   advanceDays,
   membershipSlug,
   userName,
+  disclosures,
+  isAuthenticated,
 }: {
   bays: Bay[]
   advanceDays: number
   membershipSlug: string | null
   userName: string
+  disclosures: Disclosure[]
+  isAuthenticated: boolean
 }) {
   const [step, setStep] = useState<Step>("date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -58,12 +63,15 @@ export default function BookingFlow({
   const [reserving, setReserving] = useState(false)
   const [timeLeft, setTimeLeft] = useState(EXPIRY_SECONDS)
   const [expiredError, setExpiredError] = useState("")
+  const [acknowledgedIds, setAcknowledgedIds] = useState<string[]>([])
   const cancellingRef = useRef(false)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + advanceDays)
+
+  const allDisclosuresAcknowledged = disclosures.length === 0 || acknowledgedIds.length >= disclosures.length
 
   const loadAvailability = useCallback(async (date: Date, bayId?: string) => {
     setLoadingSlots(true)
@@ -87,51 +95,7 @@ export default function BookingFlow({
     }
   }, [selectedDate, selectedBay, step, loadAvailability])
 
-  // Create reservation when entering review step
-  useEffect(() => {
-    if (step !== "review" || !selectedBay || !selectedStart || reservedBooking || reserving) return
-    let cancelled = false
-    setReserving(true)
-    setBookingError("")
-    fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bayId: selectedBay.id,
-        startsAt: selectedStart.startsAt,
-        durationMinutes: selectedDuration,
-        couponCode: couponCode || undefined,
-        giftCardCode: giftCardCode || undefined,
-      }),
-    })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (cancelled) return
-        if (!ok) {
-          setBookingError(data.error ?? "Could not reserve slot")
-          setStep("time")
-          return
-        }
-        setReservedBooking({
-          id: data.bookingId,
-          clientSecret: data.clientSecret,
-          expiresAt: new Date(Date.now() + EXPIRY_SECONDS * 1000),
-        })
-        setTimeLeft(EXPIRY_SECONDS)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBookingError("Could not reserve slot — please try again")
-          setStep("time")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setReserving(false)
-      })
-    return () => { cancelled = true }
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Countdown timer
+  // Countdown timer (only after slot is reserved)
   useEffect(() => {
     if (step !== "review" || !reservedBooking) return
     const interval = setInterval(() => {
@@ -164,8 +128,44 @@ export default function BookingFlow({
     setStep("date")
     setSelectedBay(null)
     setSelectedStart(null)
+    setAcknowledgedIds([])
     setExpiredError("Your reservation expired. Please start over and complete payment within 15 minutes.")
     if (id) cancelReservation(id)
+  }
+
+  async function handleReserve() {
+    if (!selectedBay || !selectedStart || reserving) return
+    setReserving(true)
+    setBookingError("")
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bayId: selectedBay.id,
+          startsAt: selectedStart.startsAt,
+          durationMinutes: selectedDuration,
+          couponCode: couponCode || undefined,
+          giftCardCode: giftCardCode || undefined,
+          disclosureIds: acknowledgedIds,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setBookingError(data.error ?? "Could not reserve slot")
+        return
+      }
+      setReservedBooking({
+        id: data.bookingId,
+        clientSecret: data.clientSecret,
+        expiresAt: new Date(Date.now() + EXPIRY_SECONDS * 1000),
+      })
+      setTimeLeft(EXPIRY_SECONDS)
+    } catch {
+      setBookingError("Could not reserve slot — please try again")
+    } finally {
+      setReserving(false)
+    }
   }
 
   async function handleConfirmBooking() {
@@ -356,7 +356,6 @@ export default function BookingFlow({
             {selectedBay.name} — {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h2>
 
-          {/* Duration selector */}
           <div className="mb-5 mt-4">
             <p className="mb-2 text-sm text-neutral-400">Session length</p>
             <div className="flex flex-wrap gap-2">
@@ -439,7 +438,7 @@ export default function BookingFlow({
         </div>
       )}
 
-      {/* ── Step 4: Review + discounts ── */}
+      {/* ── Step 4: Review + disclosures ── */}
       {step === "review" && selectedStart && selectedBay && pricingPreview && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -448,6 +447,7 @@ export default function BookingFlow({
                 const id = reservedBooking?.id
                 setReservedBooking(null)
                 setTimeLeft(EXPIRY_SECONDS)
+                setAcknowledgedIds([])
                 setStep("time")
                 if (id) await cancelReservation(id)
               }}
@@ -469,16 +469,6 @@ export default function BookingFlow({
           </div>
 
           <h2 className="mb-5 text-lg font-semibold text-white">Review your booking</h2>
-
-          {reserving && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              Reserving your slot…
-            </div>
-          )}
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-300">
@@ -515,6 +505,7 @@ export default function BookingFlow({
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
               placeholder="Enter code"
               className="input mt-1"
+              disabled={!!reservedBooking}
             />
           </div>
 
@@ -528,6 +519,7 @@ export default function BookingFlow({
               onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
               placeholder="Enter code"
               className="input mt-1"
+              disabled={!!reservedBooking}
             />
           </div>
 
@@ -536,20 +528,73 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
+          {/* Disclosures — shown until slot is reserved */}
+          {!reservedBooking && disclosures.length > 0 && (
+            <div className="mt-5 space-y-3">
+              <p className="text-sm font-medium text-neutral-300">Please review and acknowledge the following:</p>
+              {disclosures.map((d) => (
+                <label key={d.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgedIds.includes(d.id)}
+                    onChange={(e) =>
+                      setAcknowledgedIds((prev) =>
+                        e.target.checked ? [...prev, d.id] : prev.filter((id) => id !== d.id)
+                      )
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white">{d.title}</p>
+                    <p className="mt-0.5 max-h-20 overflow-y-auto text-xs text-neutral-400">{d.body}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
           {bookingError && (
             <p className="mt-3 text-sm text-red-400">{bookingError}</p>
           )}
 
-          <button
-            onClick={handleConfirmBooking}
-            disabled={submitting || reserving || !reservedBooking}
-            className="btn-primary mt-5 w-full"
-          >
-            {submitting ? "Processing…" : reserving ? "Reserving…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}
-          </button>
-          <p className="mt-2 text-center text-xs text-neutral-500">
-            Payment processed securely by Stripe
-          </p>
+          {/* Reserve button (before slot is held) */}
+          {!reservedBooking && (
+            <button
+              onClick={handleReserve}
+              disabled={reserving || !allDisclosuresAcknowledged}
+              className="btn-primary mt-5 w-full"
+            >
+              {reserving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Reserving slot…
+                </span>
+              ) : (
+                disclosures.length > 0 && !allDisclosuresAcknowledged
+                  ? `Acknowledge all ${disclosures.length} items to continue`
+                  : "Reserve slot"
+              )}
+            </button>
+          )}
+
+          {/* Pay button (after slot is reserved) */}
+          {reservedBooking && (
+            <>
+              <button
+                onClick={handleConfirmBooking}
+                disabled={submitting}
+                className="btn-primary mt-5 w-full"
+              >
+                {submitting ? "Processing…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}
+              </button>
+              <p className="mt-2 text-center text-xs text-neutral-500">
+                Payment processed securely by Stripe
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
