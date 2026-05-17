@@ -404,7 +404,7 @@ export default function BookingFlow({
                       ? isSelected
                         ? "bg-brand text-white font-semibold"
                         : "text-white hover:bg-white/10"
-                      : "cursor-not-allowed text-neutral-700",
+                      : "cursor-not-allowed text-white/25",
                   ].join(" ")}
                 >
                   {date?.getDate()}
@@ -469,7 +469,7 @@ export default function BookingFlow({
                           ? isSelected
                             ? "border-brand bg-brand/20 text-brand font-semibold"
                             : "border-white/10 text-white hover:border-white/30"
-                          : "cursor-not-allowed border-white/5 text-neutral-700",
+                          : "cursor-not-allowed border-white/5 text-white/25",
                       ].join(" ")}
                     >
                       {slot.label}
