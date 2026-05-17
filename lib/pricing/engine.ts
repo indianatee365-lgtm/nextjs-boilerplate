@@ -5,6 +5,21 @@ const PREMIUM_END_HOUR = 22
 // On-season months: October (10) through March (3)
 const ON_SEASON_MONTHS = [10, 11, 12, 1, 2, 3]
 
+// Business timezone — all slot labels and pricing context use local time, not UTC
+const BUSINESS_TZ = "America/Indiana/Indianapolis"
+
+function localParts(date: Date): { hour: number; weekday: number; month: number } {
+  const hour = parseInt(
+    new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, hour: "2-digit", hour12: false }).format(date)
+  ) % 24
+  const weekdayStr = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, weekday: "short" }).format(date)
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekdayStr)
+  const month = parseInt(
+    new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, month: "numeric" }).format(date)
+  )
+  return { hour, weekday, month }
+}
+
 export type SeasonType = "on" | "off"
 export type DayType = "weekday" | "weekend"
 export type TimeType = "premium" | "non_premium"
@@ -36,20 +51,18 @@ export interface BookingPrice {
 }
 
 export function getSeasonType(date: Date): SeasonType {
-  const month = date.getMonth() + 1 // 1-indexed
+  const { month } = localParts(date)
   return ON_SEASON_MONTHS.includes(month) ? "on" : "off"
 }
 
 export function getDayType(date: Date): DayType {
-  const day = date.getDay() // 0=Sun, 6=Sat
-  return day === 0 || day === 6 ? "weekend" : "weekday"
+  const { weekday } = localParts(date)
+  return weekday === 0 || weekday === 6 ? "weekend" : "weekday"
 }
 
 export function getTimeType(date: Date): TimeType {
-  const hour = date.getHours()
-  return hour >= PREMIUM_START_HOUR && hour < PREMIUM_END_HOUR
-    ? "premium"
-    : "non_premium"
+  const { hour } = localParts(date)
+  return hour >= PREMIUM_START_HOUR && hour < PREMIUM_END_HOUR ? "premium" : "non_premium"
 }
 
 export function getPricingContext(date: Date): PricingContext {
@@ -165,26 +178,26 @@ export function getMaxBookingDate(membershipSlug: string | null): Date {
 /**
  * Generate all 30-min slots for a given date.
  * Returns slots as { startsAt, endsAt, label } for UI display.
+ * Labels are formatted in the business timezone so they match what customers see locally.
  */
 export function generateDaySlots(date: Date, extraHours = 4): { startsAt: Date; endsAt: Date; label: string }[] {
   const slots = []
   // Use the date as-is — callers pass local midnight expressed in UTC,
   // so resetting hours here would snap to UTC midnight and lose the offset.
   const start = new Date(date)
+  const labelFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
 
   for (let minutes = 0; minutes < (24 + extraHours) * 60; minutes += 30) {
     const startsAt = new Date(start.getTime() + minutes * 60 * 1000)
     const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000)
-    const hour = startsAt.getHours()
-    const min = startsAt.getMinutes()
-    const ampm = hour >= 12 ? "pm" : "am"
-    const displayHour = hour % 12 === 0 ? 12 : hour % 12
-    const displayMin = min === 0 ? "00" : "30"
-    slots.push({
-      startsAt,
-      endsAt,
-      label: `${displayHour}:${displayMin}${ampm}`,
-    })
+    // Replace narrow no-break space (U+202F) that some environments emit between time and AM/PM
+    const label = labelFmt.format(startsAt).replace(/ |\s/g, "").toLowerCase()
+    slots.push({ startsAt, endsAt, label })
   }
   return slots
 }
