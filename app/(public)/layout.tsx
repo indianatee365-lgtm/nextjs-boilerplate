@@ -34,7 +34,17 @@ export default async function PublicLayout({ children }: { children: React.React
           </nav>
         </div>
       </header>
-      <div className="flex-1">{children}</div>
+      <div className="relative flex-1 overflow-hidden">
+        <div
+          className="pointer-events-none absolute top-[-220px] left-[-160px] h-[620px] w-[620px] rounded-full blur-3xl opacity-45"
+          style={{ backgroundColor: "var(--brandGlow)" }}
+        />
+        <div
+          className="pointer-events-none absolute top-[100px] right-[-160px] h-[520px] w-[520px] rounded-full blur-3xl opacity-25"
+          style={{ backgroundColor: "var(--brandSoft)" }}
+        />
+        {children}
+      </div>
       <footer className="border-t border-white/10 py-6 text-center text-xs text-neutral-600">
         © {new Date().getFullYear()} Tee365 · <a href="mailto:info@tee365.org" className="hover:text-neutral-400">info@tee365.org</a>
       </footer>
