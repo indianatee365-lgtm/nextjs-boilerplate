@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -26,6 +27,54 @@ interface ReservedBooking { id: string; clientSecret: string; expiresAt: Date }
 interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
 type Step = "date" | "time" | "review"
+
+function PaymentForm({
+  returnUrl,
+  total,
+  onError,
+}: {
+  returnUrl: string
+  total: number
+  onError: (msg: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit() {
+    if (!stripe || !elements) return
+    setSubmitting(true)
+    try {
+      const { error: submitError } = await elements.submit()
+      if (submitError) { onError(submitError.message ?? "Payment failed"); return }
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: returnUrl },
+      })
+      if (error) onError(error.message ?? "Payment failed")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="mt-5">
+        <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={submitting || !stripe || !elements}
+        className="btn-primary mt-5 w-full"
+      >
+        {submitting ? "Processing…" : `Pay $${total.toFixed(2)} and confirm`}
+      </button>
+      <p className="mt-2 text-center text-xs text-neutral-500">
+        Payment processed securely by Stripe
+      </p>
+    </>
+  )
+}
 
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -59,7 +108,6 @@ export default function BookingFlow({
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [bookingError, setBookingError] = useState("")
-  const [submitting, setSubmitting] = useState(false)
   const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
   const [reserving, setReserving] = useState(false)
   const [timeLeft, setTimeLeft] = useState(EXPIRY_SECONDS)
@@ -93,7 +141,6 @@ export default function BookingFlow({
       const now = new Date()
       for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
         const d = new Date(now)
-        d.setHours(0, 0, 0, 0)
         d.setDate(d.getDate() + offset)
         const res = await fetch(`/api/availability?date=${d.toISOString()}`)
         const data: BayAvailability[] = await res.json()
@@ -192,27 +239,6 @@ export default function BookingFlow({
       setBookingError("Could not reserve slot — please try again")
     } finally {
       setReserving(false)
-    }
-  }
-
-  async function handleConfirmBooking() {
-    if (!reservedBooking) return
-    setSubmitting(true)
-    setBookingError("")
-    try {
-      const stripe = await stripePromise
-      if (!stripe) return
-      const { error } = await stripe.confirmPayment({
-        clientSecret: reservedBooking.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/account/bookings?confirmed=${reservedBooking.id}`,
-        },
-      })
-      if (error) {
-        setBookingError(error.message ?? "Payment failed")
-      }
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -404,7 +430,7 @@ export default function BookingFlow({
                       ? isSelected
                         ? "bg-brand text-white font-semibold"
                         : "text-white hover:bg-white/10"
-                      : "cursor-not-allowed text-white/25",
+                      : "cursor-not-allowed text-neutral-700",
                   ].join(" ")}
                 >
                   {date?.getDate()}
@@ -469,7 +495,7 @@ export default function BookingFlow({
                           ? isSelected
                             ? "border-brand bg-brand/20 text-brand font-semibold"
                             : "border-white/10 text-white hover:border-white/30"
-                          : "cursor-not-allowed border-white/5 text-white/25",
+                          : "cursor-not-allowed border-white/5 text-neutral-700",
                       ].join(" ")}
                     >
                       {slot.label}
@@ -672,20 +698,21 @@ export default function BookingFlow({
             </button>
           )}
 
-          {/* Pay button (after slot is reserved) */}
+          {/* Payment form (after slot is reserved) */}
           {reservedBooking && (
-            <>
-              <button
-                onClick={handleConfirmBooking}
-                disabled={submitting}
-                className="btn-primary mt-5 w-full"
-              >
-                {submitting ? "Processing…" : `Pay $${pricingPreview.total.toFixed(2)} and confirm`}
-              </button>
-              <p className="mt-2 text-center text-xs text-neutral-500">
-                Payment processed securely by Stripe
-              </p>
-            </>
+            <Elements
+              stripe={stripePromise}
+              options={{
+                clientSecret: reservedBooking.clientSecret,
+                appearance: { theme: "night" },
+              }}
+            >
+              <PaymentForm
+                returnUrl={`${window.location.origin}/account/bookings?confirmed=${reservedBooking.id}`}
+                total={pricingPreview.total}
+                onError={setBookingError}
+              />
+            </Elements>
           )}
         </div>
       )}
