@@ -149,17 +149,24 @@ export default function BookingFlow({
         const res = await fetch(`/api/availability?date=${d.toISOString()}`)
         const data: BayAvailability[] = await res.json()
         if (!Array.isArray(data)) continue
+        let best: NextAvailable | null = null
         for (const bayAvail of data) {
           for (let i = 0; i < bayAvail.slots.length - 1; i++) {
             const slot = bayAvail.slots[i]
             const next = bayAvail.slots[i + 1]
             if (slot.available && next.available) {
-              const slotDate = new Date(d)
-              slotDate.setHours(0, 0, 0, 0)
-              setNextAvailable({ date: slotDate, slot, bay: bayAvail.bay })
-              return
+              if (!best || new Date(slot.startsAt) < new Date(best.slot.startsAt)) {
+                const slotDate = new Date(d)
+                slotDate.setHours(0, 0, 0, 0)
+                best = { date: slotDate, slot, bay: bayAvail.bay }
+              }
+              break
             }
           }
+        }
+        if (best) {
+          setNextAvailable(best)
+          return
         }
       }
       setNextAvailable(null)
