@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     .from("bookings")
     .select("bay_id, starts_at, ends_at")
     .in("status", ["pending", "confirmed"])
-    .gte("starts_at", dayStart.toISOString())
+    .gt("ends_at", dayStart.toISOString())
     .lte("starts_at", dayEnd.toISOString())
 
   if (bayId) bookingQuery = bookingQuery.eq("bay_id", bayId)
