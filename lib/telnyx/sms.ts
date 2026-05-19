@@ -50,10 +50,10 @@ export async function sendBookingConfirmation({
   })
 
   const message = [
-    "Hi " + firstName + "! Your Tee365 booking is confirmed.",
-    "Bay: " + bayName,
-    startStr + " - " + endStr,
-    "Your access code will be sent 10-20 minutes before your session.",
+    "📅 Hi " + firstName + "! Your Tee365 booking is confirmed.",
+    "🕒 " + startStr + " – " + endStr,
+    "🏌️ Bay: " + bayName,
+    "✅ Access code sent 10–20 min before your session.",
     "Questions? info@tee365.org",
     "Reply STOP to opt out, HELP for info. Msg & data rates may apply.",
   ].join("\n")
