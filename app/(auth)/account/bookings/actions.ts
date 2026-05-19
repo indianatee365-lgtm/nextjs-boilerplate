@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
-import { sendBookingConfirmation } from "@/lib/twilio/sms"
+import { sendBookingConfirmation } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 
