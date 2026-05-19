@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
           endsAt: new Date(booking.ends_at),
         })
       } catch (smsError) {
-        console.error("SMS send failed", smsError)
+        const msg = smsError instanceof Error ? smsError.message : JSON.stringify(smsError); console.error("SMS send failed:", msg)
       }
     }
 

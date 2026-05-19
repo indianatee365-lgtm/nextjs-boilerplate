@@ -10,7 +10,7 @@ async function sendSms(to: string, body: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.TELNYX_PHONE_NUMBER,
+      from: normalizePhone(process.env.TELNYX_PHONE_NUMBER ?? ""),
       to: normalizePhone(to),
       text: body,
     }),
