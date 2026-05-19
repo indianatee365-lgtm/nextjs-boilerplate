@@ -142,6 +142,10 @@ export default function BookingFlow({
       for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
         const d = new Date(now)
         d.setDate(d.getDate() + offset)
+        if (offset > 0) d.setHours(0, 0, 0, 0)
+        // Snap to previous :00/:30 UTC boundary so slots always land on the half-hour
+        const thirtyMin = 30 * 60 * 1000
+        d.setTime(Math.floor(d.getTime() / thirtyMin) * thirtyMin)
         const res = await fetch(`/api/availability?date=${d.toISOString()}`)
         const data: BayAvailability[] = await res.json()
         if (!Array.isArray(data)) continue
