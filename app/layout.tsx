@@ -80,7 +80,7 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_SCHEMA) }}
         />
-        <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)" }} />
+        <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)", willChange: "transform" }} />
         {children}
       </body>
       <GoogleAnalytics gaId="G-LJZ2L1GD7Y" nonce={nonce} />
