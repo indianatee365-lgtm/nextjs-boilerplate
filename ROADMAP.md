@@ -92,20 +92,34 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 
 > Goal: Take real money for memberships and gift cards. Booking still locked.
 > Unlocked by: switching Stripe to live keys.
+> Birdie/Eagle hidden until ~Aug 25 — only Founder's Club available to drive founding memberships.
 
 ### Stripe go-live (unlocks everything in this phase)
 - [ ] Switch Stripe from test keys to live keys
 - [ ] Add `checkout.session.completed` to live Stripe webhook event list
 - [ ] Verify Apple Pay domain registration carries to live mode
 
-### Gift cards
+### Marketing site updates
+- [ ] Homepage: add Founding Member purchase CTA buttons (link to `/founders`)
+- [ ] Homepage: update gift card section from "coming soon" to "live now" with purchase link
+- [ ] Hide Birdie/Eagle on `/join` — show Founder's Club only until ~Aug 25
+
+### Gift cards — pre-launch promotion
 - [ ] Remove login gate from `/gift-cards` and balance checker
+- [ ] Apply 20% pre-launch discount on gift card purchases (ends Aug 31, 2026)
+  - $100 card sells for $80, $50 for $40, $25 for $20 — customer gets full face value at the door
+  - Strategy: $20 customer acquisition cost; they tell friends, CAC drops fast
 - [ ] Update FAQ gift card answer to "now live"
 
-### Memberships — public-facing
-- [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel access
-- [ ] `/founders` private authenticated page (founder_number IS NOT NULL) — construction updates, news
+### Founding Members — public-facing
+- [ ] Founders page (`/founders`) live and polished — ready for real purchases
+- [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel
+- [ ] `/founders` private authenticated area (founder_number IS NOT NULL) — construction updates, news
 - [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours
+
+### Birdie/Eagle reveal (~Aug 25, 2026 — one week before public launch)
+- [ ] Unhide Birdie/Eagle on `/join` page
+- [ ] Update marketing site to announce all membership tiers available
 
 ### Admin — membership management
 - [ ] Admin: manually assign/override membership tier
