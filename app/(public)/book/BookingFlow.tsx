@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -23,7 +24,7 @@ interface SlotData {
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
 interface Disclosure { id: string; title: string; body: string }
-interface ReservedBooking { id: string; clientSecret: string; expiresAt: Date }
+interface ReservedBooking { id: string; clientSecret: string | null; expiresAt: Date }
 interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
 type Step = "date" | "time" | "review"
@@ -97,6 +98,7 @@ export default function BookingFlow({
   disclosures: Disclosure[]
   isAuthenticated: boolean
 }) {
+  const router = useRouter()
   const [step, setStep] = useState<Step>("date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedBay, setSelectedBay] = useState<Bay | null>(null)
@@ -238,6 +240,11 @@ export default function BookingFlow({
       const data = await res.json()
       if (!res.ok) {
         setBookingError(data.error ?? "Could not reserve slot")
+        return
+      }
+      if (data.clientSecret === null) {
+        // Gift card covered full amount — booking already confirmed
+        router.push(`/account/bookings?confirmed=${data.bookingId}`)
         return
       }
       setReservedBooking({
@@ -565,7 +572,7 @@ export default function BookingFlow({
             >
               <ChevronLeft size={14} /> Back
             </button>
-            {reservedBooking && (
+            {reservedBooking && reservedBooking.clientSecret && (
               <div className={[
                 "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
                 urgentTimer
@@ -710,7 +717,7 @@ export default function BookingFlow({
           )}
 
           {/* Payment form (after slot is reserved) */}
-          {reservedBooking && (
+          {reservedBooking && reservedBooking.clientSecret && (
             <Elements
               stripe={stripePromise}
               options={{

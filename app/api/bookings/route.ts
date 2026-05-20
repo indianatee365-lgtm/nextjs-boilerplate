@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
+import { sendBookingConfirmation } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -186,8 +188,116 @@ export async function POST(request: NextRequest) {
 
     // Guard against zero/sub-minimum amounts
     const amountCents = Math.round(pricing.total * 100)
+
+    // $0 booking — gift card covers the full amount; skip Stripe entirely
+    if (amountCents === 0) {
+      const { data: booking, error: bookingError } = await serviceClient
+        .from("bookings")
+        .insert({
+          user_id: user.id,
+          bay_id: bayId,
+          starts_at: startDate.toISOString(),
+          ends_at: endDate.toISOString(),
+          duration_minutes: durationMinutes,
+          status: "confirmed",
+          price_per_hour: pricePerHour,
+          subtotal: pricing.subtotal,
+          membership_discount: pricing.membershipDiscount,
+          coupon_discount: pricing.couponDiscount,
+          tax: pricing.tax,
+          gift_card_applied: pricing.giftCardApplied,
+          total: pricing.total,
+          membership_id: membershipId,
+          coupon_id: couponId,
+          gift_card_id: giftCardId,
+          stripe_payment_intent_id: null,
+          paid_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (bookingError || !booking) {
+        return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+      }
+
+      // Disclosures
+      if (Array.isArray(disclosureIds) && disclosureIds.length > 0) {
+        const { data: disclosureBodies } = await serviceClient
+          .from("disclosures").select("id, body").in("id", disclosureIds)
+        const bodyMap = Object.fromEntries((disclosureBodies ?? []).map((d) => [d.id, d.body]))
+        await serviceClient.from("disclosure_acknowledgments").upsert(
+          disclosureIds.map((id: string) => ({
+            user_id: user.id, disclosure_id: id, booking_id: booking.id,
+            body_snapshot: bodyMap[id] ?? null,
+          })),
+          { onConflict: "user_id,disclosure_id" }
+        )
+      }
+
+      // Record coupon use
+      if (couponId) {
+        await serviceClient.from("coupon_uses").insert({
+          coupon_id: couponId, user_id: user.id, booking_id: booking.id,
+        })
+      }
+
+      // Deduct gift card balance
+      if (giftCardId && pricing.giftCardApplied > 0) {
+        const { data: gc } = await serviceClient
+          .from("gift_cards").select("balance").eq("id", giftCardId).single()
+        if (gc) {
+          const newBalance = Number(gc.balance) - pricing.giftCardApplied
+          await serviceClient.from("gift_cards")
+            .update({ balance: newBalance, active: newBalance > 0 }).eq("id", giftCardId)
+          await serviceClient.from("gift_card_transactions").insert({
+            gift_card_id: giftCardId, booking_id: booking.id,
+            amount: -pricing.giftCardApplied, balance_after: newBalance,
+          })
+        }
+      }
+
+      // Fetch profile for notifications
+      const { data: profile } = await serviceClient
+        .from("profiles")
+        .select("first_name, last_name, phone, sms_consent")
+        .eq("id", user.id)
+        .single()
+      const p = profile as { first_name: string; last_name: string; phone: string | null; sms_consent: boolean } | null
+
+      if (p?.phone && p.sms_consent) {
+        try {
+          await sendBookingConfirmation({
+            to: p.phone, firstName: p.first_name, bayName: bay.name,
+            startsAt: startDate, endsAt: endDate,
+          })
+        } catch {}
+      }
+
+      const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(user.id)
+      if (authUser?.email && p) {
+        try {
+          await sendBookingConfirmationEmail({
+            to: authUser.email, firstName: p.first_name, bayName: bay.name,
+            startsAt: startDate, endsAt: endDate,
+            subtotal: pricing.subtotal, membershipDiscount: pricing.membershipDiscount,
+            couponDiscount: pricing.couponDiscount, tax: pricing.tax,
+            giftCardApplied: pricing.giftCardApplied, total: pricing.total,
+          })
+        } catch {}
+      }
+
+      return NextResponse.json({
+        bookingId: booking.id,
+        clientSecret: null,
+        pricing,
+        bay,
+        startsAt: startDate.toISOString(),
+        endsAt: endDate.toISOString(),
+      })
+    }
+
     if (amountCents < 50) {
-      return NextResponse.json({ error: `Booking total $${pricing.total.toFixed(2)} is below the minimum charge. Check pricing rules.` }, { status: 400 })
+      return NextResponse.json({ error: "Something went wrong calculating your total. Please contact us at info@tee365.org." }, { status: 400 })
     }
 
     // Retrieve or create a Stripe Customer so the payment method is saved for future use
