@@ -86,13 +86,12 @@ export default async function AccountPage({
         <h1 className="text-2xl font-semibold text-white">
           Welcome, {profile?.first_name}
         </h1>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           {profile?.role === "admin" && (
             <Link href="/admin" className="btn-secondary text-xs px-3 py-2">Admin</Link>
           )}
-          <Link href="/reset-password" className="btn-ghost px-3 py-2 text-xs">Change password</Link>
           <form action={logout}>
-            <button className="btn-ghost px-3 py-2 text-xs">Sign out</button>
+            <button className="text-xs px-3 py-2 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors">Sign out</button>
           </form>
         </div>
       </div>

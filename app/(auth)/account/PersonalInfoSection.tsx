@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { updateProfile, updateEmail } from "./actions"
 
 function formatPhone(phone: string): string {
@@ -183,6 +184,11 @@ export default function PersonalInfoSection({
               <span className={smsConsent ? "text-green-400" : "text-neutral-500"}>
                 {smsConsent ? "Enabled" : "Disabled"}
               </span>
+            </div>
+            <div className="pt-1 border-t border-white/10">
+              <Link href="/reset-password" className="text-xs text-neutral-400 hover:text-white transition-colors">
+                Change password →
+              </Link>
             </div>
           </div>
         )}
