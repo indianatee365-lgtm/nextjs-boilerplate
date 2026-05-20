@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 function normalizePhone(phone: string): string {
@@ -25,9 +25,10 @@ export async function updateProfile({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Not authenticated" }
 
+  const serviceClient = await createServiceClient()
   const normalizedPhone = phone.trim() ? normalizePhone(phone.trim()) : null
 
-  const { error } = await supabase.from("profiles").update({
+  const { error } = await serviceClient.from("profiles").update({
     first_name: firstName.trim(),
     last_name: lastName.trim(),
     phone: normalizedPhone,
