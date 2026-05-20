@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 import PaymentMethodsSection from "./PaymentMethodsSection"
+import PersonalInfoSection from "./PersonalInfoSection"
 import Stripe from "stripe"
 
 function getStripe() {
@@ -28,7 +29,7 @@ export default async function AccountPage({
 
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }] =
     await Promise.all([
-      supabase.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id").eq("id", user.id).single(),
+      supabase.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
         .select("status, started_at, current_period_end, membership_plans(name, slug, discount_percent, first_year_discount)")
@@ -177,6 +178,13 @@ export default async function AccountPage({
         )}
       </div>
       <PaymentMethodsSection cards={savedCards} />
+      <PersonalInfoSection
+        firstName={profile?.first_name ?? ""}
+        lastName={profile?.last_name ?? ""}
+        phone={(profile as { phone?: string | null } | null)?.phone ?? null}
+        email={user.email ?? ""}
+        smsConsent={(profile as { sms_consent?: boolean } | null)?.sms_consent ?? false}
+      />
     </main>
   )
 }
