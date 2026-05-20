@@ -3,6 +3,13 @@
 import { useState } from "react"
 import { updateProfile, updateEmail } from "./actions"
 
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  const d = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return phone
+}
+
 export default function PersonalInfoSection({
   firstName,
   lastName,
@@ -169,7 +176,7 @@ export default function PersonalInfoSection({
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-400">Phone</span>
-              <span className="text-white">{phone ?? <span className="text-neutral-500">Not set</span>}</span>
+              <span className="text-white">{phone ? formatPhone(phone) : <span className="text-neutral-500">Not set</span>}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-400">SMS notifications</span>
