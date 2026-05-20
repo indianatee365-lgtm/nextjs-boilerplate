@@ -135,10 +135,13 @@ export function PurchaseForm() {
         </div>
         {useCustom && (
           <div className="mt-3">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 font-semibold">$</span>
+            <div className="flex items-center gap-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 focus-within:border-white/30 transition">
+              <span className="text-neutral-400 font-semibold text-sm mr-1 shrink-0">$</span>
               <input type="number" min={10} max={500} step={1} value={custom}
-                onChange={(e) => setCustom(e.target.value)} placeholder="Enter amount (10-500)" className="input pl-7" autoFocus />
+                onChange={(e) => setCustom(e.target.value)} placeholder="Enter amount (10–500)"
+                className="flex-1 bg-transparent outline-none text-sm text-white placeholder-neutral-600 min-w-0"
+                style={{ WebkitAppearance: "none" }}
+                autoFocus />
             </div>
             {custom && (parseFloat(custom) < 10 || parseFloat(custom) > 500) && (
               <p className="mt-1 text-xs text-red-400">Amount must be between $10 and $500</p>

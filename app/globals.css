@@ -80,6 +80,11 @@ body::before {
 .input {
   @apply w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white
          placeholder-neutral-600 outline-none transition focus:border-white/30;
+  -webkit-appearance: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 select.input {
