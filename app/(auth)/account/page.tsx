@@ -29,7 +29,7 @@ export default async function AccountPage({
 
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }] =
     await Promise.all([
-      supabase.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
+      serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
         .select("status, started_at, current_period_end, membership_plans(name, slug, discount_percent, first_year_discount)")
