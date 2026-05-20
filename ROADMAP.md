@@ -116,6 +116,8 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel
 - [ ] `/founders` private authenticated area (founder_number IS NOT NULL) — construction updates, news
 - [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours
+- [ ] Account page: view and edit personal information (first name, last name, phone, email)
+  - Phone changes should re-validate format and update sms_consent flow if phone is removed
 
 ### Birdie/Eagle reveal (~Aug 25, 2026 — one week before public launch)
 - [ ] Unhide Birdie/Eagle on `/join` page
