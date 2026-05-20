@@ -50,7 +50,7 @@ export async function sendBookingConfirmation({
   })
 
   const message = [
-    "📅 Hi " + firstName + "! Your Tee365 booking is confirmed.",
+    "Hi " + firstName + "! Your Tee365 booking is confirmed.",
     "🕒 " + startStr + " – " + endStr,
     "🏌️ Bay: " + bayName,
     "✅ Access code sent 10–20 min before your session.",
@@ -82,6 +82,6 @@ export async function sendAccessCodeReminder({
 
   await sendSms(
     to,
-    "Tee365 reminder: " + firstName + ", your session at " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out."
+    "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out."
   )
 }
