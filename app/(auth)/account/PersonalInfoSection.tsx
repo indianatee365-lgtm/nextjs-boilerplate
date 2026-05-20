@@ -116,17 +116,25 @@ export default function PersonalInfoSection({
             </div>
 
             {editPhone.trim() && (
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={editSmsConsent}
-                  onClick={() => setEditSmsConsent(!editSmsConsent)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${editSmsConsent ? "bg-brand" : "bg-white/20"}`}
-                >
-                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${editSmsConsent ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
-                <span className="text-sm text-neutral-300">Receive SMS booking confirmations and access codes</span>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">SMS notifications</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Booking confirmations and access codes</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editSmsConsent}
+                    onClick={() => setEditSmsConsent(!editSmsConsent)}
+                    className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${editSmsConsent ? "bg-brand" : "bg-neutral-600"}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-200 mt-1 ${editSmsConsent ? "translate-x-8" : "translate-x-1"}`} />
+                  </button>
+                </div>
+                <p className={`mt-2 text-xs font-medium ${editSmsConsent ? "text-brand" : "text-neutral-500"}`}>
+                  {editSmsConsent ? "On — you will receive SMS messages" : "Off — you will not receive SMS messages"}
+                </p>
               </div>
             )}
 
