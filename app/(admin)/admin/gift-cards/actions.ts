@@ -50,3 +50,22 @@ export async function issueGiftCard({
     })
   }
 }
+
+export async function deactivateGiftCard(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") return { error: "Forbidden" }
+
+  const { error } = await serviceClient
+    .from("gift_cards")
+    .update({ active: false })
+    .eq("id", id)
+
+  if (error) return { error: error.message }
+  return {}
+}
