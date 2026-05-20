@@ -1,223 +1,202 @@
 # Tee365 — Project Roadmap
 
+## Phases
+
+| Phase | Status | Description |
+|---|---|---|
+| **Pre-launch** | ✅ Current | Internal testing only. No real money. No public access. |
+| **Partly Live** | ⏳ Next | Real Stripe keys. Gift cards + memberships open to the public. Booking still locked. |
+| **Launch — Sept 1, 2026** | 🔒 Sept 1 | Booking opens. Tiered access: Founders first, then Eagle/Birdie, then public. |
+
+---
+
 ## Where We Are
 
-The main marketing site (`tee365.org`) and the booking app have been merged into a single Next.js 16 project (this repo). The booking app routes are live but unlinked from the marketing site — no nav links until product testing is complete.
+The main marketing site (`tee365.org`) and the booking app are merged into a single Next.js 16 project. The booking app routes are live but unlinked from the marketing site — no nav links until go-live.
 
 ### What's built and deployed
 - **Marketing site** — home, about, FAQ, contact, SEO page (all under `app/(marketing)/`)
 - **Auth** — `/signup`, `/login`, `/account` — signup → login flow confirmed working
-- **Booking flow** — `/book`: date/time picker (no bay selection — auto-assigned), Stripe embedded PaymentElement, access code generation; midnight rollover works for 24/7 model; all times in America/Indiana/Indianapolis. Payment step shows server-confirmed pricing (includes membership discounts and coupons).
+- **Booking flow** — `/book`: date/time picker (auto-assigned bays), Stripe embedded PaymentElement, access code generation; midnight rollover works; all times in America/Indiana/Indianapolis
 - **My Bookings** — `/account/bookings`: upcoming + past bookings with status, access code display, confirmed banner after payment
 - **Disclosures** — shown at booking review step (before payment), not signup
-- **SMS confirmation** — fires on `payment_intent.succeeded`: "Booking confirmed, access code coming 10–20 min before your session"
-- **SMS access code** — cron fires 15 min before session, generates access code, SMSs customer, calls `grantBayAccess()` stub for access control integration
-- **Access control stub** — `lib/access-control/index.ts` ready to wire up when system is defined
-- **Admin panel** — `/admin/bookings`: calendar grid view, cancel with Stripe refund, manual confirm + SMS button for pending bookings; requires `role = 'admin'` in profiles table. Cancel correctly handles both cases: cancels PaymentIntent for pending bookings, issues refund for confirmed bookings. Webhook guarded with `.neq("status", "cancelled")` to prevent re-confirmation.
-- **Display board** — `/display`: unauthenticated kiosk view (excluded from proxy auth)
+- **SMS confirmation** — fires on `payment_intent.succeeded` ✅ live and confirmed working 2026-05-19
+- **SMS access code** — pg_cron fires every 5 min, sends code 10–20 min before session ✅ confirmed working 2026-05-19
+- **Access control stub** — `lib/access-control/index.ts` ready to wire when hardware is selected
+- **Admin panel** — `/admin/bookings`: calendar grid view, cancel + Stripe refund, manual confirm + SMS; requires `role = 'admin'`
+- **Display board** — `/display`: unauthenticated kiosk view
 - **Pricing engine** — rules-based by season/day/time, stored in `pricing_rules` table
-- **Memberships** — discount logic in booking flow, `memberships` + `membership_plans` tables exist
-- **Coupons + gift cards** — validation and application in booking flow, tables exist
+- **Memberships** — Birdie/Eagle/Founder's Club; discount logic, booking windows, reservation caps, Founder number assignment all working
+- **Coupons + gift cards** — validation and application in booking flow; gift card purchase flow built (login-gated until Stripe goes live)
+- **Minor consent system** — is_minor + parental consent flow; booking-gated; launch-ready
 
 ### Tech stack
-- Next.js 16.1.6 (Turbopack, `proxy.ts` middleware convention)
-- Supabase (auth + Postgres) — email confirmation disabled, signups working
-- Stripe (payments, webhook at `/api/stripe/webhook`) — test keys active
-- Telnyx (SMS + Voice)
-- Vercel (hosting, tee365.org domain)
+- Next.js 16.1.6 (Turbopack)
+- Supabase (auth + Postgres) — email confirmation disabled
+- Stripe (payments) — **test keys active**
+- Telnyx (SMS) — A2P campaign CPYCUBI approved 2026-05-19
+- Resend (email)
+- Vercel (hosting, tee365.org)
+- Cloudflare (proxy, Turnstile)
+- Upstash Redis (rate limiting)
 
-### Repo situation
-- This repo (`nextjs-boilerplate`) is the **live codebase** — deploys to `tee365.org`
-- `tee365-app` repo is **superseded** — do not deploy from it, it's a reference only
-
----
-
-## Where We're Going
-
-Get the booking flow production-ready and open it to customers. Then build out the remaining admin and membership features.
+### Repo
+- **Live repo:** `github.com/indianatee365-lgtm/nextjs-boilerplate` → `tee365.org`
+- **Dead/archived:** `indianatee365-lgtm/tee365-app` — do not use
 
 ---
 
-## Todo
+## Phase 1 — Pre-launch (Current)
 
-### 🔴 Before going live (product testing)
-- [x] Signup → login flow working (Supabase email confirmation disabled)
-- [x] Bays table seeded and active (Bay 1, Bay 2 confirmed)
-- [x] Pricing rules seeded (bookings pricing correctly)
-- [x] End-to-end test: book → Stripe test payment (card 4242...) → booking created
-- [x] `/account/bookings` page — upcoming/past bookings with access code display
-- [x] Admin panel accessible at `/admin/bookings` (requires `role = 'admin'` in profiles)
-- [x] Manual confirm + SMS button in admin for pending bookings
+> Goal: Everything works correctly before any real money changes hands.
+
+### Done ✅
+- [x] Signup → login flow (Supabase email confirmation disabled)
+- [x] Bays seeded and active (Bay 1, Bay 2)
+- [x] Pricing rules seeded and correct
+- [x] End-to-end test: book → Stripe test payment → booking created
+- [x] `/account/bookings` — upcoming/past with access code display
+- [x] Admin panel at `/admin/bookings` (requires `role = 'admin'`)
+- [x] Manual confirm + SMS button in admin
 - [x] Stripe webhook fixed — duplicate endpoints removed, signing secret matched
-- [x] Access code flow: generated at 15-min mark (not at payment), sent via cron
-- [x] pg_cron + pg_net enabled in Supabase; reminder job scheduled every 5 min
-- [x] ~~Twilio~~ → **migrating to Telnyx** (decided 2026-05-14 after 5 A2P rejections and 4+ day non-response on final resubmission)
-- [x] Telnyx account created, number purchased (+15744449365), brand registered, campaign submitted 2026-05-14 ($40 upfront; $10/mo after 3 months)
-- [x] A2P 10DLC — resubmitted 4 times; May 5 2026 changes: added explicit SMS consent checkbox to signup (required, server-validated), added "Reply STOP to opt out, HELP for info. Msg & data rates may apply." to booking confirmation SMS, added "Reply STOP to opt out." to access code SMS. Campaign copy saved in `docs/twilio-a2p-campaign.md`. **Pending resubmission.**
-- [x] Privacy policy (`/privacy`) and Terms (`/terms`) pages live for Twilio registration
-- [x] Admin dashboard working — all pages load, times in ET, today's bookings count correct
-- [x] Calendar today-clickable fix deployed (SSR timezone issue resolved)
-- [x] Next available slot scans all 4 bays correctly
-- [ ] **Verify SMS end-to-end once Telnyx A2P approved** — book session, confirm SMS + 15-min access code
-- [x] Fix CRON_SECRET mismatch — pg_cron getting 401 on `/api/cron/booking-reminders`
-- [ ] Wire up access control API in `lib/access-control/index.ts`
+- [x] Access code flow: generated 10–20 min before session via cron
+- [x] pg_cron + pg_net enabled; booking-reminders job running every 5 min
+- [x] Telnyx A2P 10DLC approved — SMS confirmed working end-to-end 2026-05-19
+- [x] Privacy policy + Terms pages live
+- [x] Admin dashboard — all pages, ET times, today's count
+- [x] Next available slot scans all bays, picks global earliest
+- [x] CRON_SECRET set and working (no more 401s on cron)
+- [x] Booking conflict detection — `scripts/test-conflicts.sql` 9/9 passing
+- [x] Cancel + Stripe refund — `scripts/test-cancel.sql` 11/11 passing; E2E verified
+- [x] Confirmation emails via Resend — working
+- [x] Booking reservation timer (15-min hold at review step)
+- [x] SMS consent overhaul — opt-in toggle, `sms_consent` column, all sends gated
+- [x] Membership checkout working (all 3 tiers)
+- [x] Self-service cancel + reschedule
+- [x] Security audit complete (CSP A+, RLS audit, CVE patches, Turnstile, Cloudflare)
+
+### Remaining 🔴
+- [ ] Wire access control API (`lib/access-control/index.ts` stub — blocked on hardware selection)
+  - Access code is 6 digits; final digit count TBD pending hardware
 - [ ] Test failed payment path (booking stays pending/cancelled correctly)
-- [x] Test booking conflict detection — `scripts/test-conflicts.sql` 9/9 passing
-- [x] Test cancel + Stripe refund — DB logic `scripts/test-cancel.sql` 11/11 passing. Stripe E2E verified 2026-05-12 (test booking → cancel → refund confirmed in Stripe sandbox).
-- [x] **Add `RESEND_API_KEY` to Vercel env vars** — confirmation emails are silently failing (key missing); get key from resend.com → Vercel project → Settings → Environment Variables → redeploy
+- [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate side-effects
+- [ ] Rate limiting — configure Cloudflare rules for auth, gift card balance, coupon redemption
+- [ ] **Sales tax** — Indiana 7% on amusement/recreation. Get accountant confirmation on:
+  1. Are one-time bay bookings taxable? (Almost certainly yes)
+  2. Are monthly membership fees taxable? (Indiana-specific rules)
+  - Implementation plan is written in the old roadmap — hold until confirmed
+
+---
+
+## Phase 2 — Partly Live
+
+> Goal: Take real money for memberships and gift cards. Booking still locked.
+> Unlocked by: switching Stripe to live keys.
+
+### Stripe go-live (unlocks everything in this phase)
 - [ ] Switch Stripe from test keys to live keys
-- [ ] Add `/book` link to marketing site header once testing passes
+- [ ] Add `checkout.session.completed` to live Stripe webhook event list
+- [ ] Verify Apple Pay domain registration carries to live mode
 
-### 🔵 Go Live 1st — before opening to customers
+### Gift cards
+- [ ] Remove login gate from `/gift-cards` and balance checker
+- [ ] Update FAQ gift card answer to "now live"
 
-> Full membership specs in `docs/members.md`. Full database implementation guide in `docs/website_database.md`.
-
-#### Membership tiers
-| Tier | Monthly | Joining fee | Annual option | Discount | Booking window | Max reservations |
-|---|---|---|---|---|---|---|
-| Birdie | $10/mo | None | $89/yr | 10% | 10 days | 2 |
-| Eagle | $39/mo | None | $349/yr | 20% | 14 days | 3 |
-| Founder's Club | $29/mo | $199 one-time | None | 20% (30% yr 1), floor $20/hr | 21 days | 3 |
-
-Founders limited to 100 ever. Sales close **August 18, 2026** or at cap, whichever comes first. Founder signup bonus = 2 free hours at Founders and Friends Day (Aug 31, 2026). All pre-launch annual purchases start September 1, 2026 regardless of purchase date.
-
-#### Database (Supabase — migration in `supabase/migrations/20260421_membership_system.sql`)
-> Claude can run SQL directly against the Supabase database via the linked CLI — no copy/paste needed. Just ask.
-- [x] `membership_plans` populated — birdie, eagle, founder's club with correct pricing/discounts/windows/caps
-- [x] `memberships` table updated — plan_type, founder_number, year_one_discount_expires_at, bonus hours, pause fields, etc.
-- [x] `bookings` table updated — member_rate_applied, discount_percent_applied, rate_type columns added
-- [x] `assign_founder_number()` function deployed — sequential, advisory-lock protected
-- [x] `enforce_founder_cap` trigger deployed — blocks insert beyond 100 paid founders
-- [x] `member_effective_pricing` view deployed
-- [x] `validate_booking_window()` function deployed
-- [x] `check_reservation_cap()` function deployed
-- [ ] Schedule pg_cron job to flip `pending_opening` → `active` at 4:00 AM UTC on Sept 1, 2026
-
-#### Website
-- [x] `/join` membership landing page — tier comparison, live spot counter, sold-out/close-date fallback
-- [x] `/founders` private (noindex) marketing page — full benefit detail, note from Jerrod, policy summary, CTA
-- [x] Membership signup flow — Birdie/Eagle monthly, Founder's Club (joining fee + $29/mo); Stripe Checkout Session via `POST /api/memberships/checkout`; auto-creates Founder's Stripe price if missing; $199 joining fee added to first invoice via `add_invoice_items`
-- [x] Founder number assigned in `invoice.payment_succeeded` webhook — sequential, idempotent (note: not checkout.session.completed as originally planned)
-- [x] Eagle signup bonus (2 hrs, 90-day expiry) set in webhook
-- [x] Founder year-one discount expiry (Aug 31, 2027) set in webhook
+### Memberships — public-facing
 - [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel access
-- [x] Stripe webhook recreated at `tee365.org/api/stripe/webhook` (Apr 29 2026) — events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `invoice.payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`; new signing secret saved in Vercel
-- [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours, status
-- [ ] Update booking flow to enforce booking window and reservation cap per tier
-- [ ] `/founders` private page — authenticated, `founder_number IS NOT NULL`, construction updates and news
-- [ ] Pre-opening calendar access: Founders 48 hrs first (Sept 1), Eagle/Birdie Sept 3, public Sept 4
+- [ ] `/founders` private authenticated page (founder_number IS NOT NULL) — construction updates, news
+- [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours
+
+### Admin — membership management
 - [ ] Admin: manually assign/override membership tier
 - [ ] Admin: Founder cap milestone alerts (50/75/85/95/100 sold)
 - [ ] Admin: membership reporting views (members by tier, MRR, churn, utilization)
-- [ ] Cancellation and refund policy page (annual proration: unused months × monthly rate − $25 fee, no refund after month 9)
-- [ ] Terms of membership page
 
-#### Payments
-- [x] Stripe: one-time joining fee + recurring monthly combo for Founder signup
+### Housekeeping
+- [ ] Close Twilio account at console.twilio.com — request $27 refund
+
+---
+
+## Phase 3 — Launch (Sept 1, 2026)
+
+> Goal: Booking opens to the public with tiered access.
+> Founders Day: Aug 31, 2026 (2 free hours for Founders).
+> Pre-opening window: Founders Sept 1 → Eagle/Birdie Sept 3 → Public Sept 4.
+
+### Booking go-live
+- [ ] Schedule pg_cron job: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
+- [ ] Update booking flow to enforce booking window and reservation cap per membership tier
+- [ ] Pre-opening calendar access enforcement: Founders 48 hrs first, Eagle/Birdie Sept 3, public Sept 4
+- [ ] Remove auth gate from `/book` (one line in `app/(public)/book/page.tsx`)
+- [ ] Add `/book` link to marketing site header nav
+- [ ] Add "Book Now" to marketing site header
+
+### Payments
 - [ ] Stripe: one-time annual charge for Season Pass purchases
 - [ ] Annual refund calculation in admin panel
+- [ ] Sales tax implementation (if accountant confirms — see Phase 1)
 
-#### Gift cards
-- [x] Customer-facing gift card purchase flow — `/gift-cards` (login required until Stripe goes live); $25/$50/$100/custom ($10–$500); embedded PaymentElement (not Stripe Checkout); idempotent via unique constraint on stripe_payment_id; optimistic insert in webhook catches 23505 silently; branded gift email to recipient
-- [x] Balance checker — on `/gift-cards` page (login required)
-- [x] Admin: gift card issuance UI — "Issue gift card" modal on `/admin/gift-cards`; optional email send
-- [ ] Remove login gate from `/gift-cards` and balance checker once Stripe is on live keys; update FAQ gift card answer to "now live"
+### Access control
+- [ ] Wire `lib/access-control/index.ts` to real hardware (if not done in Phase 1)
 
-### 🔵 Go Live 2nd — open booking to the public
-- [x] **Minor consent system** — Option B (yes/no age gate at signup). is_minor + parental_consent_verified on profiles, parental_consents table, /minor-consent/[token] public consent page, /account/awaiting-consent holding page, resend button, booking gate. Launch-ready: minor check wrapped in if (user) so auth gate removal at launch is one line.
-- [ ] Remove auth gate from `/book` — let unauthenticated users browse dates and times freely (one line to remove in `app/(public)/book/page.tsx`)
-- [ ] Add "Book Now" to marketing site header nav
-- [ ] Sign-in/sign-up at the review step is already wired (return URL + sessionStorage slot restore in place)
+---
 
-### 🟠 Sales Tax — Needs Answers Before Going Live
+## After Launch
 
-Indiana charges 7% sales tax on amusement/recreation services. Tee365 almost certainly falls under this. **Get accountant confirmation on two questions before implementing:**
-
-1. Are one-time bay bookings taxable? (Almost certainly yes — amusement admission.)
-2. Are monthly membership fees taxable? (Possibly — depends on whether they're treated as a service subscription or a club membership. Indiana has specific rules here.)
-
-#### Implementation plan (once questions answered)
-
-**Bookings (one-time payments):**
-- Add `tax_rate: 0.07` constant to the pricing engine (`lib/pricing/engine.ts`)
-- Add `tax` and `total_with_tax` to the `calculateBookingPrice()` return value
-- Add `tax` column to the `bookings` table (numeric, default 0)
-- Store tax amount on the booking record at creation time
-- Display tax line item on the booking review step
-- Stripe PaymentIntent amount already uses the calculated total — just include tax in it
-- Update the booking confirmation SMS/email to show the tax line
-
-**Memberships (recurring Stripe Checkout):**
-- If membership fees are taxable: add a `price_data` line item for the tax amount to the Checkout Session, or enable `automatic_tax` on Stripe Checkout (Stripe Tax, $0.50/transaction) — Stripe Tax is the cleaner option here since it handles the line-item display automatically
-- If membership fees are not taxable: no change needed
-
-**Reporting:**
-- Add a simple admin query/export: sum of `tax` column by month from `bookings` table
-- Indiana DOR requires quarterly filing (ST-103) — export gives you the number to plug in
-- File at inbiz.in.gov
-
-### 🔐 Security (audit completed Apr 28 2026)
-- [x] Deleted `/api/stripe-test` — publicly accessible debug endpoint, exposed Stripe key prefix
-- [x] Added auth check to `GET /api/memberships/checkout/status` — was unauthenticated (IDOR)
-- [x] Fixed signup error message — was leaking raw Supabase error ("User already exists") enabling email enumeration
-- [x] Fixed cron secret bypass — if `CRON_SECRET` env var was unset, any request with `Bearer undefined` would pass
-- [x] Replaced `Math.random()` with `crypto.randomInt()` for access code generation
-- [x] Added security headers to `next.config.ts` — `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `HSTS`, `Permissions-Policy`
-- [x] Disabled `X-Powered-By: Next.js` header (`poweredByHeader: false`)
-- [x] Cloudflare Turnstile wired to login + signup forms — live and working (Apr 28 2026)
-- [x] Turnstile env vars added in Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`)
-- [x] **Put Cloudflare in front of tee365.org** (orange-cloud DNS mode) — nameservers pointed Apr 29 2026, active and proxying
-- [x] Supabase RLS audit — all 16 tables have RLS on with correct policies; fixed `profiles` UPDATE missing `with_check` (users could self-escalate to admin role)
-- [x] Content Security Policy — nonce-based CSP via proxy.ts; covers Stripe, Google Analytics, Turnstile, Supabase; HTTP Observatory A+ (115/100, 10/10) — May 13 2026
-- [x] Next.js upgraded 16.1.6 → 16.2.6 — patched proxy bypass (GHSA-492v-c6pp-mqqv, GHSA-267c-6grr-h53f) and CSP nonce XSS (GHSA-ffhc-5mcf-pf4q) CVEs — May 13 2026
-- [x] npm dependency audit — axios, flatted, picomatch high CVEs patched; 3 moderate PostCSS (build-time only, no fix available) — May 13 2026
-- [x] RLS audit updated — all 17 tables confirmed enabled (parental_consents added since Apr 28 audit)
-- [ ] Rate limiting — Cloudflare already proxying; configure rate limiting rules in Cloudflare dashboard (no code needed). Priority routes: auth (login/signup), gift card balance, coupon redemption. Evaluate Cloudflare free tier vs. paid WAF rules.
-- [ ] Stripe webhook idempotency — move this above rate limiting; store processed event.id to prevent duplicate side-effects
-
-### 🟡 Shortly after launch
-- [ ] Admin: bay management (activate/deactivate bays)
+### Shortly after
+- [ ] Admin: bay management (activate/deactivate)
 - [ ] Admin: pricing rules editor
 - [ ] Admin: coupon creation and management
-- [x] Booking confirmation email with receipt — fires on payment_intent.succeeded and admin manual confirm; uses Resend; shows subtotal, member discount, coupon, tax, gift card, total; access code note
-- [x] Payment method management on `/account` — view, remove, add cards via SetupIntent
-- [x] Self-service cancel — `/account/bookings`; >24h = full Stripe refund; ≤24h = forfeit with explicit policy warning; pending bookings cancel PaymentIntent
-- [x] Self-service reschedule — `/account/bookings/[id]/reschedule`; delta priced at new slot's rate; $5 flat reschedule fee; charges or refunds difference via Stripe; 3DS handled via return page; confirmation SMS + email on completion; cutoff is 4h before session (not 24h)
-- [x] Admin login redirect — admins land on `/admin` instead of `/account` on login
-
-### 🔵 Voice Agent (Telnyx + OpenAI Realtime)
-Single Telnyx number handles both SMS and inbound voice. Customer calls → AI agent greets and walks through troubleshooting tree → unresolved → transfers to Jerrod's cell. After-hours: skip transfer, play voicemail message. Personal cell never exposed to customers.
-
-**Architecture:** Telnyx inbound call webhook → Next.js answers call → Telnyx streams audio over WebSocket → separate Node.js WebSocket bridge on labserver → OpenAI Realtime API (voice-to-voice) → Telnyx Call Control for transfer/hangup. Runs as Docker container on labserver (Vercel doesn't support long-running WebSockets).
-
-- [ ] Telnyx voice webhook configured (inbound call URL: tee365.org/api/voice/inbound)
-- [ ]  Docker service: Node.js WS bridge + OpenAI Realtime API integration
-- [ ] Write troubleshooting tree system prompt ()
-- [ ] Call transfer to Jerrod's cell on escalation via Telnyx Call Control transfer command
-- [ ] After-hours logic: no transfer midnight–7am ET, play recorded/TTS voicemail message instead
-- [ ] Add to docker-compose on labserver + expose WS port
-- [ ] End-to-end test: call Telnyx number → agent greets → troubleshoot → escalate → cell rings
-- [ ] Inbound SMS webhook — set Messaging Profile webhook URL to https://tee365.org/api/sms/inbound once handler is built
-
-**Env vars needed:**  (shared), ,  (Jerrod's cell, never committed)
-
-### 🟡 Phone OTP verification (scaffold in place — not live)
-- [ ] Add `phone_otp_hash` and `phone_otp_expires_at` columns to profiles
-- [ ] Implement `POST /api/auth/send-phone-otp` — generate 6-digit OTP, store hashed, send via Twilio
-- [ ] Implement `POST /api/auth/verify-phone-otp` — validate OTP, set `phone_verified = true`
-- [ ] Add OTP step to signup flow after phone number entry
-- [ ] Gate booking on `phone_verified = true` (or prompt to verify inline)
-- **Stub routes exist** at `/api/auth/send-phone-otp` and `/api/auth/verify-phone-otp` (return 501)
-- **`profiles.phone_verified`** column already added (default false)
-
-### 🟡 Known loopholes (deferred — fix if pattern emerges)
-- [ ] **Reschedule-to-escape-forfeit**: customer within the 24h forfeit window pays the $5 reschedule fee to move to a far-future slot, then cancels for a full refund. Net cost: $5 instead of the full booking total. Visible in the admin dashboard Cancellations block. Fix when needed: add `forfeit_on_cancel` flag to bookings, set it when a reschedule happens within 24h of the original slot, and honour it in `cancelBookingByCustomer`.
-
-### 🟢 Later
-- [ ] Membership renewal / cancellation self-serve
+- [ ] Membership cancellation and refund policy page
+- [ ] Terms of membership page
+- [ ] Cancellation self-serve
 - [ ] Public availability calendar (unauthenticated preview)
-- [x] Add `checkout.session.completed` to Stripe webhook event list (gift card webhook backup — added to sandbox endpoint 2026-05-12; repeat for live endpoint when switching keys)
-- [x] Payment methods locked down — card + Apple Pay + Google Pay + Cash App Pay; bank/ACH blocked at PaymentIntent level (payment_method_types) and client level (wallets.link: never); Apple Pay domain verified (public/.well-known/apple-developer-merchantid-domain-association deployed, tee365.org registered in Stripe)
+- [ ] Drop Zoho, switch to Cloudflare Email Routing (free, low priority)
 
-### 💡 Maybe Do
-- [ ] **Drop Zoho, switch to Cloudflare Email Routing** — inbound forwarding to Gmail is free; outbound Send-as from Gmail stays unchanged. Saves Zoho subscription cost. Low priority, do when convenient.
+### Known loopholes (fix if pattern emerges)
+- [ ] **Reschedule-to-escape-forfeit**: customer within 24h forfeit window pays $5 reschedule fee, moves to future slot, cancels for full refund. Net cost: $5. Fix: add `forfeit_on_cancel` flag, set on reschedule within 24h, honor in `cancelBookingByCustomer`.
+
+### Voice Agent (Telnyx + OpenAI Realtime)
+Single number handles SMS and inbound voice. Customer calls → AI agent → unresolved → transfers to Jerrod's cell. After-hours: voicemail. Personal cell never exposed.
+
+- [ ] Telnyx voice webhook configured (`tee365.org/api/voice/inbound`)
+- [ ] Docker service: Node.js WS bridge + OpenAI Realtime API
+- [ ] Troubleshooting tree system prompt
+- [ ] Call transfer to Jerrod's cell via Telnyx Call Control
+- [ ] After-hours logic (no transfer midnight–7am ET)
+- [ ] End-to-end test
+- [ ] Inbound SMS webhook handler
+
+### Phone OTP (scaffold in place — not live)
+- [ ] `phone_otp_hash` and `phone_otp_expires_at` columns on profiles
+- [ ] `POST /api/auth/send-phone-otp` and `POST /api/auth/verify-phone-otp`
+- [ ] OTP step in signup flow
+- [ ] Gate booking on `phone_verified = true`
+
+---
+
+## Key Decisions & Gotchas
+
+### Stripe membership checkout (critical)
+`stripe ^22` / `2026-03-25.dahlia`: `subscriptions.create()` no longer returns a usable `client_secret`. Use `paymentIntents.create()` for the first charge, then create the subscription with `trial_end = now + 30 days` in the `payment_intent.succeeded` webhook. Avoids double-billing. Confirmed working 2026-05-15.
+
+### Telnyx
+- Number: +1 (574) 444-9365
+- Campaign: CPYCUBI — approved 2026-05-19
+- `TELNYX_API_KEY` had embedded newline when first set in Vercel — caused "invalid header value" error. Fixed 2026-05-19.
+
+### Membership tiers
+| Tier | Monthly | Joining fee | Discount | Booking window | Max reservations |
+|---|---|---|---|---|---|
+| Birdie | $10/mo | None | 10% | 10 days | 2 |
+| Eagle | $39/mo | None | 20% | 14 days | 3 |
+| Founder's Club | $29/mo | $199 one-time | 20% (30% yr 1) | 21 days | 3 |
+
+Founders capped at 100. Sales close Aug 18, 2026 or at cap. Founder signup bonus = 2 free hours at Founders Day (Aug 31, 2026).
+
+### Vercel Hobby
+- Cron max = once/day. Sub-daily cron handled via pg_cron in Supabase (booking-reminders runs every 5 min via `net.http_get`).
+- No Co-Authored-By in commits — Vercel Hobby blocks deploys.
+
+### Security audit (completed Apr 28 / May 13 2026)
+All items resolved — CSP Observatory A+ (115/100), RLS on all 17 tables, CVE patches applied, Cloudflare orange-cloud active, Turnstile on login/signup.
