@@ -74,6 +74,7 @@ export function PurchaseForm() {
   const [senderName, setSenderName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
   const effectiveAmount = useCustom ? parseFloat(custom) : (amount ?? 0)
   const valid = effectiveAmount >= 10 && effectiveAmount <= 500
@@ -81,6 +82,7 @@ export function PurchaseForm() {
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault()
+    setSubmitted(true)
     if (!valid) return
     setLoading(true)
     setError("")
@@ -148,22 +150,32 @@ export function PurchaseForm() {
         <div>
           <label className="label" htmlFor="recipientName">Recipient name</label>
           <input id="recipientName" type="text" value={recipientName} onChange={(e) => setRecipientName(e.target.value)}
-            placeholder="Jane Doe" className="input mt-1" required />
+            placeholder="Jane Doe" className="input mt-1" />
+          {submitted && recipientName.trim() === "" && (
+            <p className="mt-1 text-xs text-red-400">Recipient name is required</p>
+          )}
         </div>
         <div>
           <label className="label" htmlFor="recipientEmail">Recipient email</label>
           <input id="recipientEmail" type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)}
-            placeholder="jane@example.com" className="input mt-1" required />
-          <p className="mt-1 text-xs text-neutral-500">The gift card code is emailed here.</p>
+            placeholder="jane@example.com" className="input mt-1" />
+          {submitted && recipientEmail.trim() === "" ? (
+            <p className="mt-1 text-xs text-red-400">Recipient email is required</p>
+          ) : (
+            <p className="mt-1 text-xs text-neutral-500">The gift card code is emailed here.</p>
+          )}
         </div>
       </div>
       <div>
         <label className="label" htmlFor="senderName">Your name</label>
         <input id="senderName" type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)}
-          placeholder="How your name appears on the gift" className="input mt-1" required />
+          placeholder="How your name appears on the gift" className="input mt-1" />
+        {submitted && senderName.trim() === "" && (
+          <p className="mt-1 text-xs text-red-400">Your name is required</p>
+        )}
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
-      <button type="submit" disabled={!valid || loading} className="btn-primary w-full py-3 text-base">
+      <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
         {loading ? "Loading payment..." : "Continue to payment"}
       </button>
     </form>
