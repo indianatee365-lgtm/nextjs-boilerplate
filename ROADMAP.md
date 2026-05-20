@@ -116,8 +116,10 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [ ] Founder confirmation email: member number, Founders Wall acknowledgment, private update channel
 - [ ] `/founders` private authenticated area (founder_number IS NOT NULL) — construction updates, news
 - [ ] Member dashboard section on `/account` — tier, discount, booking window, active reservations, bonus hours
-- [ ] Account page: view and edit personal information (first name, last name, phone, email)
-  - Phone changes should re-validate format and update sms_consent flow if phone is removed
+- [x] Account page: view and edit personal information (name, phone, email, SMS toggle)
+  - Phone normalizes to E.164 on save; displays as (XXX) XXX-XXXX
+  - SMS toggle defaults to stored value, clearly labeled On/Off
+  - Change password moved into personal info block; Sign out button styled red in header
 
 ### Birdie/Eagle reveal (~Aug 25, 2026 — one week before public launch)
 - [ ] Unhide Birdie/Eagle on `/join` page
@@ -127,6 +129,8 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [ ] Admin: manually assign/override membership tier
 - [ ] Admin: Founder cap milestone alerts (50/75/85/95/100 sold)
 - [ ] Admin: membership reporting views (members by tier, MRR, churn, utilization)
+- [x] Admin: gift card deactivate button (confirm before firing)
+- [x] Admin: gift card liability summary (active cards, redeemed, outstanding)
 
 ### Housekeeping
 - [ ] Close Twilio account at console.twilio.com — request $27 refund
