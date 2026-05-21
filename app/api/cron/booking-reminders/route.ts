@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
   const supabase = await createServiceClient()
 
   const now = new Date()
-  const windowStart = new Date(now.getTime() + 10 * 60 * 1000)  // 10 min from now
+  // Backward tail catches last-minute bookings the cron previously missed
+  const windowStart = new Date(now.getTime() - 10 * 60 * 1000)  // 10 min ago
   const windowEnd = new Date(now.getTime() + 20 * 60 * 1000)    // 20 min from now
 
   const { data: bookings, error } = await supabase
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     .is("access_code", null)
     .gte("starts_at", windowStart.toISOString())
     .lte("starts_at", windowEnd.toISOString())
+    .gt("ends_at", now.toISOString())
 
   if (error) {
     console.error("[cron/booking-reminders] query error", error)

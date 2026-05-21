@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
-import { sendBookingConfirmation } from "@/lib/telnyx/sms"
+import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
+import { grantBayAccess } from "@/lib/access-control"
+import { randomInt } from "crypto"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -283,6 +285,19 @@ export async function POST(request: NextRequest) {
             couponDiscount: pricing.couponDiscount, tax: pricing.tax,
             giftCardApplied: pricing.giftCardApplied, total: pricing.total,
           })
+        } catch {}
+      }
+
+      // If session starts within 15 min, send access code immediately
+      const minsUntil = (startDate.getTime() - Date.now()) / 60000
+      if (minsUntil <= 15 && p?.phone && p.sms_consent) {
+        try {
+          const accessCode = String(randomInt(100000, 1000000))
+          await serviceClient.from("bookings").update({ access_code: accessCode }).eq("id", booking.id)
+          await sendAccessCodeReminder({ to: p.phone, firstName: p.first_name, bayName: bay.name, accessCode, startsAt: startDate })
+          await grantBayAccess({ accessCode, bayName: bay.name, startsAt: startDate, endsAt: endDate })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await serviceClient.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
         } catch {}
       }
 

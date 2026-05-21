@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation } from "@/lib/telnyx/sms"
+import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail, sendGiftCardEmail } from "@/lib/resend/email"
-import { randomBytes } from "crypto"
+import { randomBytes, randomInt } from "crypto"
+import { grantBayAccess } from "@/lib/access-control"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -224,6 +225,27 @@ export async function POST(request: NextRequest) {
         })
       } catch (emailError) {
         console.error("Confirmation email failed", emailError)
+      }
+    }
+
+    // If booking starts within 15 minutes, send access code immediately
+    const minutesUntilStart = (new Date(booking.starts_at).getTime() - Date.now()) / 60000
+    if (minutesUntilStart <= 15 && profile?.phone && profile.sms_consent && bay) {
+      try {
+        const accessCode = String(randomInt(100000, 1000000))
+        await supabase.from("bookings").update({ access_code: accessCode }).eq("id", booking.id)
+        await sendAccessCodeReminder({
+          to: profile.phone,
+          firstName: profile.first_name,
+          bayName: bay.name,
+          accessCode,
+          startsAt: new Date(booking.starts_at),
+        })
+        await grantBayAccess({ accessCode, bayName: bay.name, startsAt: new Date(booking.starts_at), endsAt: new Date(booking.ends_at) })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await supabase.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
+      } catch (err) {
+        console.error("[webhook] immediate access code send failed", err)
       }
     }
   }
