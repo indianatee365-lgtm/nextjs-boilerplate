@@ -118,18 +118,18 @@ export async function POST(request: NextRequest) {
 
     if (netCharge <= 0 || Math.round(netCharge * 100) < 50) {
       // No extra charge — apply the reschedule immediately
-      await serviceClient.from(bookings).update({
+      await serviceClient.from("bookings").update({
         bay_id: newBay.id,
         starts_at: newStart.toISOString(),
         ends_at: newEnd.toISOString(),
-      }).eq(id, bookingId)
+      }).eq("id", bookingId)
       rescheduled = true
     } else {
       const pi = await getStripe().paymentIntents.create({
         amount: Math.round(netCharge * 100),
-        currency: usd,
+        currency: "usd",
         metadata: {
-          type: reschedule,
+          type: "reschedule",
           originalBookingId: bookingId,
           newStartsAt: newStart.toISOString(),
           newEndsAt: newEnd.toISOString(),
