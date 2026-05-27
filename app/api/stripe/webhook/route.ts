@@ -37,6 +37,16 @@ export async function POST(request: NextRequest) {
 
   if (event.type === "payment_intent.succeeded") {
     const _pi = event.data.object as Stripe.PaymentIntent
+    if (_pi.metadata?.type === "reschedule") {
+      const { originalBookingId, newStartsAt, newEndsAt, newBayId } = _pi.metadata
+      await supabase.from("bookings").update({
+        bay_id: newBayId,
+        starts_at: newStartsAt,
+        ends_at: newEndsAt,
+      }).eq("id", originalBookingId).neq("status", "cancelled")
+      return NextResponse.json({ received: true })
+    }
+
     if (_pi.metadata?.type === "gift_card") {
       const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
       const amount = parseInt(amountCents) / 100

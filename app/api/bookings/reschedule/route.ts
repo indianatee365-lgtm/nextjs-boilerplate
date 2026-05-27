@@ -114,12 +114,22 @@ export async function POST(request: NextRequest) {
     const netCharge = parseFloat((delta + RESCHEDULE_FEE).toFixed(2))
 
     let clientSecret: string | undefined
-    if (netCharge > 0 && Math.round(netCharge * 100) >= 50) {
+    let rescheduled = false
+
+    if (netCharge <= 0 || Math.round(netCharge * 100) < 50) {
+      // No extra charge — apply the reschedule immediately
+      await serviceClient.from(bookings).update({
+        bay_id: newBay.id,
+        starts_at: newStart.toISOString(),
+        ends_at: newEnd.toISOString(),
+      }).eq(id, bookingId)
+      rescheduled = true
+    } else {
       const pi = await getStripe().paymentIntents.create({
         amount: Math.round(netCharge * 100),
-        currency: "usd",
+        currency: usd,
         metadata: {
-          type: "reschedule",
+          type: reschedule,
           originalBookingId: bookingId,
           newStartsAt: newStart.toISOString(),
           newEndsAt: newEnd.toISOString(),
@@ -132,7 +142,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       newPricing, originalTotal, delta,
       rescheduleFee: RESCHEDULE_FEE,
-      netCharge, clientSecret,
+      netCharge, clientSecret, rescheduled,
       newBayId: newBay.id, newBayName: newBay.name,
       newStartsAt: newStart.toISOString(),
       newEndsAt: newEnd.toISOString(),
