@@ -21,7 +21,7 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - **My Bookings** — `/account/bookings`: upcoming + past bookings with status, access code display, confirmed banner after payment
 - **Disclosures** — shown at booking review step (before payment), not signup
 - **SMS confirmation** — fires on `payment_intent.succeeded` ✅ live and confirmed working 2026-05-19
-- **SMS access code** — pg_cron fires every 5 min, sends code 10–20 min before session ✅ confirmed working 2026-05-19
+- **SMS access code** — fires immediately at booking if session starts within 15 min; pg_cron fires every 5 min as belt-and-suspenders (window: -10 to +20 min) ✅ confirmed working 2026-05-19
 - **Access control stub** — `lib/access-control/index.ts` ready to wire when hardware is selected
 - **Admin panel** — `/admin/bookings`: calendar grid view, cancel + Stripe refund, manual confirm + SMS; requires `role = 'admin'`
 - **Display board** — `/display`: unauthenticated kiosk view
@@ -74,6 +74,14 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [x] Membership checkout working (all 3 tiers)
 - [x] Self-service cancel + reschedule
 - [x] Security audit complete (CSP A+, RLS audit, CVE patches, Turnstile, Cloudflare)
+- [x] Account page personal info: view/edit name, phone, email, SMS consent (TEE-006)
+- [x] Admin: gift card deactivate + liability summary (TEE-004, TEE-005)
+- [x] Account header: red Sign out button, Change password in personal info block (TEE-007)
+- [x] Gift card purchase: inline validation errors (TEE-002)
+- [x] iOS touch fix: willChange:transform on brand glow div (TEE-001)
+- [x] $0 bookings: gift card covers full amount skips Stripe, confirms immediately (TEE-008)
+- [x] Last-minute bookings: access code fires immediately at payment if session starts within 15 min
+- [x] Cron window extended to -10/+20 min with ends_at guard
 
 ### Remaining 🔴
 - [ ] Wire access control API (`lib/access-control/index.ts` stub — blocked on hardware selection)
@@ -142,6 +150,11 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 > Goal: Booking opens to the public with tiered access.
 > Founders Day: Aug 31, 2026 (2 free hours for Founders).
 > Pre-opening window: Founders Sept 1 → Eagle/Birdie Sept 3 → Public Sept 4.
+
+### Location announcement
+- [ ] Add physical address to website (4615 Grape Rd, Mishawaka, IN 46545) — **hold until keys received**
+- [ ] Footer, contact page, and About page
+- [ ] Google Business Profile / Maps listing
 
 ### Booking go-live
 - [ ] Schedule pg_cron job: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026

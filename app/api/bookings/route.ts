@@ -272,7 +272,7 @@ export async function POST(request: NextRequest) {
             to: p.phone, firstName: p.first_name, bayName: bay.name,
             startsAt: startDate, endsAt: endDate,
           })
-        } catch {}
+        } catch (e) { console.error("[booking]", e) }
       }
 
       const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(user.id)
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
             couponDiscount: pricing.couponDiscount, tax: pricing.tax,
             giftCardApplied: pricing.giftCardApplied, total: pricing.total,
           })
-        } catch {}
+        } catch (e) { console.error("[booking]", e) }
       }
 
       // If session starts within 15 min, send access code immediately
@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
           await grantBayAccess({ accessCode, bayName: bay.name, startsAt: startDate, endsAt: endDate })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await serviceClient.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
-        } catch {}
+        } catch (e) { console.error("[booking]", e) }
       }
 
       return NextResponse.json({
