@@ -64,8 +64,10 @@ export async function POST(request: NextRequest) {
         purchased_by: senderName, stripe_payment_id: _pi.id,
       })
       if (!insertError) {
-        try { await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount }) } catch (e) { console.error("[webhook:gift-card-email]", e) }
-        notifyOwner("Gift card sold — $" + amount + " from " + senderName + " to " + recipientName + " (" + recipientEmail + ")").catch(() => {})
+        await Promise.allSettled([
+          sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount }),
+          notifyOwner(`Gift card — $${amount} from ${senderName} to ${recipientName}`),
+        ])
       } else if ((insertError as { code?: string }).code !== "23505") {
         console.error("Gift card webhook insert failed", insertError)
       }
