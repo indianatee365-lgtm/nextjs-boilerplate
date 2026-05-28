@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 export function JoinButton({
@@ -14,54 +13,15 @@ export function JoinButton({
   className?: string
   disabled?: boolean
 }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  async function handleClick() {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/memberships/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planSlug }),
-      })
-
-      if (res.status === 401) {
-        router.push(`/login?returnUrl=/join`)
-        return
-      }
-
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong")
-        setLoading(false)
-        return
-      }
-
-      // Store client secret and navigate to embedded checkout page
-      sessionStorage.setItem("membership_cs", data.clientSecret)
-      sessionStorage.setItem("membership_plan", planSlug)
-      router.push(`/join/checkout`)
-    } catch {
-      setError("Connection error — please try again")
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="space-y-2">
-      <button
-        onClick={handleClick}
-        disabled={loading || disabled}
-        className={className}
-      >
-        {loading ? "Loading…" : label}
-      </button>
-      {error && (
-        <p className="text-xs text-red-400 text-center">{error}</p>
-      )}
-    </div>
+    <button
+      onClick={() => router.push(`/join/checkout?plan=${planSlug}`)}
+      disabled={disabled}
+      className={className}
+    >
+      {label}
+    </button>
   )
 }

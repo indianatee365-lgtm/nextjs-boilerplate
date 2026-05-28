@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 
@@ -90,11 +90,9 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
       setError(stripeError.message ?? "Payment failed — please try again")
       setSubmitting(false)
     } else if (paymentIntent) {
-      // Card paid without redirect — send to return page manually
       const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
       router.push(`/join/checkout/return?redirect_status=${status}`)
     }
-    // Redirect-based methods (bank redirect etc) are handled by Stripe automatically
   }
 
   return (
@@ -115,31 +113,37 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   )
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const planSlug = searchParams.get("plan") ?? "birdie"
   const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [planSlug, setPlanSlug] = useState<string>("birdie")
+  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
-    const cs = sessionStorage.getItem("membership_cs")
-    const plan = sessionStorage.getItem("membership_plan")
-    if (!cs) {
+    if (!["birdie", "eagle", "founder"].includes(planSlug)) {
       router.replace("/join")
       return
     }
-    setClientSecret(cs)
-    setPlanSlug(plan ?? "birdie")
-    sessionStorage.removeItem("membership_cs")
-    sessionStorage.removeItem("membership_plan")
-  }, [router])
-
-  if (!clientSecret) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+    fetch("/api/memberships/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planSlug }),
+    }).then(async (res) => {
+      if (res.status === 401) {
+        router.push(`/login?returnUrl=/join/checkout?plan=${planSlug}`)
+        return
+      }
+      const data = await res.json()
+      if (!res.ok) {
+        setApiError(data.error ?? "Something went wrong")
+        return
+      }
+      setClientSecret(data.clientSecret)
+    }).catch(() => {
+      setApiError("Connection error — please try again")
+    })
+  }, [planSlug, router])
 
   const plan = PLAN_DETAILS[planSlug] ?? PLAN_DETAILS.birdie
 
@@ -186,15 +190,35 @@ export default function CheckoutPage() {
           {/* Right — payment form */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white mb-5">Payment</h2>
-            <Elements
-              stripe={stripePromise}
-              options={{ clientSecret, appearance: { theme: "night" } }}
-            >
-              <MembershipPaymentForm planSlug={planSlug} />
-            </Elements>
+            {apiError ? (
+              <div className="space-y-4">
+                <p className="text-sm text-red-400">{apiError}</p>
+                <button onClick={() => router.back()} className="btn-secondary text-sm">Go back</button>
+              </div>
+            ) : !clientSecret ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
+                <MembershipPaymentForm planSlug={planSlug} />
+              </Elements>
+            )}
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   )
 }

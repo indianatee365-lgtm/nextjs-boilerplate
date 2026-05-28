@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ArrowLeft } from "lucide-react"
@@ -19,6 +20,7 @@ interface GiftCardDetails {
 function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: () => void }) {
   const stripe = useStripe()
   const elements = useElements()
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -27,13 +29,16 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
     if (!stripe || !elements) return
     setSubmitting(true)
     setError(null)
-    const { error: stripeError } = await stripe.confirmPayment({
+    const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: `${window.location.origin}/gift-cards/success` },
+      redirect: "if_required",
     })
     if (stripeError) {
       setError(stripeError.message ?? "Payment failed. Please try again.")
       setSubmitting(false)
+    } else if (paymentIntent) {
+      router.push(`/gift-cards/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`)
     }
   }
 
