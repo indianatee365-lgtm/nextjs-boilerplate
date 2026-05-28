@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
 
     if (_pi.metadata?.type === "membership") {
       const { user_id, plan_id, plan_slug, stripe_customer_id, stripe_price_id } = _pi.metadata
+      await supabase.from("admin_logs").insert({ event: "webhook:membership-received", detail: `pi=${_pi.id} user=${user_id} plan=${plan_slug}` })
 
       const { data: alreadyExists } = await supabase
         .from("memberships")
@@ -82,33 +83,18 @@ export async function POST(request: NextRequest) {
         .in("status", ["active", "pending_opening"])
         .maybeSingle()
 
-      if (!alreadyExists && stripe_price_id) {
+      if (!alreadyExists) {
         const paymentMethodId = _pi.payment_method as string | null
-        if (paymentMethodId) {
-          await getStripe().customers.update(stripe_customer_id, {
-            invoice_settings: { default_payment_method: paymentMethodId },
-          }).catch(() => {})
-        }
 
+        // Step 1: DB record first — customer is set up even if Stripe sub creation fails
         try {
-          // First month already paid — subscription starts billing after 30-day trial
-          const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
-          const subscription = await getStripe().subscriptions.create({
-            customer: stripe_customer_id,
-            items: [{ price: stripe_price_id }],
-            trial_end: trialEnd,
-            ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
-            metadata: { user_id, plan_id, plan_slug },
-          })
-
           const now = new Date()
+          const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
           const insertData: Record<string, unknown> = {
-            user_id,
-            plan_id,
+            user_id, plan_id,
             plan_type: plan_slug,
             status: "active",
             stripe_customer_id,
-            stripe_subscription_id: subscription.id,
             started_at: now.toISOString(),
             current_period_end: new Date(trialEnd * 1000).toISOString(),
             joining_fee_paid: plan_slug === "founder",
@@ -138,8 +124,9 @@ export async function POST(request: NextRequest) {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await supabase.from("memberships").insert(insertData as any)
+          await supabase.from("admin_logs").insert({ event: "webhook:membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"}` })
 
-          // Send confirmation email
+          // Step 2: Confirmation email
           try {
             const { data: authUser } = await supabase.auth.admin.getUserById(user_id)
             const userEmail = authUser?.user?.email
@@ -153,14 +140,43 @@ export async function POST(request: NextRequest) {
               }
             }
           } catch (emailErr) {
-            console.error("[webhook:membership-email-pi]", emailErr)
+            await supabase.from("admin_logs").insert({ event: "webhook:email-error", detail: String(emailErr) })
           }
 
-          const founderTag = plan_slug === "founder" ? " (#" + String(insertData.founder_number) + " of 100)" : ""
-          await notifyOwner("New " + plan_slug + " membership — " + (user_id ?? "member") + " joined" + founderTag)
-        } catch (subErr) {
-          console.error("[webhook:membership-subscription]", subErr)
+          // Step 3: Owner SMS
+          const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
+          await notifyOwner(`New ${plan_slug} membership${founderTag}`)
+
+        } catch (insertErr) {
+          await supabase.from("admin_logs").insert({ event: "webhook:insert-error", detail: String(insertErr) })
         }
+
+        // Step 4: Stripe subscription — runs after customer is already set up
+        if (stripe_price_id) {
+          try {
+            if (paymentMethodId) {
+              await getStripe().customers.update(stripe_customer_id, {
+                invoice_settings: { default_payment_method: paymentMethodId },
+              }).catch(() => {})
+            }
+            const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+            const subscription = await getStripe().subscriptions.create({
+              customer: stripe_customer_id,
+              items: [{ price: stripe_price_id }],
+              trial_end: trialEnd,
+              ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
+              metadata: { user_id, plan_id, plan_slug },
+            })
+            await supabase.from("memberships")
+              .update({ stripe_subscription_id: subscription.id })
+              .eq("user_id", user_id).eq("status", "active")
+            await supabase.from("admin_logs").insert({ event: "webhook:subscription-created", detail: subscription.id })
+          } catch (subErr) {
+            await supabase.from("admin_logs").insert({ event: "webhook:subscription-error", detail: String(subErr) })
+          }
+        }
+      } else {
+        await supabase.from("admin_logs").insert({ event: "webhook:membership-duplicate", detail: `user=${user_id} already active` })
       }
 
       return NextResponse.json({ received: true })
