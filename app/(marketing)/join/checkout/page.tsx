@@ -65,6 +65,7 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [elementReady, setElementReady] = useState(false)
 
   const labels: Record<string, string> = {
     birdie: "Subscribe — $10.00/mo",
@@ -78,32 +79,39 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/join/checkout/return`,
-      },
-      redirect: "if_required",
-    })
-
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment failed — please try again")
+    try {
+      const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/join/checkout/return`,
+        },
+        redirect: "if_required",
+      })
+      if (stripeError) {
+        setError(stripeError.message ?? "Payment failed — please try again")
+        setSubmitting(false)
+      } else if (paymentIntent) {
+        const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
+        router.push(`/join/checkout/return?redirect_status=${status}`)
+      }
+    } catch {
+      setError("Something went wrong — please try again")
       setSubmitting(false)
-    } else if (paymentIntent) {
-      const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
-      router.push(`/join/checkout/return?redirect_status=${status}`)
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
+      <PaymentElement
+        options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
+        onReady={() => setElementReady(true)}
+      />
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}
       <button
         type="submit"
-        disabled={submitting || !stripe || !elements}
+        disabled={submitting || !stripe || !elements || !elementReady}
         className="btn-primary w-full py-3 font-semibold"
       >
         {submitting ? "Processing…" : (labels[planSlug] ?? "Subscribe")}
