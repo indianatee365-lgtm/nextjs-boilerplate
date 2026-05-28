@@ -19,7 +19,7 @@ export default function HeroFull() {
       <div className="relative mx-auto flex min-h-[100svh] max-w-6xl px-6 md:min-h-0 md:h-full">
         <div className="w-full max-w-3xl pt-[calc(5.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:my-auto md:pt-0 md:pb-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
-            Coming Fall of 2026
+            Opening September 2026 · Mishawaka, IN
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">
@@ -40,18 +40,18 @@ export default function HeroFull() {
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
-              href="/#info"
+              href="/founders"
               className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
               style={{ backgroundColor: "var(--brand)" }}
             >
-              See Details
+              Become a Founder
             </a>
 
             <a
-              href="/#waitlist"
+              href="/gift-cards"
               className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
             >
-              Get Early Access
+              Buy a Gift Card
             </a>
 
             <a
@@ -62,7 +62,7 @@ export default function HeroFull() {
             </a>
           </div>
 
-          <p className="mt-3 text-xs text-neutral-300">Location and launch date coming soon.</p>
+          <p className="mt-3 text-xs text-neutral-400">4615 Grape Rd, Mishawaka IN 46545</p>
         </div>
       </div>
     </section>

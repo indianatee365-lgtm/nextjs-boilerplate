@@ -5,7 +5,7 @@ import { JoinButton } from "../join/JoinClient"
 export const metadata: Metadata = {
   title: "Founder's Club | Tee365",
   description: "Become one of the 100 founding members of Tee365.",
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 }
 
 const CHECK = (

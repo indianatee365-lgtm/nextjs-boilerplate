@@ -12,8 +12,8 @@ export default function Header() {
         </Link>
         <nav className="flex items-center gap-1">
           <Link href="/about" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">About</Link>
-          <Link href="/faq" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">FAQ</Link>
-          <Link href="/contact" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Contact</Link>
+          <Link href="/gift-cards" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Gift Cards</Link>
+          <Link href="/founders" className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-sm font-semibold tracking-wide text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Founders</Link>
         </nav>
       </div>
     </header>

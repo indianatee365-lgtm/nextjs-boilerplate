@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 
 function getStripe() {
@@ -11,10 +10,6 @@ function getStripe() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
     const { amountCents, recipientName, recipientEmail, senderName } = await request.json()
 
     if (!amountCents || !recipientName || !recipientEmail || !senderName) {
@@ -24,8 +19,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Amount must be between $10 and $500" }, { status: 400 })
     }
 
+    // 20% pre-launch discount through Aug 31 2026; amountCents stays as face value for the gift card
+    const prelaunchEnd = new Date("2026-09-01T00:00:00Z")
+    const chargeAmount = new Date() < prelaunchEnd ? Math.round(amountCents * 0.8) : amountCents
+
     const paymentIntent = await getStripe().paymentIntents.create({
-      amount: amountCents,
+      amount: chargeAmount,
       currency: "usd",
       payment_method_types: ["card", "cashapp"],
       metadata: {
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
         recipientEmail,
         senderName,
         amountCents: String(amountCents),
-        userId: user.id,
       },
       description: `Tee365 Gift Card — $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
     })

@@ -60,7 +60,7 @@ export default function Info() {
           <div className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
             <h3 className="text-lg font-semibold text-white">Founding Members</h3>
             <p className="mt-2 text-sm text-neutral-300">
-              Limited enrollment when we announce the location.
+              100 spots. Now open. First year at 30% off, then 20% off for life.
             </p>
 
             <ul className="mt-4 space-y-2 text-sm text-neutral-200">
@@ -72,6 +72,14 @@ export default function Info() {
               <li>- Early booking access</li>
               <li>- Name on Founder&apos;s Wall</li>
             </ul>
+
+            <a
+              href="/founders"
+              className="mt-5 inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-black transition hover:brightness-95"
+              style={{ backgroundColor: "var(--brand)" }}
+            >
+              Become a Founder →
+            </a>
           </div>
 
           <div
@@ -176,15 +184,17 @@ export default function Info() {
         <div
           className="mx-auto mt-8 w-full max-w-5xl rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
         >
-          <h3 className="text-lg font-semibold text-white">Gift cards</h3>
+          <h3 className="text-lg font-semibold text-white">Gift Cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
-            Gift cards will be sold at a discounted rate for a limited time. Keep
-            track of our socials for updates.
+            Give the gift of golf. Buy now at 20% off through opening day — the recipient gets the full value.
           </p>
 
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-300">
-            Status: not live yet - check back soon
-          </div>
+          <a
+            href="/gift-cards"
+            className="mt-4 inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+          >
+            Buy a Gift Card →
+          </a>
         </div>
       </div>
     </section>
