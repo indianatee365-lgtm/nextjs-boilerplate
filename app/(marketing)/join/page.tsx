@@ -188,7 +188,7 @@ export default async function JoinPage() {
                 {[
                   "30% off year one, 20% off forever",
                   "21-day advance booking — best available",
-                  "2 free hours at Founders & Friends Day (Aug 31)",
+                  "2 free hours at Founders & Friends Day",
                   "Reserved league slot, guaranteed",
                   "Name on the permanent Founders Wall",
                   "Member number #1–100",

@@ -114,7 +114,7 @@ export default async function FoundersPage() {
             <h2 className="text-2xl font-bold text-white mb-6">Founder perks</h2>
             <ul className="space-y-4">
               {[
-                ["Founders & Friends Day — August 31", "A private pre-opening event the day before Tee365 opens to the public. Founders, friends, and family only. Two complimentary hours included."],
+                ["Founders & Friends Day", "A private pre-opening event the day before Tee365 opens to the public. Founders, friends, and family only. Two complimentary hours included."],
                 ["Name on the Founders Wall", "A permanent installation in the facility. The 100 people who made this happen, listed for as long as we're open."],
                 ["Member number #1–100", "Your number is assigned in the order you join. It stays with you forever."],
                 ["48-hour early booking access", "When the booking calendar goes live, Founders get in first — two full days before the public."],
