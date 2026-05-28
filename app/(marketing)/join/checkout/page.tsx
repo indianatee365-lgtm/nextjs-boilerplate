@@ -102,7 +102,7 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <PaymentElement
-        options={{ wallets: { applePay: "never", googlePay: "never", link: "never" } as never }}
+        options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
         onLoadError={(e) => setError(`Payment form failed to load — ${e.error?.message ?? "please refresh and try again"}`)}
       />
       {error && (
