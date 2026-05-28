@@ -44,7 +44,6 @@ const PLAN_DETAILS: Record<string, {
     firstCharge: "$199 joining fee + $29 first month",
     benefits: [
       "30% off year one, 20% off forever",
-      "Price floor of $20/hr — always saving",
       "21-day advance booking — best available",
       "2 free hours at Founders & Friends Day",
       "Reserved league slot, guaranteed",
@@ -63,6 +62,7 @@ const CHECK = (
 function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   const stripe = useStripe()
   const elements = useElements()
+  const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,18 +78,23 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: stripeError } = await stripe.confirmPayment({
+    const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/join/checkout/return`,
       },
+      redirect: "if_required",
     })
 
     if (stripeError) {
       setError(stripeError.message ?? "Payment failed — please try again")
       setSubmitting(false)
+    } else if (paymentIntent) {
+      // Card paid without redirect — send to return page manually
+      const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
+      router.push(`/join/checkout/return?redirect_status=${status}`)
     }
-    // On success Stripe redirects to return_url automatically
+    // Redirect-based methods (bank redirect etc) are handled by Stripe automatically
   }
 
   return (
@@ -142,7 +147,7 @@ export default function CheckoutPage() {
     <div className="min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-10">
         <button
-          onClick={() => router.push("/join")}
+          onClick={() => router.back()}
           className="mb-8 flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
