@@ -31,7 +31,7 @@ export default async function AccountPage({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, founder_number, signup_bonus_hours, signup_bonus_expires_at, membership_plans(name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
+        .select("status, started_at, current_period_end, founder_number, signup_bonus_hours, signup_bonus_expires_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
         .eq("user_id", user.id)
         .eq("status", "active")
         .single(),
@@ -60,7 +60,7 @@ export default async function AccountPage({
     : []
 
   const plan = membership?.membership_plans as {
-    name: string; slug: string; discount_percent: number; first_year_discount: number | null
+    name: string; display_name: string | null; slug: string; discount_percent: number; first_year_discount: number | null
     advance_booking_days: number; max_active_reservations: number
   } | null
   const founderNumber = membership?.founder_number as number | null | undefined
@@ -104,7 +104,7 @@ export default async function AccountPage({
         <div className="mt-6 rounded-xl border border-brand/30 bg-brand/10 px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">{plan.name}</p>
+              <p className="text-sm font-semibold text-white">{plan.display_name ?? plan.name}</p>
               <p className="text-xs text-neutral-400 mt-0.5">
                 {discount}% off every booking
                 {isFirstYear && plan.first_year_discount && " (first year rate)"}
