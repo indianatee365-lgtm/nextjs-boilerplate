@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
 
     if (_pi.metadata?.type === "membership") {
       const { user_id, plan_id, plan_slug, stripe_customer_id, stripe_price_id } = _pi.metadata
-      await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-received", detail: `pi=${_pi.id} user=${user_id} plan=${plan_slug}` })
 
       const { data: alreadyExists } = await supabase
         .from("memberships")
@@ -85,81 +84,49 @@ export async function POST(request: NextRequest) {
 
       if (!alreadyExists) {
         const paymentMethodId = _pi.payment_method as string | null
+        const now = new Date()
+        const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
 
-        // Step 1: DB record first — customer is set up even if Stripe sub creation fails
-        try {
-          const now = new Date()
-          const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
-          const insertData: Record<string, unknown> = {
-            user_id, plan_id,
-            plan_type: plan_slug,
-            status: "active",
-            stripe_customer_id,
-            started_at: now.toISOString(),
-            current_period_end: new Date(trialEnd * 1000).toISOString(),
-            joining_fee_paid: plan_slug === "founder",
-            joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
-          }
-
-          if (plan_slug === "eagle") {
-            insertData.signup_bonus_hours = 2
-            const bonusExpiry = new Date(now)
-            bonusExpiry.setDate(bonusExpiry.getDate() + 90)
-            insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
-          }
-
-          if (plan_slug === "founder") {
-            const { data: maxRow } = await supabase
-              .from("memberships")
-              .select("founder_number")
-              .not("founder_number", "is", null)
-              .order("founder_number", { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            insertData.founder_number =
-              ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
-            insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
-            insertData.signup_bonus_hours = 2
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await supabase.from("memberships").insert(insertData as any)
-          await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"}` })
-
-          // Step 2: Confirmation email
-          try {
-            const { data: authUser } = await supabase.auth.admin.getUserById(user_id)
-            const userEmail = authUser?.user?.email
-            const { data: prof } = await supabase.from("profiles").select("first_name").eq("id", user_id).single()
-            const firstName = (prof as { first_name: string } | null)?.first_name ?? "there"
-            if (userEmail) {
-              if (plan_slug === "founder") {
-                await sendFounderConfirmationEmail({ to: userEmail, firstName, founderNumber: insertData.founder_number as number })
-              } else if (plan_slug === "eagle") {
-                await sendEagleConfirmationEmail({ to: userEmail, firstName })
-              }
-            }
-          } catch (emailErr) {
-            await ( supabase as any).from("admin_logs").insert({ event: "webhook:email-error", detail: String(emailErr) })
-          }
-
-          // Step 3: Owner SMS
-          const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
-          await notifyOwner(`New ${plan_slug} membership${founderTag}`)
-
-        } catch (insertErr) {
-          await ( supabase as any).from("admin_logs").insert({ event: "webhook:insert-error", detail: String(insertErr) })
+        // Build insert record
+        const insertData: Record<string, unknown> = {
+          user_id, plan_id,
+          plan_type: plan_slug,
+          status: "active",
+          stripe_customer_id,
+          started_at: now.toISOString(),
+          current_period_end: new Date(trialEnd * 1000).toISOString(),
+          joining_fee_paid: plan_slug === "founder",
+          joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+        }
+        if (plan_slug === "eagle") {
+          insertData.signup_bonus_hours = 2
+          const bonusExpiry = new Date(now)
+          bonusExpiry.setDate(bonusExpiry.getDate() + 90)
+          insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+        }
+        if (plan_slug === "founder") {
+          const { data: maxRow } = await supabase
+            .from("memberships").select("founder_number")
+            .not("founder_number", "is", null)
+            .order("founder_number", { ascending: false })
+            .limit(1).maybeSingle()
+          insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
+          insertData.year_one_discount_expires_at = new Date("2027-08-31T23:59:59Z").toISOString()
+          insertData.signup_bonus_hours = 2
         }
 
-        // Step 4: Stripe subscription — runs after customer is already set up
-        if (stripe_price_id) {
-          try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await supabase.from("memberships").insert(insertData as any)
+
+        // Run subscription creation, email, and SMS in parallel to stay under 10s
+        await Promise.allSettled([
+          // Create recurring subscription
+          stripe_price_id ? (async () => {
             if (paymentMethodId) {
               await getStripe().customers.update(stripe_customer_id, {
                 invoice_settings: { default_payment_method: paymentMethodId },
               }).catch(() => {})
             }
-            const trialEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
             const subscription = await getStripe().subscriptions.create({
               customer: stripe_customer_id,
               items: [{ price: stripe_price_id }],
@@ -170,13 +137,27 @@ export async function POST(request: NextRequest) {
             await supabase.from("memberships")
               .update({ stripe_subscription_id: subscription.id })
               .eq("user_id", user_id).eq("status", "active")
-            await ( supabase as any).from("admin_logs").insert({ event: "webhook:subscription-created", detail: subscription.id })
-          } catch (subErr) {
-            await ( supabase as any).from("admin_logs").insert({ event: "webhook:subscription-error", detail: String(subErr) })
-          }
-        }
-      } else {
-        await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-duplicate", detail: `user=${user_id} already active` })
+          })() : Promise.resolve(),
+
+          // Send confirmation email + owner SMS
+          (async () => {
+            const [{ data: authUser }, { data: prof }] = await Promise.all([
+              supabase.auth.admin.getUserById(user_id),
+              supabase.from("profiles").select("first_name").eq("id", user_id).single(),
+            ])
+            const userEmail = authUser?.user?.email
+            const firstName = (prof as { first_name: string } | null)?.first_name ?? "there"
+            const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
+            await Promise.allSettled([
+              userEmail && plan_slug === "founder"
+                ? sendFounderConfirmationEmail({ to: userEmail, firstName, founderNumber: insertData.founder_number as number })
+                : userEmail && plan_slug === "eagle"
+                  ? sendEagleConfirmationEmail({ to: userEmail, firstName })
+                  : Promise.resolve(),
+              notifyOwner(`New ${plan_slug} membership${founderTag}`),
+            ])
+          })(),
+        ])
       }
 
       return NextResponse.json({ received: true })
