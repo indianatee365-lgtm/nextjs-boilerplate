@@ -33,7 +33,7 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 ### Tech stack
 - Next.js 16.1.6 (Turbopack)
 - Supabase (auth + Postgres) — email confirmation disabled
-- Stripe (payments) — **test keys active**
+- Stripe (payments) — **live keys active**
 - Telnyx (SMS) — A2P campaign CPYCUBI approved 2026-05-19
 - Resend (email)
 - Vercel (hosting, tee365.org)
@@ -82,11 +82,18 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [x] $0 bookings: gift card covers full amount skips Stripe, confirms immediately (TEE-008)
 - [x] Last-minute bookings: access code fires immediately at payment if session starts within 15 min
 - [x] Cron window extended to -10/+20 min with ends_at guard
+- [x] E2E test suite: 21/21 automated checks passing (2026-05-27)
+- [x] Reschedule free path bug fixed — free reschedules now apply immediately (2026-05-27)
+- [x] Webhook reschedule handler added — paid reschedules now apply on payment_intent.succeeded (2026-05-27)
+- [x] Stale Stripe webhook URL fixed — was pointing to archived tee365-app.vercel.app (2026-05-27)
+- [x] **Keys to 4615 Grape Rd, Mishawaka IN 46545 received 2026-05-27** — location no longer confidential
+- [x] Future home of Tee365 sign ordered for exterior
+- [x] Utilities + internet scheduled for installation 2026-05-30 (Friday)
 
 ### Remaining 🔴
 - [ ] Wire access control API (`lib/access-control/index.ts` stub — blocked on hardware selection)
   - Access code is 6 digits; final digit count TBD pending hardware
-- [ ] Test failed payment path (booking stays pending/cancelled correctly)
+- [x] Test failed payment path — booking stays pending after decline (2026-05-27)
 - [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate side-effects
 - [ ] Rate limiting — configure Cloudflare rules for auth, gift card balance, coupon redemption
 - [ ] **Sales tax** — Indiana 7% on amusement/recreation. Get accountant confirmation on:
@@ -103,8 +110,8 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 > Birdie/Eagle hidden until ~Aug 25 — only Founder's Club available to drive founding memberships.
 
 ### Stripe go-live (unlocks everything in this phase)
-- [ ] Switch Stripe from test keys to live keys
-- [ ] Add `checkout.session.completed` to live Stripe webhook event list
+- [x] Switch Stripe from test keys to live keys (confirmed live 2026-05-27)
+- [x] Add `checkout.session.completed` to live Stripe webhook event list
 - [ ] Verify Apple Pay domain registration carries to live mode
 
 ### Marketing site updates
@@ -152,9 +159,9 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 > Pre-opening window: Founders Sept 1 → Eagle/Birdie Sept 3 → Public Sept 4.
 
 ### Location announcement
-- [ ] Add physical address to website (4615 Grape Rd, Mishawaka, IN 46545) — **hold until keys received**
+- [ ] Add physical address to website (4615 Grape Rd, Mishawaka, IN 46545)
 - [ ] Footer, contact page, and About page
-- [ ] Google Business Profile / Maps listing
+- [x] Google Business Profile / Maps listing (updated 2026-05-27)
 
 ### Booking go-live
 - [ ] Schedule pg_cron job: flip `pending_opening` → `active` at 4:00 AM UTC Sept 1, 2026
