@@ -10,6 +10,14 @@ function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
 }
 
+async function notifyOwner(msg: string) {
+  await fetch("https://api.telnyx.com/v2/messages", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + process.env.TELNYX_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: process.env.TELNYX_PHONE_NUMBER, to: "+15749990622", text: msg }),
+  }).catch(() => {})
+}
+
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     httpClient: Stripe.createFetchHttpClient(),
@@ -57,6 +65,7 @@ export async function POST(request: NextRequest) {
       })
       if (!insertError) {
         try { await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount }) } catch (e) { console.error("[webhook:gift-card-email]", e) }
+        notifyOwner("Gift card sold — $" + amount + " from " + senderName + " to " + recipientName + " (" + recipientEmail + ")").catch(() => {})
       } else if ((insertError as { code?: string }).code !== "23505") {
         console.error("Gift card webhook insert failed", insertError)
       }
@@ -128,6 +137,8 @@ export async function POST(request: NextRequest) {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await supabase.from("memberships").insert(insertData as any)
+        const founderTag = plan_slug === "founder" ? " (#" + String(insertData.founder_number) + " of 100)" : ""
+        notifyOwner("New " + plan_slug + " membership — " + ((_pi as any).receipt_email ?? "member") + " just joined" + founderTag).catch(() => {})
       }
 
       return NextResponse.json({ received: true })
