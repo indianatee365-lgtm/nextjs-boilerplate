@@ -103,7 +103,7 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       <PaymentElement
         options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-        onLoadError={(e) => setError(`Payment form failed to load — ${e.error?.message ?? "please refresh and try again"}`)}
+        onLoadError={() => setError("Payment form unavailable — please refresh the page and try again")}
       />
       {error && (
         <p className="text-sm text-red-400">{error}</p>

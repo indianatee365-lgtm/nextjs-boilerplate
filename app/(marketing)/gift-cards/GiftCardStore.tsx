@@ -63,7 +63,7 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
         <p className="label mb-2">Payment</p>
         <PaymentElement
           options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-          onLoadError={(e) => setError(`Payment form failed to load — ${e.error?.message ?? "please refresh and try again"}`)}
+          onLoadError={() => setError("Payment form unavailable — please refresh the page and try again")}
         />
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
