@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     if (_pi.metadata?.type === "membership") {
       const { user_id, plan_id, plan_slug, stripe_customer_id, stripe_price_id } = _pi.metadata
-      await supabase.from("admin_logs").insert({ event: "webhook:membership-received", detail: `pi=${_pi.id} user=${user_id} plan=${plan_slug}` })
+      await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-received", detail: `pi=${_pi.id} user=${user_id} plan=${plan_slug}` })
 
       const { data: alreadyExists } = await supabase
         .from("memberships")
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await supabase.from("memberships").insert(insertData as any)
-          await supabase.from("admin_logs").insert({ event: "webhook:membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"}` })
+          await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"}` })
 
           // Step 2: Confirmation email
           try {
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
               }
             }
           } catch (emailErr) {
-            await supabase.from("admin_logs").insert({ event: "webhook:email-error", detail: String(emailErr) })
+            await ( supabase as any).from("admin_logs").insert({ event: "webhook:email-error", detail: String(emailErr) })
           }
 
           // Step 3: Owner SMS
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           await notifyOwner(`New ${plan_slug} membership${founderTag}`)
 
         } catch (insertErr) {
-          await supabase.from("admin_logs").insert({ event: "webhook:insert-error", detail: String(insertErr) })
+          await ( supabase as any).from("admin_logs").insert({ event: "webhook:insert-error", detail: String(insertErr) })
         }
 
         // Step 4: Stripe subscription — runs after customer is already set up
@@ -170,13 +170,13 @@ export async function POST(request: NextRequest) {
             await supabase.from("memberships")
               .update({ stripe_subscription_id: subscription.id })
               .eq("user_id", user_id).eq("status", "active")
-            await supabase.from("admin_logs").insert({ event: "webhook:subscription-created", detail: subscription.id })
+            await ( supabase as any).from("admin_logs").insert({ event: "webhook:subscription-created", detail: subscription.id })
           } catch (subErr) {
-            await supabase.from("admin_logs").insert({ event: "webhook:subscription-error", detail: String(subErr) })
+            await ( supabase as any).from("admin_logs").insert({ event: "webhook:subscription-error", detail: String(subErr) })
           }
         }
       } else {
-        await supabase.from("admin_logs").insert({ event: "webhook:membership-duplicate", detail: `user=${user_id} already active` })
+        await ( supabase as any).from("admin_logs").insert({ event: "webhook:membership-duplicate", detail: `user=${user_id} already active` })
       }
 
       return NextResponse.json({ received: true })
