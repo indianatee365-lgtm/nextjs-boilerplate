@@ -65,7 +65,6 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [elementReady, setElementReady] = useState(false)
 
   const labels: Record<string, string> = {
     birdie: "Subscribe — $10.00/mo",
@@ -103,15 +102,15 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <PaymentElement
-        options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-        onReady={() => setElementReady(true)}
+        options={{ wallets: { applePay: "never", googlePay: "never", link: "never" } as never }}
+        onLoadError={(e) => setError(`Payment form failed to load — ${e.error?.message ?? "please refresh and try again"}`)}
       />
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}
       <button
         type="submit"
-        disabled={submitting || !stripe || !elements || !elementReady}
+        disabled={submitting || !stripe || !elements}
         className="btn-primary w-full py-3 font-semibold"
       >
         {submitting ? "Processing…" : (labels[planSlug] ?? "Subscribe")}

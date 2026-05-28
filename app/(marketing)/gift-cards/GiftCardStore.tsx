@@ -23,7 +23,6 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [elementReady, setElementReady] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -63,12 +62,12 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
       <div>
         <p className="label mb-2">Payment</p>
         <PaymentElement
-          options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-          onReady={() => setElementReady(true)}
+          options={{ wallets: { applePay: "never", googlePay: "never", link: "never" } as never }}
+          onLoadError={(e) => setError(`Payment form failed to load — ${e.error?.message ?? "please refresh and try again"}`)}
         />
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
-      <button type="submit" disabled={!stripe || !elementReady || submitting} className="btn-primary w-full py-3 text-base">
+      <button type="submit" disabled={!stripe || submitting} className="btn-primary w-full py-3 text-base">
         {submitting ? "Processing..." : `Purchase ${fmt(amount)} gift card`}
       </button>
       <p className="text-center text-xs text-neutral-500">Payment processed securely by Stripe. Gift cards never expire.</p>
