@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       description: `Tee365 Gift Card — $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret })
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret, livemode: paymentIntent.livemode })
   } catch (err) {
     console.error("[POST /api/gift-cards/payment-intent]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
