@@ -96,7 +96,6 @@ export default async function FoundersPage() {
             <ul className="space-y-4">
               {[
                 ["30% off year one, 20% forever", "From opening through August 2027 at 30% off. Every booking after that, 20% off forever."],
-                ["Price floor of $20/hr", "Even at off-peak rates, you never pay less than $20/hr. You always save something."],
                 ["21-day advance booking", "The best booking window available — 3 weeks out, before anyone else can touch the calendar."],
                 ["Up to 3 active reservations", "Keep your calendar loaded. Hold three upcoming sessions at once."],
               ].map(([title, desc]) => (
