@@ -2,7 +2,6 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendGiftCardEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 
 function getStripe() {
@@ -62,12 +61,6 @@ export default async function GiftCardSuccessPage({
       purchased_by: senderName,
       stripe_payment_id: stripePaymentId,
     })
-
-    try {
-      await sendGiftCardEmail({ recipientEmail, recipientName, senderName, code, amount })
-    } catch (err) {
-      console.error("Gift card email failed", err)
-    }
 
     balance = amount
   }
