@@ -95,7 +95,7 @@ export default async function FoundersPage() {
             <h2 className="text-2xl font-bold text-white mb-6">What you get</h2>
             <ul className="space-y-4">
               {[
-                ["30% off year one, 20% forever", "September 1, 2026 through August 31, 2027 at 30% off. Every booking after that, 20% off forever."],
+                ["30% off year one, 20% forever", "From opening through August 2027 at 30% off. Every booking after that, 20% off forever."],
                 ["Price floor of $20/hr", "Even at off-peak rates, you never pay less than $20/hr. You always save something."],
                 ["21-day advance booking", "The best booking window available — 3 weeks out, before anyone else can touch the calendar."],
                 ["Up to 3 active reservations", "Keep your calendar loaded. Hold three upcoming sessions at once."],
@@ -163,7 +163,7 @@ export default async function FoundersPage() {
           </div>
           <div className="rounded-lg border border-white/10 p-4">
             <p className="font-semibold text-white mb-1">Opening day guarantee</p>
-            <p>If Tee365 doesn&apos;t open within 60 days of September 1, 2026, all Founder fees are fully refundable on request.</p>
+            <p>If Tee365 doesn&apos;t open by November 1, 2026, all Founder fees are fully refundable on request.</p>
           </div>
         </div>
 

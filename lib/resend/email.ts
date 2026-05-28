@@ -339,3 +339,127 @@ export async function sendMinorAccountApprovedEmail({
   })
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
+
+export async function sendFounderConfirmationEmail({
+  to,
+  firstName,
+  founderNumber,
+}: {
+  to: string
+  firstName: string
+  founderNumber: number
+}) {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+      <tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+        <p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+        <p style="margin:6px 0 0;color:#737373;font-size:13px;">Indoor Golf Simulator &mdash; Mishawaka, IN</p>
+      </td></tr>
+      <tr><td style="padding:40px 32px;text-align:center;">
+        <p style="margin:0 0 8px;font-size:12px;color:#4ade80;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Founder's Club</p>
+        <h1 style="margin:0 0 6px;font-size:36px;font-weight:800;color:#fff;">You're in.</h1>
+        <p style="margin:0 0 32px;color:#a3a3a3;font-size:15px;">Welcome to the Founder's Club, ${firstName}.</p>
+        <div style="background:#18181b;border:1px solid #27272a;border-radius:10px;padding:24px;margin-bottom:32px;">
+          <p style="margin:0 0 4px;font-size:11px;color:#737373;text-transform:uppercase;letter-spacing:2px;">Your member number</p>
+          <p style="margin:0;font-size:52px;font-weight:900;color:#4ade80;">#${founderNumber}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#52525b;">of 100 ever</p>
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;text-align:left;">
+          <tr><td colspan="2" style="padding-bottom:12px;font-size:14px;font-weight:700;color:#fff;border-bottom:1px solid #27272a;">What you've locked in</td></tr>
+          <tr><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;color:#a3a3a3;font-size:13px;">Discount, year one</td><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;text-align:right;color:#4ade80;font-size:13px;font-weight:600;">30% off every session</td></tr>
+          <tr><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;color:#a3a3a3;font-size:13px;">Discount, forever after</td><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;text-align:right;color:#4ade80;font-size:13px;font-weight:600;">20% off, locked for life</td></tr>
+          <tr><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;color:#a3a3a3;font-size:13px;">Advance booking window</td><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;text-align:right;color:#fff;font-size:13px;font-weight:600;">21 days</td></tr>
+          <tr><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;color:#a3a3a3;font-size:13px;">Active reservations</td><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;text-align:right;color:#fff;font-size:13px;font-weight:600;">Up to 3 at a time</td></tr>
+          <tr><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;color:#a3a3a3;font-size:13px;">Founders &amp; Friends Day</td><td style="padding:10px 0;border-bottom:1px solid #1c1c1e;text-align:right;color:#fff;font-size:13px;font-weight:600;">2 complimentary hours</td></tr>
+          <tr><td style="padding:10px 0;color:#a3a3a3;font-size:13px;">Founders Wall</td><td style="padding:10px 0;text-align:right;color:#fff;font-size:13px;font-weight:600;">Your name, permanent</td></tr>
+        </table>
+        <div style="background:#0f1f0f;border:1px solid #1a3a1a;border-radius:8px;padding:20px;margin-bottom:32px;text-align:left;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4ade80;">What happens next</p>
+          <p style="margin:0;color:#86efac;font-size:13px;line-height:1.7;">Tee365 opens September 2026. You'll receive an email before the booking calendar goes live — Founders get 48 hours before anyone else.<br><br><strong>Founders &amp; Friends Day</strong> is a private pre-opening event for you, your family, and friends. Two complimentary hours included. Details coming closer to opening.<br><br>Your name will be on the permanent Founders Wall inside the facility from day one.</p>
+        </div>
+        <div style="border-top:1px solid #27272a;padding-top:24px;text-align:left;">
+          <p style="margin:0 0 10px;font-size:12px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;">From Jerrod</p>
+          <p style="margin:0 0 10px;color:#a3a3a3;font-size:14px;line-height:1.7;">When I started building Tee365 I had no idea if anyone would believe in it before the doors opened. You did. That means more than I can put in an email.</p>
+          <p style="margin:0 0 12px;color:#a3a3a3;font-size:14px;">See you at Founders Day.</p>
+          <p style="margin:0;font-size:13px;color:#fff;font-weight:600;">Jerrod</p>
+          <p style="margin:2px 0 0;font-size:11px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;">Founder, Tee365</p>
+        </div>
+      </td></tr>
+      <tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+        <p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      to: [to],
+      subject: `Welcome to Founder's Club — you're #${founderNumber} of 100`,
+      html,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}
+
+export async function sendEagleConfirmationEmail({
+  to,
+  firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+      <tr><td style="background:#111;padding:28px 32px;text-align:center;">
+        <p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+        <p style="margin:6px 0 0;color:#a3a3a3;font-size:13px;">Indoor Golf Simulator &mdash; Mishawaka, IN</p>
+      </td></tr>
+      <tr><td style="padding:36px 32px;">
+        <h2 style="margin:0 0 6px;color:#111;font-size:24px;font-weight:800;">Welcome to Eagle, ${firstName}.</h2>
+        <p style="margin:0 0 28px;color:#555;font-size:14px;">Your membership is active. Here's what you've got.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:20px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Bay discount</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#16a34a;font-size:13px;font-weight:700;">20% off every session</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Advance booking</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#111;font-size:13px;font-weight:600;">14 days out</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Active reservations</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#111;font-size:13px;font-weight:600;">Up to 3 at a time</td></tr>
+            <tr><td style="padding:8px 0;color:#777;font-size:13px;">Signup bonus</td><td style="padding:8px 0;text-align:right;color:#16a34a;font-size:13px;font-weight:700;">2 free hours (90-day credit)</td></tr>
+          </table>
+        </td></tr></table>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px;margin-bottom:24px;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#166534;">Your 2 free hours</p>
+          <p style="margin:0;color:#166534;font-size:13px;line-height:1.6;">Your signup bonus is credited to your account and valid for 90 days. The discount applies automatically when you book — no code needed.</p>
+        </div>
+        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.7;">Tee365 opens September 2026. Your 14-day advance booking window and 20% discount apply from your first session.</p>
+        <div style="text-align:center;"><a href="https://tee365.org/account" style="display:inline-block;background:#111;color:#4ade80;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View your account</a></div>
+      </td></tr>
+      <tr><td style="padding:20px 32px;border-top:1px solid #eee;text-align:center;">
+        <p style="margin:0;color:#999;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Tee365 <bookings@tee365.org>",
+      to: [to],
+      subject: "Welcome to Eagle — your 2 free hours are waiting",
+      html,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}

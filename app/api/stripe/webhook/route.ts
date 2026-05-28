@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail } from "@/lib/resend/email"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail } from "@/lib/resend/email"
 import { randomBytes, randomInt } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 
@@ -327,6 +327,24 @@ export async function POST(request: NextRequest) {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await supabase.from("memberships").insert(insertData as any)
+
+          // Send confirmation email
+          try {
+            const { data: authUser } = await supabase.auth.admin.getUserById(user_id)
+            const userEmail = authUser?.user?.email
+            const { data: prof } = await supabase.from("profiles").select("first_name").eq("id", user_id).single()
+            const firstName = (prof as { first_name: string } | null)?.first_name ?? "there"
+            if (userEmail) {
+              if (plan_slug === "founder") {
+                const fn = (insertData.founder_number as number) ?? 1
+                await sendFounderConfirmationEmail({ to: userEmail, firstName, founderNumber: fn })
+              } else if (plan_slug === "eagle") {
+                await sendEagleConfirmationEmail({ to: userEmail, firstName })
+              }
+            }
+          } catch (emailErr) {
+            console.error("[webhook:membership-email]", emailErr)
+          }
         }
       }
     }

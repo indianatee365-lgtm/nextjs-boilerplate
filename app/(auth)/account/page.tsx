@@ -32,7 +32,7 @@ export default async function AccountPage({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, membership_plans(name, slug, discount_percent, first_year_discount)")
+        .select("status, started_at, current_period_end, founder_number, signup_bonus_hours, signup_bonus_expires_at, membership_plans(name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
         .eq("user_id", user.id)
         .eq("status", "active")
         .single(),
@@ -62,7 +62,11 @@ export default async function AccountPage({
 
   const plan = membership?.membership_plans as {
     name: string; slug: string; discount_percent: number; first_year_discount: number | null
+    advance_booking_days: number; max_active_reservations: number
   } | null
+  const founderNumber = membership?.founder_number as number | null | undefined
+  const bonusHours = membership?.signup_bonus_hours as number | null | undefined
+  const bonusExpires = membership?.signup_bonus_expires_at as string | null | undefined
 
   const isFirstYear = membership
     ? new Date() < new Date(new Date(membership.started_at).setFullYear(new Date(membership.started_at).getFullYear() + 1))
@@ -111,8 +115,30 @@ export default async function AccountPage({
               Active
             </span>
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg bg-black/20 px-3 py-2">
+              <p className="text-neutral-500">Advance booking</p>
+              <p className="text-white font-medium mt-0.5">{plan.advance_booking_days} days out</p>
+            </div>
+            <div className="rounded-lg bg-black/20 px-3 py-2">
+              <p className="text-neutral-500">Active reservations</p>
+              <p className="text-white font-medium mt-0.5">Up to {plan.max_active_reservations}</p>
+            </div>
+            {founderNumber && (
+              <div className="rounded-lg bg-black/20 px-3 py-2">
+                <p className="text-neutral-500">Member number</p>
+                <p className="text-brand font-bold mt-0.5">#{founderNumber} of 100</p>
+              </div>
+            )}
+            {bonusHours && bonusExpires && new Date(bonusExpires) > new Date() && (
+              <div className="rounded-lg bg-black/20 px-3 py-2">
+                <p className="text-neutral-500">Signup bonus</p>
+                <p className="text-brand font-medium mt-0.5">{bonusHours} free hrs remaining</p>
+              </div>
+            )}
+          </div>
           {membership?.current_period_end && (
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-3 text-xs text-neutral-500">
               Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
           )}

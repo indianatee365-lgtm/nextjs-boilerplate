@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://tee365.org/join" },
 }
 
+const BIRDIE_EAGLE_LAUNCH = new Date("2026-08-25T04:00:00Z") // midnight ET Aug 25
+const birdieEagleLive = new Date() >= BIRDIE_EAGLE_LAUNCH
+
 const CHECK = (
   <svg className="w-4 h-4 text-brand flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -84,11 +87,17 @@ export default async function JoinPage() {
               ))}
             </ul>
 
-            <JoinButton
-              planSlug="birdie"
-              label="Join Birdie"
-              className="btn-secondary w-full py-3 font-semibold"
-            />
+            {birdieEagleLive ? (
+              <JoinButton
+                planSlug="birdie"
+                label="Join Birdie"
+                className="btn-secondary w-full py-3 font-semibold"
+              />
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-white/5 py-3 text-center text-sm font-semibold text-neutral-500">
+                Available August 25
+              </div>
+            )}
           </div>
         )}
 
@@ -125,11 +134,17 @@ export default async function JoinPage() {
               ))}
             </ul>
 
-            <JoinButton
-              planSlug="eagle"
-              label="Join Eagle"
-              className="btn-primary w-full py-3 font-semibold"
-            />
+            {birdieEagleLive ? (
+              <JoinButton
+                planSlug="eagle"
+                label="Join Eagle"
+                className="btn-primary w-full py-3 font-semibold"
+              />
+            ) : (
+              <div className="rounded-xl border border-brand/30 bg-brand/5 py-3 text-center text-sm font-semibold text-neutral-400">
+                Available August 25
+              </div>
+            )}
           </div>
         )}
 
