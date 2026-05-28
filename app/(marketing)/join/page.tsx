@@ -187,7 +187,6 @@ export default async function JoinPage() {
               <ul className="space-y-2.5 mb-8">
                 {[
                   "30% off year one, 20% off forever",
-                  "Price floor of $20/hr — always saving",
                   "21-day advance booking — best available",
                   "2 free hours at Founders & Friends Day (Aug 31)",
                   "Reserved league slot, guaranteed",
