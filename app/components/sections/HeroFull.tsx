@@ -62,7 +62,7 @@ export default function HeroFull() {
             </a>
           </div>
 
-          <p className="mt-3 text-xs text-neutral-400">4615 Grape Rd, Mishawaka IN 46545</p>
+          <p className="mt-4 text-base font-medium text-neutral-100 sm:text-lg">4615 Grape Rd, Mishawaka, IN 46545</p>
         </div>
       </div>
     </section>

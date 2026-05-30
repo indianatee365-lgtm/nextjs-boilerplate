@@ -50,7 +50,7 @@ export default async function FoundersPage() {
           </p>
           {!founderClosed && (
             <p className="text-sm text-brand font-semibold">
-              {spotsRemaining} of 100 spots remaining
+              Enrollment open · Closes August 18, 2026
             </p>
           )}
         </div>
@@ -169,7 +169,7 @@ export default async function FoundersPage() {
         {/* Bottom CTA */}
         {!founderClosed && (
           <div className="text-center">
-            <p className="text-neutral-400 mb-2 text-sm">{spotsRemaining} spots left. Closes August 18, 2026.</p>
+            <p className="text-neutral-400 mb-2 text-sm">Lock in lifetime pricing. Closes August 18, 2026.</p>
             <JoinButton
               planSlug="founder"
               label="Claim Your Spot"
