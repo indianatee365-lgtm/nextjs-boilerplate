@@ -46,7 +46,8 @@ export default async function AdminUserDetailPage({
         </div>
         <Link
           href={`/admin/users/${id}/dashboard`}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-black hover:brightness-95 shadow-lg shadow-brand/20 whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-black hover:brightness-95 shadow-lg whitespace-nowrap"
+          style={{ backgroundColor: "var(--brand)" }}
         >
           View as customer →
         </Link>
