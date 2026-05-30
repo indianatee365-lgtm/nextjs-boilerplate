@@ -44,7 +44,7 @@ export default function HeroFull() {
               className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
               style={{ backgroundColor: "var(--brand)" }}
             >
-              Become a Founder
+              Become a Founder's Club Member
             </a>
 
             <a

@@ -3,6 +3,7 @@ import { randomInt } from "crypto"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { grantBayAccess } from "@/lib/access-control"
+import { logEvent, logFailure } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
@@ -88,11 +89,18 @@ export async function GET(request: NextRequest) {
         .eq("id", booking.id)
 
       results.push({ id: booking.id, sent: true })
+      await logEvent(supabase, "access-code-sent-cron", `booking=${booking.id} to=${profile.phone}`)
     } catch (err) {
-      console.error("[cron/booking-reminders] failed for booking", booking.id, err)
       results.push({ id: booking.id, sent: false, error: String(err) })
+      await logFailure(supabase, "access-code-CRON-FAILED",
+        `booking=${booking.id} to=${profile.phone} starts_at=${booking.starts_at} err=${String(err).slice(0, 200)}`,
+        `ALERT Access code FAILED (cron) — booking=${booking.id} session at ${new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}. Customer may be locked out. CALL THEM.`)
     }
   }
+
+  const failed = results.filter(r => !r.sent).length
+  await logEvent(supabase, failed > 0 ? "booking-reminders-cron-PARTIAL" : "booking-reminders-cron-ok",
+    `processed=${results.length} sent=${results.length - failed} failed=${failed}`)
 
   return NextResponse.json({ processed: results.length, results })
 }

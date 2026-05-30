@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
+import { isInFirstYear } from "@/lib/membership/first-year"
 
 export const RESCHEDULE_FEE = 5.00
 
@@ -88,17 +89,16 @@ export async function POST(request: NextRequest) {
     // User's current membership discount
     const { data: membership } = await serviceClient
       .from("memberships")
-      .select("started_at, membership_plans(discount_percent, first_year_discount)")
+      .select("started_at, year_one_discount_expires_at, membership_plans(discount_percent, first_year_discount)")
       .eq("user_id", user.id).eq("status", "active").single()
 
     let membershipDiscountPercent = 0
     if (membership) {
       const plan = membership.membership_plans as { discount_percent: number; first_year_discount: number | null } | null
       if (plan) {
-        const oneYearLater = new Date(membership.started_at)
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+        const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null })
         membershipDiscountPercent =
-          new Date() < oneYearLater && plan.first_year_discount != null
+          isFirstYear && plan.first_year_discount != null
             ? plan.first_year_discount
             : plan.discount_percent
       }

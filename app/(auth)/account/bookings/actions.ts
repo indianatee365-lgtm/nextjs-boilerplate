@@ -5,6 +5,8 @@ import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { sendBookingConfirmation } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
+import { isInFirstYear } from "@/lib/membership/first-year"
+import { logEvent, logFailure } from "@/lib/observability/notify"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -129,7 +131,7 @@ export async function finalizeReschedule({
 
   const { data: membership } = await serviceClient
     .from("memberships")
-    .select("id, started_at, membership_plans(discount_percent, first_year_discount)")
+    .select("id, started_at, year_one_discount_expires_at, membership_plans(discount_percent, first_year_discount)")
     .eq("user_id", user.id).eq("status", "active").single()
 
   let membershipDiscountPercent = 0
@@ -138,10 +140,9 @@ export async function finalizeReschedule({
     membershipId = membership.id
     const plan = membership.membership_plans as { discount_percent: number; first_year_discount: number | null } | null
     if (plan) {
-      const oneYearLater = new Date(membership.started_at)
-      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+      const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null })
       membershipDiscountPercent =
-        new Date() < oneYearLater && plan.first_year_discount != null
+        isFirstYear && plan.first_year_discount != null
           ? plan.first_year_discount
           : plan.discount_percent
     }
@@ -211,7 +212,11 @@ export async function finalizeReschedule({
   if (phone && smsConsent) {
     try {
       await sendBookingConfirmation({ to: phone, firstName, bayName, startsAt: new Date(newStartsAt), endsAt: new Date(newEndsAt) })
-    } catch { /* non-fatal */ }
+      await logEvent(serviceClient, "reschedule-sms-sent", `newBooking=${newBooking.id} to=${phone}`)
+    } catch (e) {
+      await logFailure(serviceClient, "reschedule-sms-FAILED",
+        `newBooking=${newBooking.id} to=${phone} err=${String(e).slice(0, 200)}`)
+    }
   }
 
   if (authUser?.email) {
@@ -224,7 +229,11 @@ export async function finalizeReschedule({
         couponDiscount: 0, tax: newPricing.tax, giftCardApplied: 0,
         total: newPricing.total,
       })
-    } catch { /* non-fatal */ }
+      await logEvent(serviceClient, "reschedule-email-sent", `newBooking=${newBooking.id} to=${authUser.email}`)
+    } catch (e) {
+      await logFailure(serviceClient, "reschedule-email-FAILED",
+        `newBooking=${newBooking.id} to=${authUser.email} err=${String(e).slice(0, 200)}`)
+    }
   }
 
   return { newBookingId: newBooking.id }

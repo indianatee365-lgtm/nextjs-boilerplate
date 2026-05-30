@@ -31,11 +31,22 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-white mb-2">3. Cancellations & Refunds</h2>
+          <h2 className="text-lg font-semibold text-white mb-2">3. Bay Booking Cancellations & Refunds</h2>
           <ul className="list-disc pl-5 mt-2 space-y-1">
             <li>Cancellations made more than 24 hours before the session start time are eligible for a full refund to the original payment method.</li>
             <li>Cancellations within 24 hours of the session start time are non-refundable. The full session amount is forfeited.</li>
             <li>Tee365 reserves the right to cancel bookings due to equipment failure or emergency. A full refund will be issued in such cases.</li>
+          </ul>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-white mb-2">3a. Membership Cancellations</h2>
+          <ul className="list-disc pl-5 space-y-2 text-neutral-300">
+            <li>You may cancel your membership at any time from your account page. Cancellation takes effect at the end of your current billing period — you keep all member benefits until then, and no further charges will be made.</li>
+            <li>If you change your mind before the period ends, you can reactivate in one click from your account page at no cost.</li>
+            <li>Monthly membership fees already paid are non-refundable. We do not pro-rate partial months.</li>
+            <li>Founder's Club: the one-time joining fee is refundable only within 30 days of joining. After 30 days the joining fee is non-refundable. Your Founder member number and Founders Wall placement are permanent — you may reactivate at any time at your original Founder's terms (same discount, same booking window, same number).</li>
+            <li>To reactivate after a membership has fully ended, contact us at info@tee365.org.</li>
           </ul>
         </section>
 

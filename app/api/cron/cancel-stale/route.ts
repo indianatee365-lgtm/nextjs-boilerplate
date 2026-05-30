@@ -8,7 +8,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 const EXPIRY_MINUTES = 15
 
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get("x-cron-secret") ?? request.nextUrl.searchParams.get("secret")
+  const secret = request.headers.get("x-cron-secret")
+    ?? request.nextUrl.searchParams.get("secret")
+    ?? (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "")
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

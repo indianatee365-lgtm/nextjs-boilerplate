@@ -6,6 +6,8 @@ import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sm
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
 import { randomInt } from "crypto"
+import { isInFirstYear } from "@/lib/membership/first-year"
+import { logEvent, logFailure } from "@/lib/observability/notify"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Get user's active membership
     const { data: membership } = await serviceClient
       .from("memberships")
-      .select("id, plan_id, started_at, membership_plans(slug, discount_percent, first_year_discount)")
+      .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount)")
       .eq("user_id", user.id)
       .eq("status", "active")
       .single()
@@ -103,10 +105,7 @@ export async function POST(request: NextRequest) {
       membershipId = membership.id
       const plan = membership.membership_plans as { slug: string; discount_percent: number; first_year_discount: number | null } | null
       if (plan) {
-        const startedAt = new Date(membership.started_at)
-        const oneYearLater = new Date(startedAt)
-        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
-        const isFirstYear = new Date() < oneYearLater
+        const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null })
         membershipDiscountPercent =
           isFirstYear && plan.first_year_discount != null
             ? plan.first_year_discount
@@ -271,7 +270,11 @@ export async function POST(request: NextRequest) {
             to: p.phone, firstName: p.first_name, bayName: bay.name,
             startsAt: startDate, endsAt: endDate,
           })
-        } catch (e) { console.error("[booking]", e) }
+          await logEvent(serviceClient, "booking-confirmation-sms-sent", `booking=${booking.id} to=${p.phone} path=free`)
+        } catch (e) {
+          await logFailure(serviceClient, "booking-confirmation-sms-FAILED",
+            `booking=${booking.id} to=${p.phone} path=free err=${String(e).slice(0, 200)}`)
+        }
       }
 
       const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(user.id)
@@ -284,7 +287,11 @@ export async function POST(request: NextRequest) {
             couponDiscount: pricing.couponDiscount, tax: pricing.tax,
             giftCardApplied: pricing.giftCardApplied, total: pricing.total,
           })
-        } catch (e) { console.error("[booking]", e) }
+          await logEvent(serviceClient, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email} path=free`)
+        } catch (e) {
+          await logFailure(serviceClient, "booking-confirmation-email-FAILED",
+            `booking=${booking.id} to=${authUser.email} path=free err=${String(e).slice(0, 200)}`)
+        }
       }
 
       // If session starts within 15 min, send access code immediately
@@ -297,7 +304,12 @@ export async function POST(request: NextRequest) {
           await grantBayAccess({ accessCode, bayName: bay.name, startsAt: startDate, endsAt: endDate })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await serviceClient.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
-        } catch (e) { console.error("[booking]", e) }
+          await logEvent(serviceClient, "access-code-sent-immediate", `booking=${booking.id} to=${p.phone} starts_in_min=${minsUntil.toFixed(1)} path=free`)
+        } catch (e) {
+          await logFailure(serviceClient, "access-code-IMMEDIATE-FAILED",
+            `booking=${booking.id} to=${p.phone} starts_in_min=${minsUntil.toFixed(1)} path=free err=${String(e).slice(0, 200)}`,
+            `ALERT Access code FAILED — booking=${booking.id} session starts in ${minsUntil.toFixed(0)}min. Customer may be locked out. CALL THEM.`)
+        }
       }
 
       return NextResponse.json({

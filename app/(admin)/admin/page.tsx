@@ -30,7 +30,7 @@ export default async function AdminPage() {
   const todayUTC = new Date(today.getTime() + etOffset)
   const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
 
-  const [{ count: todayCount }, { count: pendingCount }, { data: recentBookings }, { data: recentCancellations }, { data: activeCoupons }] =
+  const [{ count: todayCount }, { count: pendingCount }, { count: founderCount }, { count: otherMemberCount }, { count: logsCount24h }, { count: failureCount24h }, { data: recentBookings }, { data: recentCancellations }, { data: activeCoupons }] =
     await Promise.all([
       serviceClient
         .from("bookings")
@@ -42,6 +42,27 @@ export default async function AdminPage() {
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending"),
+      serviceClient
+        .from("memberships")
+        .select("id", { count: "exact", head: true })
+        .eq("plan_type", "founder")
+        .in("status", ["active", "past_due"]),
+      serviceClient
+        .from("memberships")
+        .select("id", { count: "exact", head: true })
+        .neq("plan_type", "founder")
+        .in("status", ["active", "past_due"]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (serviceClient as any)
+        .from("admin_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (serviceClient as any)
+        .from("admin_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .ilike("event", "%FAILED%"),
       serviceClient
         .from("bookings")
         .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
@@ -69,9 +90,17 @@ export default async function AdminPage() {
       <h1 className="text-2xl font-semibold text-white">Admin Dashboard</h1>
 
       {/* Stat cards */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
         <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
         <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
+        <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
+        <StatCard icon={<Users size={18} />} label="Other members" value={String(otherMemberCount ?? 0)} href="/admin/members" />
+        <StatCard
+          icon={<Clock size={18} />}
+          label={(failureCount24h ?? 0) > 0 ? "Failures (24h) — CHECK" : "System health (24h)"}
+          value={`${failureCount24h ?? 0} / ${logsCount24h ?? 0}`}
+          href={(failureCount24h ?? 0) > 0 ? "/admin/logs?filter=failures" : "/admin/logs?filter=all"}
+        />
       </div>
 
       {/* Nav */}

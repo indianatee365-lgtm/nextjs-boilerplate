@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 
 export const metadata = { title: "Members | Tee365 Admin" }
 
@@ -39,15 +40,18 @@ export default async function AdminMembersPage() {
             </thead>
             <tbody>
               {memberships.map((m) => {
-                const p = m.profiles as { first_name: string; last_name: string; phone: string | null } | null
+                const p = m.profiles as { first_name: string; last_name: string; phone: string | null; id: string } | null
                 const plan = m.membership_plans as { name: string } | null
+                const userHref = p?.id ? `/admin/users/${p.id}` : "#"
                 return (
-                  <tr key={m.id} className="border-b border-white/5 text-neutral-300">
+                  <tr key={m.id} className="border-b border-white/5 text-neutral-300 hover:bg-white/[0.03] transition-colors">
                     <td className="px-4 py-3">
-                      <p>{p?.first_name} {p?.last_name}</p>
-                      <p className="text-xs text-neutral-500">{p?.phone ?? "—"}</p>
+                      <Link href={userHref} className="block hover:text-brand">
+                        <p>{p?.first_name} {p?.last_name}</p>
+                        <p className="text-xs text-neutral-500">{p?.phone ?? "—"}</p>
+                      </Link>
                     </td>
-                    <td className="px-4 py-3">{plan?.name ?? "—"}</td>
+                    <td className="px-4 py-3"><Link href={userHref} className="block">{plan?.name ?? "—"}</Link></td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         m.status === "active" ? "bg-green-500/20 text-green-400" :

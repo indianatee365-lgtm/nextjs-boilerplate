@@ -463,3 +463,94 @@ export async function sendEagleConfirmationEmail({
   })
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
+
+
+export async function sendCancellationConfirmation({
+  to, firstName, planName, endDate, isFounder, founderNumber,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  endDate: string
+  isFounder: boolean
+  founderNumber: number | null
+}) {
+  const founderNote = isFounder && founderNumber
+    ? `<div style="background:#0f1f0f;border:1px solid #1a3a1a;border-radius:8px;padding:16px;margin:24px 0;">
+         <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4ade80;">Your Founder status is permanent</p>
+         <p style="margin:0;color:#86efac;font-size:13px;line-height:1.6;">Member <strong>#${founderNumber}</strong> is yours, always. Reactivate any time at your original Founder's terms — same discount, same booking window, same number on the Founders Wall.</p>
+       </div>`
+    : ""
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Cancellation confirmed</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your <strong style="color:#fff;">${planName}</strong> membership has been set to cancel. You will keep full access through <strong style="color:#fff;">${endDate}</strong>, after which no further charges will occur.</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Changed your mind? Sign in to your account before ${endDate} and reactivate in one click.</p>
+${founderNote}
+<p style="margin:16px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">Thank you for being part of Tee365.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      to: [to],
+      subject: `Your ${planName} membership — cancellation confirmed`,
+      html,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}
+
+export async function sendReactivationConfirmation({
+  to, firstName, planName, isFounder, founderNumber,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  isFounder: boolean
+  founderNumber: number | null
+}) {
+  const founderNote = isFounder && founderNumber
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Welcome back, Founder #${founderNumber}.</p>`
+    : ""
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">You're back in.</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+${founderNote}
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your <strong style="color:#fff;">${planName}</strong> membership has been reactivated. Billing continues as scheduled. All your member benefits remain in place.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      to: [to],
+      subject: `Your ${planName} membership has been reactivated`,
+      html,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}

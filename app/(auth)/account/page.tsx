@@ -4,7 +4,9 @@ import Link from "next/link"
 import { logout } from "@/app/actions/auth"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
+import CancelMembershipSection from "./CancelMembershipSection"
 import Stripe from "stripe"
+import { isInFirstYear } from "@/lib/membership/first-year"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -31,7 +33,7 @@ export default async function AccountPage({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, founder_number, signup_bonus_hours, signup_bonus_expires_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
+        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
         .eq("user_id", user.id)
         .eq("status", "active")
         .single(),
@@ -67,9 +69,7 @@ export default async function AccountPage({
   const bonusHours = membership?.signup_bonus_hours as number | null | undefined
   const bonusExpires = membership?.signup_bonus_expires_at as string | null | undefined
 
-  const isFirstYear = membership
-    ? new Date() < new Date(new Date(membership.started_at).setFullYear(new Date(membership.started_at).getFullYear() + 1))
-    : false
+  const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null } | null)
 
   const discount = plan
     ? (isFirstYear && plan.first_year_discount ? plan.first_year_discount : plan.discount_percent)
@@ -136,11 +136,22 @@ export default async function AccountPage({
               </div>
             )}
           </div>
-          {membership?.current_period_end && (
+          {membership?.current_period_end && !(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && (
             <p className="mt-3 text-xs text-neutral-500">
               Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
           )}
+          <CancelMembershipSection
+            planType={plan.slug}
+            planName={plan.display_name ?? plan.name}
+            isFounder={plan.slug === "founder"}
+            founderNumber={founderNumber ?? null}
+            pendingCancelEndDate={
+              (membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && membership?.current_period_end
+                ? new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
+                : null
+            }
+          />
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 px-4 py-4">

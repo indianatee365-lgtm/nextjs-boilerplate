@@ -92,8 +92,16 @@ export async function POST(request: NextRequest) {
       stripeCustomerId = customer.id
     }
 
-    // Auto-create Stripe price if not set
-    let stripePriceId = plan.stripe_price_id
+    // Auto-create Stripe price if not set, or if the saved one no longer exists in Stripe
+    let stripePriceId = plan.stripe_price_id as string | null
+    if (stripePriceId) {
+      try {
+        await stripe.prices.retrieve(stripePriceId)
+      } catch {
+        // Saved price doesn't exist (e.g. test-mode leftover after switching to live)
+        stripePriceId = null
+      }
+    }
     if (!stripePriceId) {
       const displayName = plan.display_name ?? plan.name
       const product = await stripe.products.create({
