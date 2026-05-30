@@ -92,6 +92,12 @@ export async function POST(request: NextRequest) {
       stripeCustomerId = customer.id
     }
 
+    // Save customer ID back to profile so PaymentMethods + setup-intent can find it
+    await serviceClient
+      .from("profiles")
+      .update({ stripe_customer_id: stripeCustomerId })
+      .eq("id", user.id)
+
     // Auto-create Stripe price if not set, or if the saved one no longer exists in Stripe
     let stripePriceId = plan.stripe_price_id as string | null
     if (stripePriceId) {
