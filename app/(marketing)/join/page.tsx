@@ -162,11 +162,15 @@ export default async function JoinPage() {
                 <span className="text-xs font-bold tracking-widest uppercase text-white/80">
                   Founder&apos;s Club
                 </span>
-                {founderClosed && (
+                {founderClosed ? (
                   <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">
                     Closed
                   </span>
-                )}
+                ) : spotsRemaining <= 20 ? (
+                  <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white">
+                    Only {spotsRemaining} left
+                  </span>
+                ) : null}
               </div>
 
               <div className="mb-1">
