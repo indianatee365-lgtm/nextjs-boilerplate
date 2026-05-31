@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
+import { logFailure } from "@/lib/observability/notify"
+import { createServiceClient } from "@/lib/supabase/server"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -38,7 +40,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret })
   } catch (err) {
-    console.error("[POST /api/gift-cards/payment-intent]", err)
+    try {
+      const sc = await createServiceClient()
+      await logFailure(sc, "gift-card-checkout-API-FAILED",
+        `err=${String(err).slice(0, 300)}`,
+        `ALERT /api/gift-cards/payment-intent failed — customer hit Buy and our API errored. Reason: ${String(err).slice(0, 150)}.`)
+    } catch { /* best-effort */ }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

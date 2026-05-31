@@ -37,7 +37,19 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (err) {
-    console.error("Webhook signature verification failed", err)
+    // Log every failure; SMS at most once per hour (prevents flood when secret is wrong)
+    try {
+      const sigClient = await createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count: recentSig } = await (sigClient as any).from("admin_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("event", "webhook-signature-FAILED")
+        .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      await logEvent(sigClient, "webhook-signature-FAILED", `err=${String(err).slice(0, 200)}`)
+      if (!recentSig) {
+        await notifyOwner(`ALERT Stripe webhook signature verification FAILED. Check STRIPE_WEBHOOK_SECRET in Vercel. Events will not retry until fixed.`)
+      }
+    } catch { /* never let logging crash the webhook */ }
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
@@ -341,12 +353,30 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === "payment_intent.payment_failed") {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent
-    await supabase
-      .from("bookings")
-      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-      .eq("stripe_payment_intent_id", paymentIntent.id)
-      .eq("status", "pending")
+    const pi = event.data.object as Stripe.PaymentIntent
+    const piType = pi.metadata?.type
+    const amount = ((pi.amount ?? 0) / 100).toFixed(2)
+    const errMsg = pi.last_payment_error?.message ?? "no error message"
+
+    if (piType === "membership") {
+      const { user_id, plan_slug } = pi.metadata
+      await logFailure(supabase, "membership-payment-FAILED",
+        `pi=${pi.id} user=${user_id} plan=${plan_slug} amount=$${amount} err=${errMsg}`,
+        `ALERT Membership purchase FAILED — ${plan_slug ?? "?"} attempt by user=${user_id ?? "?"} $${amount}. Reason: ${errMsg}. Consider reaching out.`)
+    } else if (piType === "gift_card") {
+      const { recipientEmail, senderName } = pi.metadata
+      await logFailure(supabase, "gift-card-payment-FAILED",
+        `pi=${pi.id} to=${recipientEmail ?? "?"} from=${senderName ?? "?"} amount=$${amount} err=${errMsg}`,
+        `ALERT Gift card purchase FAILED — ${senderName ?? "?"} tried $${amount} for ${recipientEmail ?? "?"}. Reason: ${errMsg}`)
+    } else {
+      // Booking: keep existing cancel behavior + log a trail
+      await supabase
+        .from("bookings")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .eq("stripe_payment_intent_id", pi.id)
+        .eq("status", "pending")
+      await logEvent(supabase, "booking-payment-failed", `pi=${pi.id} amount=$${amount} err=${errMsg}`)
+    }
   }
 
   // Membership signup — create the membership record on first successful invoice payment
