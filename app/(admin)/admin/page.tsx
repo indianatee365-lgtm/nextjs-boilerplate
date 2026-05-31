@@ -28,7 +28,8 @@ export default async function AdminPage() {
     { count: todayCount },
     { count: pendingCount },
     { count: founderCount },
-    { count: otherMemberCount },
+    { count: eagleCount },
+    { count: birdieCount },
     { count: logsCount24h },
     { count: failureCount24h },
     { count: cancellations30d },
@@ -43,7 +44,9 @@ export default async function AdminPage() {
     serviceClient.from("memberships").select("id", { count: "exact", head: true })
       .eq("plan_type", "founder").in("status", ["active", "past_due"]),
     serviceClient.from("memberships").select("id", { count: "exact", head: true })
-      .neq("plan_type", "founder").in("status", ["active", "past_due"]),
+      .eq("plan_type", "eagle").in("status", ["active", "past_due"]),
+    serviceClient.from("memberships").select("id", { count: "exact", head: true })
+      .eq("plan_type", "birdie").in("status", ["active", "past_due"]),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
@@ -88,7 +91,7 @@ export default async function AdminPage() {
       {/* Membership & liability — row 2 */}
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
-        <StatCard icon={<Users size={18} />} label="Other members" value={String(otherMemberCount ?? 0)} href="/admin/members" />
+        <AllMembersCard founder={founderCount ?? 0} eagle={eagleCount ?? 0} birdie={birdieCount ?? 0} />
         <StatCard icon={<Gift size={18} />} label="Gift card liability" value={fmtMoney(liability)} href="/admin/gift-cards" />
         <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
       </div>
@@ -201,6 +204,31 @@ function SalesCell({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs text-neutral-500 uppercase tracking-widest">{label}</p>
       <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+    </div>
+  )
+}
+
+function AllMembersCard({ founder, eagle, birdie }: { founder: number; eagle: number; birdie: number }) {
+  const total = founder + eagle + birdie
+  const pills: Array<{ slug: string; label: string; count: number }> = [
+    { slug: "founder", label: "Founder’s", count: founder },
+    { slug: "eagle", label: "Eagle", count: eagle },
+    { slug: "birdie", label: "Birdie", count: birdie },
+  ]
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+      <div className="flex items-center gap-2 text-neutral-400">
+        <Users size={18} /><span className="text-xs">All members</span>
+      </div>
+      <p className="mt-2 text-2xl font-semibold text-white">{total}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {pills.map(p => (
+          <Link key={p.slug} href={`/admin/members?plan=${p.slug}`}
+            className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-neutral-300 hover:bg-brand/20 hover:text-white transition">
+            {p.label} {p.count}
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }
