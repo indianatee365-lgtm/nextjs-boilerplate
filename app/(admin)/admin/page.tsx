@@ -34,7 +34,7 @@ export default async function AdminPage() {
     { count: cancellations30d },
     { data: giftCardBalances },
     { data: recentBookings },
-    { data: activeCoupons },
+    { count: activeCouponCount },
     revenue,
   ] = await Promise.all([
     serviceClient.from("bookings").select("id", { count: "exact", head: true })
@@ -58,8 +58,8 @@ export default async function AdminPage() {
       .in("status", ["confirmed", "pending"]).gte("starts_at", todayUTC.toISOString())
       .order("starts_at").limit(10),
     serviceClient.from("coupons")
-      .select("id, name, code, discount_type, discount_value, uses_count, max_uses, expires_at")
-      .eq("active", true).order("uses_count", { ascending: false }).limit(5),
+      .select("id", { count: "exact", head: true })
+      .eq("active", true),
     computeRevenue(serviceClient),
   ])
 
@@ -86,10 +86,11 @@ export default async function AdminPage() {
       </div>
 
       {/* Membership & liability — row 2 */}
-      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
         <StatCard icon={<Users size={18} />} label="Other members" value={String(otherMemberCount ?? 0)} href="/admin/members" />
         <StatCard icon={<Gift size={18} />} label="Gift card liability" value={fmtMoney(liability)} href="/admin/gift-cards" />
+        <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
       </div>
 
       {/* Sales card — full width, clickable */}
@@ -180,41 +181,7 @@ export default async function AdminPage() {
         )}
       </div>
 
-      {/* Active coupons */}
-      <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-white">Active coupons</h2>
-          <a href="/admin/coupons" className="text-xs text-brand hover:underline">Manage →</a>
-        </div>
-        {activeCoupons && activeCoupons.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-neutral-500 border-b border-white/10">
-                <th className="pb-2">Code</th>
-                <th className="pb-2">Name</th>
-                <th className="pb-2">Discount</th>
-                <th className="pb-2">Uses</th>
-                <th className="pb-2">Expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeCoupons.map((c) => (
-                <tr key={c.id} className="border-b border-white/5 text-neutral-300">
-                  <td className="py-2 font-mono text-xs font-medium">{c.code}</td>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <td className="py-2 text-neutral-400 text-xs">{(c as any).name ?? "—"}</td>
-                  <td className="py-2">{c.discount_type === "percent" ? `${c.discount_value}%` : `$${Number(c.discount_value).toFixed(2)}`}</td>
-                  <td className="py-2">{c.uses_count}{c.max_uses ? ` / ${c.max_uses}` : ""}</td>
-                  <td className="py-2 text-neutral-400 text-xs">{c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-neutral-500">No active coupons.</p>
-        )}
-      </div>
-    </main>
+          </main>
   )
 }
 
