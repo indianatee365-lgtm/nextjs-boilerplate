@@ -1,9 +1,11 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, Tag, Gift, UserCircle } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, DollarSign, TrendingUp } from "lucide-react"
+import { computeRevenue } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Admin | Tee365" }
+export const dynamic = "force-dynamic"
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -11,90 +13,70 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { data: profile } = await serviceClient
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
+  const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role !== "admin") redirect("/account")
 
-  // Use Eastern time for "today" window
+  // Eastern-time "today" window
   const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Indiana/Indianapolis" }))
-  const today = new Date(nowET)
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  // Convert back to UTC for DB queries
+  const today = new Date(nowET); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
   const etOffset = new Date().getTime() - nowET.getTime()
   const todayUTC = new Date(today.getTime() + etOffset)
   const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
 
-  const [{ count: todayCount }, { count: pendingCount }, { count: founderCount }, { count: otherMemberCount }, { count: logsCount24h }, { count: failureCount24h }, { data: recentBookings }, { data: recentCancellations }, { data: activeCoupons }] =
-    await Promise.all([
-      serviceClient
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .gte("starts_at", todayUTC.toISOString())
-        .lt("starts_at", tomorrowUTC.toISOString())
-        .in("status", ["confirmed"]),
-      serviceClient
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending"),
-      serviceClient
-        .from("memberships")
-        .select("id", { count: "exact", head: true })
-        .eq("plan_type", "founder")
-        .in("status", ["active", "past_due"]),
-      serviceClient
-        .from("memberships")
-        .select("id", { count: "exact", head: true })
-        .neq("plan_type", "founder")
-        .in("status", ["active", "past_due"]),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (serviceClient as any)
-        .from("admin_logs")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (serviceClient as any)
-        .from("admin_logs")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .ilike("event", "%FAILED%"),
-      serviceClient
-        .from("bookings")
-        .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
-        .in("status", ["confirmed", "pending"])
-        .gte("starts_at", todayUTC.toISOString())
-        .order("starts_at")
-        .limit(10),
-      serviceClient
-        .from("bookings")
-        .select("id, starts_at, ends_at, total, refund_amount, refunded_at, cancelled_at, bays(name), profiles!user_id(first_name, last_name)")
-        .eq("status", "cancelled")
-        .not("cancelled_at", "is", null)
-        .order("cancelled_at", { ascending: false })
-        .limit(20),
-      serviceClient
-        .from("coupons")
-        .select("id, name, code, discount_type, discount_value, uses_count, max_uses, expires_at")
-        .eq("active", true)
-        .order("uses_count", { ascending: false })
-        .limit(5),
-    ])
+  const [
+    { count: todayCount },
+    { count: pendingCount },
+    { count: founderCount },
+    { count: otherMemberCount },
+    { count: logsCount24h },
+    { count: failureCount24h },
+    { count: cancellations30d },
+    { data: giftCardBalances },
+    { data: recentBookings },
+    { data: activeCoupons },
+    revenue,
+  ] = await Promise.all([
+    serviceClient.from("bookings").select("id", { count: "exact", head: true })
+      .gte("starts_at", todayUTC.toISOString()).lt("starts_at", tomorrowUTC.toISOString()).in("status", ["confirmed"]),
+    serviceClient.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    serviceClient.from("memberships").select("id", { count: "exact", head: true })
+      .eq("plan_type", "founder").in("status", ["active", "past_due"]),
+    serviceClient.from("memberships").select("id", { count: "exact", head: true })
+      .neq("plan_type", "founder").in("status", ["active", "past_due"]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).ilike("event", "%FAILED%"),
+    serviceClient.from("bookings").select("id", { count: "exact", head: true })
+      .eq("status", "cancelled").gte("cancelled_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+    serviceClient.from("gift_cards").select("balance, active"),
+    serviceClient.from("bookings")
+      .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
+      .in("status", ["confirmed", "pending"]).gte("starts_at", todayUTC.toISOString())
+      .order("starts_at").limit(10),
+    serviceClient.from("coupons")
+      .select("id, name, code, discount_type, discount_value, uses_count, max_uses, expires_at")
+      .eq("active", true).order("uses_count", { ascending: false }).limit(5),
+    computeRevenue(serviceClient),
+  ])
+
+  const liability = ((giftCardBalances ?? []) as Array<{ balance: number; active: boolean }>)
+    .filter(g => g.active)
+    .reduce((sum, g) => sum + Number(g.balance), 0)
+  const fmtMoney = (n: number) => `$${n.toFixed(2)}`
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Admin Dashboard</h1>
 
-      {/* Stat cards */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      {/* Operational stats — row 1 */}
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
         <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
-        <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
-        <StatCard icon={<Users size={18} />} label="Other members" value={String(otherMemberCount ?? 0)} href="/admin/members" />
+        <StatCard icon={<XCircle size={18} />} label="Cancellations (30d)" value={String(cancellations30d ?? 0)} href="/admin/cancellations" />
         <StatCard
           icon={<Clock size={18} />}
           label={(failureCount24h ?? 0) > 0 ? "Failures (24h) — CHECK" : "System health (24h)"}
@@ -102,6 +84,33 @@ export default async function AdminPage() {
           href={(failureCount24h ?? 0) > 0 ? "/admin/logs?filter=failures" : "/admin/logs?filter=all"}
         />
       </div>
+
+      {/* Membership & liability — row 2 */}
+      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
+        <StatCard icon={<Users size={18} />} label="Other members" value={String(otherMemberCount ?? 0)} href="/admin/members" />
+        <StatCard icon={<Gift size={18} />} label="Gift card liability" value={fmtMoney(liability)} href="/admin/gift-cards" />
+      </div>
+
+      {/* Sales card — full width, clickable */}
+      <Link
+        href="/admin/sales"
+        className="mt-4 block rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:bg-white/10 hover:border-brand/30"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-neutral-300">
+            <TrendingUp size={18} />
+            <span className="text-sm font-semibold uppercase tracking-widest">Sales</span>
+          </div>
+          <span className="text-xs text-neutral-500 hover:text-brand">Details →</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <SalesCell label="Today" value={fmtMoney(revenue.total.today)} />
+          <SalesCell label="Last 7 days" value={fmtMoney(revenue.total.week)} />
+          <SalesCell label="Month to date" value={fmtMoney(revenue.total.mtd)} />
+          <SalesCell label="Year to date" value={fmtMoney(revenue.total.ytd)} />
+        </div>
+      </Link>
 
       {/* Nav */}
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -116,7 +125,6 @@ export default async function AdminPage() {
           <Link
             key={item.href}
             href={item.href}
-            target={(item as { target?: string }).target}
             className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-neutral-300 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white"
           >
             {item.icon}
@@ -142,11 +150,11 @@ export default async function AdminPage() {
               </thead>
               <tbody>
                 {recentBookings.map((b) => {
-                  const profile = b.profiles as { first_name: string; last_name: string } | null
+                  const p = b.profiles as { first_name: string; last_name: string } | null
                   const bay = b.bays as { name: string } | null
                   return (
                     <tr key={b.id} className="border-b border-white/5 text-neutral-300">
-                      <td className="px-4 py-3">{profile ? `${profile.first_name} ${profile.last_name}` : "—"}</td>
+                      <td className="px-4 py-3">{p ? `${p.first_name} ${p.last_name}` : "—"}</td>
                       <td className="px-4 py-3">{bay?.name}</td>
                       <td className="px-4 py-3">
                         {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
@@ -172,59 +180,6 @@ export default async function AdminPage() {
         )}
       </div>
 
-      {/* Cancellations & reschedules */}
-      <div className="mt-8">
-        <h2 className="mb-1 text-lg font-semibold text-white">Recent cancellations</h2>
-        <p className="mb-3 text-xs text-neutral-500">
-          Watch for refund_amount &gt; 0 on bookings cancelled shortly after creation — may indicate the reschedule-to-escape-forfeit pattern.
-        </p>
-        {recentCancellations && recentCancellations.length > 0 ? (
-          <div className="overflow-hidden rounded-xl border border-white/10">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Bay</th>
-                  <th className="px-4 py-3">Booked slot</th>
-                  <th className="px-4 py-3">Paid</th>
-                  <th className="px-4 py-3">Refunded</th>
-                  <th className="px-4 py-3">Cancelled at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentCancellations.map((b) => {
-                  const profile = b.profiles as { first_name: string; last_name: string } | null
-                  const bay = b.bays as { name: string } | null
-                  const forfeit = Number(b.refund_amount ?? 0) === 0
-                  return (
-                    <tr key={b.id} className="border-b border-white/5 text-neutral-300">
-                      <td className="px-4 py-3">{profile ? `${profile.first_name} ${profile.last_name}` : "—"}</td>
-                      <td className="px-4 py-3">{bay?.name ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}
-                        {" "}
-                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                      </td>
-                      <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forfeit ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
-                          {forfeit ? "Forfeited" : `$${Number(b.refund_amount).toFixed(2)}`}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-neutral-500">
-                        {b.cancelled_at ? new Date(b.cancelled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" }) : "—"}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-neutral-500">No cancellations yet.</p>
-        )}
-      </div>
-
       {/* Active coupons */}
       <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
         <div className="flex items-center justify-between mb-3">
@@ -246,6 +201,7 @@ export default async function AdminPage() {
               {activeCoupons.map((c) => (
                 <tr key={c.id} className="border-b border-white/5 text-neutral-300">
                   <td className="py-2 font-mono text-xs font-medium">{c.code}</td>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <td className="py-2 text-neutral-400 text-xs">{(c as any).name ?? "—"}</td>
                   <td className="py-2">{c.discount_type === "percent" ? `${c.discount_value}%` : `$${Number(c.discount_value).toFixed(2)}`}</td>
                   <td className="py-2">{c.uses_count}{c.max_uses ? ` / ${c.max_uses}` : ""}</td>
@@ -271,4 +227,13 @@ function StatCard({ icon, label, value, href }: { icon: React.ReactNode; label: 
   )
   if (href) return <Link href={href}>{inner}</Link>
   return inner
+}
+
+function SalesCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-neutral-500 uppercase tracking-widest">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+    </div>
+  )
 }
