@@ -138,7 +138,7 @@ function buildEmailHtml({
     lineItem("Subtotal", fmt(subtotal)),
     membershipDiscount > 0 ? lineItem("Member discount", `−${fmt(membershipDiscount)}`, true) : "",
     couponDiscount > 0 ? lineItem("Coupon discount", `−${fmt(couponDiscount)}`, true) : "",
-    lineItem("Indiana sales tax (7%)", fmt(tax)),
+    tax > 0 ? lineItem("Indiana sales tax (7%)", fmt(tax)) : "",
     giftCardApplied > 0 ? lineItem("Gift card", `−${fmt(giftCardApplied)}`, true) : "",
   ].join("")
 

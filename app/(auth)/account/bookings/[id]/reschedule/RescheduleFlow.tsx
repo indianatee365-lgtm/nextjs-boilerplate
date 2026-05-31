@@ -407,7 +407,9 @@ export default function RescheduleFlow({
                 <span>Member discount</span><span>−{fmt(preview.newPricing.membershipDiscount)}</span>
               </div>
             )}
-            <div className="flex justify-between"><span>Indiana sales tax (7%)</span><span>{fmt(preview.newPricing.tax)}</span></div>
+            {preview.newPricing.tax > 0 && (
+              <div className="flex justify-between"><span>Indiana sales tax (7%)</span><span>{fmt(preview.newPricing.tax)}</span></div>
+            )}
             <div className="flex justify-between font-semibold text-neutral-300">
               <span>New total</span><span>{fmt(preview.newPricing.total)}</span>
             </div>

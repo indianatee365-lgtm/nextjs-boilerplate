@@ -35,7 +35,9 @@ export interface SlotPrice {
   context: PricingContext
 }
 
-export const TAX_RATE = 0.07
+// Tax disabled per Indiana DOR ruling 2026-05-30: no sales tax on hourly bay rental, memberships, or gift cards.
+// Keep the constant and the engine logic intact so tax can be re-enabled by changing this one line if the ruling ever shifts.
+export const TAX_RATE = 0
 
 export interface BookingPrice {
   pricePerHour: number
