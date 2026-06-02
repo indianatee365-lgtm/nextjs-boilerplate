@@ -96,7 +96,7 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
   - Add interior aluminum + glass vestibule inside existing storefront (outer doors stay; new keypad-controlled inner door)
   - Pattern: outer storefront unlocked during op hours → vestibule airlock → 6-digit SMS code unlocks inner door → bay floor
   - **Sub-tasks:**
-    - [ ] Pick access control vendor (Kisi / Brivo / PDK) — verify time-bound PIN API exists. Target: 2026-06-08
+    - [ ] Bench-test Unifi Access (UDM-Pro + Access Ultra, ~$500) — verify time-bound PIN API + WAN-offline behavior. Plan B: PDK. Target: 2026-06-15
     - [ ] Get 3 glazier quotes (Action Glass, Quality Glass, Glass Doctor). Target: 2026-06-15
     - [ ] Contract signed + door prep spec to glazier. Target: 2026-06-22
     - [ ] Vestibule installed (4–8 wk lead time). Target: 2026-07-20
