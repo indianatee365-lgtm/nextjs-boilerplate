@@ -91,8 +91,19 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [x] Utilities + internet scheduled for installation 2026-05-30 (Friday)
 
 ### Remaining 🔴
-- [ ] Wire access control API (`lib/access-control/index.ts` stub — blocked on hardware selection)
-  - Access code is 6 digits; final digit count TBD pending hardware
+- [ ] **🚨 LAUNCH BLOCKER — Access control vestibule + hardware install**
+  - Full shopping & build plan: `C:\Users\m20th\tee365-vestibule-shopping.md`
+  - Add interior aluminum + glass vestibule inside existing storefront (outer doors stay; new keypad-controlled inner door)
+  - Pattern: outer storefront unlocked during op hours → vestibule airlock → 6-digit SMS code unlocks inner door → bay floor
+  - **Sub-tasks:**
+    - [ ] Pick access control vendor (Kisi / Brivo / PDK) — verify time-bound PIN API exists. Target: 2026-06-08
+    - [ ] Get 3 glazier quotes (Action Glass, Quality Glass, Glass Doctor). Target: 2026-06-15
+    - [ ] Contract signed + door prep spec to glazier. Target: 2026-06-22
+    - [ ] Vestibule installed (4–8 wk lead time). Target: 2026-07-20
+    - [ ] Access control electronics installed. Target: 2026-07-25
+    - [ ] Wire `lib/access-control/index.ts` to vendor API + observability hooks. Target: 2026-07-28
+    - [ ] End-to-end live test: booking → SMS → keypad → door unlocks. Target: 2026-08-01
+  - Access code is 6 digits; final digit count TBD pending hardware selection
 - [x] Test failed payment path — booking stays pending after decline (2026-05-27)
 - [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate side-effects
 - [ ] Rate limiting — configure Cloudflare rules for auth, gift card balance, coupon redemption
