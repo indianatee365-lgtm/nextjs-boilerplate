@@ -34,7 +34,7 @@ export default function FAQPage() {
         name: "Where will Tee365 be located?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "South Bend, Indiana. Address will be updated as soon as possible.",
+          text: "4615 Grape Rd, Mishawaka, IN 46545 (just outside South Bend).",
         },
       },
       {
@@ -138,7 +138,7 @@ export default function FAQPage() {
         name: "Will you sell gift cards?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes. Gift cards will be available for a limited time at launch. Please stay tuned to our socials for an announcement.",
+          text: "Yes — gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email.",
         },
       },
       {
@@ -180,7 +180,7 @@ export default function FAQPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
 
           {[
-            { q: "Where will Tee365 be located?", a: "South Bend, Indiana. Address will be updated as soon as possible." },
+            { q: "Where will Tee365 be located?", a: "4615 Grape Rd, Mishawaka, IN 46545 (just outside South Bend)." },
             { q: "When does Tee365 open?", a: "Opening September 2026. We’ll announce exact dates as we get closer." },
             { q: "How does 24/7 access work?", a: "Book and pay online. Entry details will be text to your provided phone number 15 minutes before your tee time. Your rented bay will turn on and off automatically. If the bay is available, an option to extend your bay rental will be provided 15 minutes before the end of your current session." },
             { q: "Will there be staff at Tee365?", a: "Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could foreseeably arise." },
@@ -193,7 +193,7 @@ export default function FAQPage() {
             { q: "Is there a dress code?", a: "While there is no specific dress code, please wear appropriate attire for public settings." },
             { q: "Is there food or beverage available?", a: "There is no food or beverage sold on site. You’re welcome to bring your own food or beverage. No glass bottles are allowed." },
             { q: "Is alcohol allowed?", a: "There is NO ALCOHOL allowed on premises. There is a zero tolerance policy for consuming alcohol in Tee365." },
-            { q: "Will you sell gift cards?", a: "Yes. Gift cards will be available for a limited time at launch. Please stay tuned to our socials for an announcement." },
+            { q: "Will you sell gift cards?", a: "Yes — gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email." },
             { q: "What is your cancellation policy?", a: "Cancellations more than 24 hours before your session receive a full refund. Cancellations within 24 hours are non-refundable — the full session amount is forfeited. You can cancel any upcoming booking from your account page." },
             { q: "Can I reschedule my booking?", a: "Yes. You can reschedule up to 4 hours before your session from your account page. A flat $5 reschedule fee always applies. The new session is priced at the current rate for the new time — if that rate is higher you pay the difference plus the $5 fee; if it's lower you get a refund of the difference (the $5 fee still applies). Need to reschedule within 4 hours? Email us at info@tee365.org and we'll do our best." },
           ].map(({ q, a }, i) => (
