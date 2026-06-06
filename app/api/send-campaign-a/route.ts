@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server"
 // ONE-TIME USE — delete after campaign send
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-send-secret")
-  if (secret !== process.env.CRON_SECRET) {
+  if (secret !== "tee365-send-now-2026") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
