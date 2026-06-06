@@ -115,10 +115,10 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [x] Test failed payment path — booking stays pending after decline (2026-05-27)
 - [ ] Stripe webhook idempotency — store processed `event.id` to prevent duplicate side-effects
 - [ ] Rate limiting — configure Cloudflare rules for auth, gift card balance, coupon redemption
-- [ ] **Sales tax** — Indiana 7% on amusement/recreation. Get accountant confirmation on:
-  1. Are one-time bay bookings taxable? (Almost certainly yes)
-  2. Are monthly membership fees taxable? (Indiana-specific rules)
-  - Implementation plan is written in the old roadmap — hold until confirmed
+- [x] **Sales tax** — Indiana DOR ruling 2026-05-30: no sales tax on bay rentals, memberships, or gift cards. TAX_RATE=0 in lib/pricing/engine.ts. Re-enable with one line if ruling shifts.
+
+
+
 
 ---
 
@@ -193,7 +193,7 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 ### Payments
 - [ ] Stripe: one-time annual charge for Season Pass purchases
 - [ ] Annual refund calculation in admin panel
-- [ ] Sales tax implementation (if accountant confirms — see Phase 1)
+- [x] Sales tax implementation — not needed (DOR ruling 2026-05-30, no tax applies)
 
 ### Access control
 - [ ] Wire `lib/access-control/index.ts` to real hardware (if not done in Phase 1)
