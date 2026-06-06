@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 export async function DELETE(
@@ -28,7 +28,7 @@ export async function DELETE(
   if (!booking) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   if (booking.stripe_payment_intent_id) {
-    await stripe.paymentIntents.cancel(booking.stripe_payment_intent_id).catch(() => {})
+    await getStripe().paymentIntents.cancel(booking.stripe_payment_intent_id).catch(() => {})
   }
 
   await serviceClient

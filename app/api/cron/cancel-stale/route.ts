@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 const EXPIRY_MINUTES = 15
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   await Promise.all(
     stale.map(async (b) => {
       if (b.stripe_payment_intent_id) {
-        await stripe.paymentIntents.cancel(b.stripe_payment_intent_id).catch(() => {})
+        await getStripe().paymentIntents.cancel(b.stripe_payment_intent_id).catch(() => {})
       }
       await serviceClient
         .from("bookings")
