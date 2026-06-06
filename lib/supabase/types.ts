@@ -293,6 +293,21 @@ export type Database = {
           },
         ]
       }
+      campaign_flags: {
+        Row: {
+          campaign: string
+          sent_at: string
+        }
+        Insert: {
+          campaign: string
+          sent_at?: string
+        }
+        Update: {
+          campaign?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           campaign: string

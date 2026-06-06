@@ -75,6 +75,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ test: true, ok: res.ok })
   }
 
+  // Hard gate: if this campaign has already been sent, stop immediately
+  const { data: flag } = await supabase
+    .from("campaign_flags")
+    .select("sent_at")
+    .eq("campaign", CAMPAIGN)
+    .single()
+  if (flag) {
+    return NextResponse.json({ sent: 0, message: "Already sent at " + flag.sent_at })
+  }
+
   // Production send
   const { data: all } = await supabase
     .from("waitlist")
@@ -110,6 +120,9 @@ export async function GET(request: NextRequest) {
       { status: 409 }
     )
   }
+
+  // Write flag BEFORE sending — if we crash after this, the flag prevents retry duplicates
+  await supabase.from("campaign_flags").insert({ campaign: CAMPAIGN })
 
   // All recipients claimed — safe to send via Resend batch (single API call)
   const batch = pending.map(r => ({
