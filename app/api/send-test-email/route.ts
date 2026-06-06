@@ -91,7 +91,7 @@ function buildEmailA(name: string, unsub: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365</title>
 <style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="${LOGO}" width="210" height="241" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="210" height="210" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">For early access members</div>
     <div class="hero-title">Two things worth knowing, ${name}.</div>
@@ -134,7 +134,7 @@ function buildEmailB(name: string, unsub: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365 — September 2026</title>
 <style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="${LOGO}" width="210" height="241" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="210" height="210" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">Early access</div>
     <div class="hero-title">This is what early access is all about, ${name}.</div>
