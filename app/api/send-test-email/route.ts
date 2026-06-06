@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   let subject = ""
 
   if (which === "a") {
-    subject = "Before anyone else — Founder's Club is open."
+    subject = "Founder's Club is Open."
     html = buildEmailA(firstName, unsub)
   } else {
     subject = "We open in September. Here's $10 off."
