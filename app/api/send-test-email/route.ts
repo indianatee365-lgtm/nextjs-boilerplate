@@ -12,13 +12,6 @@ export async function POST(req: NextRequest) {
     .eq("email", "m20thesailorman@gmail.com")
     .single()
 
-  const { data: founders } = await supabase
-    .from("memberships")
-    .select("id", { count: "exact" })
-    .eq("status", "active")
-
-  const foundersCount = founders?.length ?? 0
-  const remaining = 100 - foundersCount
   const firstName = me?.first_name ?? "Jerrod"
   const token = me?.unsubscribe_token ?? ""
   const unsub = `https://tee365.org/api/unsubscribe?token=${token}`
@@ -30,8 +23,8 @@ export async function POST(req: NextRequest) {
     subject = "Before anyone else — Founder's Club is open."
     html = buildEmailA(firstName, unsub)
   } else {
-    subject = "Two weeks. Then we open. Here's $10 off."
-    html = buildEmailB(firstName, unsub, remaining)
+    subject = "We open in September. Here's $10 off."
+    html = buildEmailB(firstName, unsub)
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -53,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: body }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, foundersCount, remaining })
+  return NextResponse.json({ ok: true })
 }
 
 function buildEmailA(name: string, unsub: string): string {
@@ -74,7 +67,6 @@ function buildEmailA(name: string, unsub: string): string {
   .perks{background:rgba(0,166,81,.06);border:1px solid rgba(0,166,81,.2);border-radius:8px;padding:18px 20px;margin-bottom:22px}
   .perk{font-size:13px;color:#9ca3af;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
   .perk:last-child{border-bottom:none}.perk strong{color:#00A651}
-  .cap-badge{display:inline-block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#a3a3a3;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;border-radius:4px;margin-bottom:18px}
   .cta{display:block;background:#00A651;color:#fff;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none}
   .cta-ghost{display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651}
   .discount-box{background:rgba(0,166,81,.08);border:1px solid rgba(0,166,81,.25);border-radius:8px;padding:20px;margin-bottom:22px;text-align:center}
@@ -84,8 +76,7 @@ function buildEmailA(name: string, unsub: string): string {
   .sig-name{font-size:15px;font-weight:600;color:#fff;font-style:italic}
   .sig-title{font-size:11px;color:#00A651;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
   .footer{padding:18px 40px;text-align:center}
-  .footer-text{font-size:11px;color:#374151;line-height:1.8}
-  .footer-text a{color:#4b5563;text-decoration:underline}
+  .footer-text{font-size:11px;color:#374151;line-height:1.8}.footer-text a{color:#4b5563;text-decoration:underline}
 </style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
   <tr><td class="header"><img src="https://tee365.org/email-logo.png" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
@@ -97,8 +88,7 @@ function buildEmailA(name: string, unsub: string): string {
   <tr><td class="block">
     <div class="block-label">01 &nbsp;&mdash;&nbsp; Founding Membership</div>
     <div class="block-title">Be one of 100 Founders.</div>
-    <div class="cap-badge">100 spots &nbsp;&middot;&nbsp; 4 claimed &nbsp;&middot;&nbsp; first come, first permanent</div>
-    <div class="block-body">Tee365 opens September 1st. Founder's Club is the only membership tier that locks in your rate for life — as long as you stay active, your pricing never changes regardless of what rates do after launch.<br><br><strong>We've never announced this publicly.</strong> You're seeing it first.</div>
+    <div class="block-body">We open in September 2026. Founder's Club is the only membership tier that locks in your rate for life — as long as you stay active, your pricing never changes regardless of what rates do after launch.<br><br><strong>We've never announced this publicly.</strong> You're seeing it first.</div>
     <div class="perks">
       <div class="perk"><strong>30% off</strong> every session — all of year one</div>
       <div class="perk"><strong>20% off for life</strong> — locked in as long as you're a member</div>
@@ -115,12 +105,12 @@ function buildEmailA(name: string, unsub: string): string {
     <div class="block-body">Gift cards are live now at tee365.org. Through opening day, every gift card is <strong>20% off</strong> — a $100 card for $80, $50 for $40, $25 for $20. The recipient gets the full face value when they book.<br><br>Know a golfer? This is the move.</div>
     <div class="discount-box">
       <div class="discount-big">20% off</div>
-      <div class="discount-label">all gift cards &nbsp;&middot;&nbsp; through opening day, Sept 1</div>
+      <div class="discount-label">all gift cards &nbsp;&middot;&nbsp; through opening day</div>
     </div>
     <a href="https://tee365.org/gift-cards" class="cta-ghost">Buy a Gift Card &rarr;</a>
   </td></tr>
   <tr><td class="sig">
-    <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">Opening day is September 1st. We're building fast and you'll hear from me again before then — but only when there's something worth saying.</p>
+    <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">We're building fast. You'll hear from me again before we open — but only when there's something worth saying.</p>
     <div class="sig-name">Jerrod</div>
     <div class="sig-title">Founder, Tee365</div>
   </td></tr>
@@ -128,12 +118,8 @@ function buildEmailA(name: string, unsub: string): string {
 </table></div></body></html>`
 }
 
-function buildEmailB(name: string, unsub: string, remaining: number): string {
-  const foundersBlock = remaining <= 0
-    ? `<div class="block-label">Founder's Club</div><div class="block-title">Founder's Club is full.</div><div class="block-body">All 100 founding spots have been claimed. If you're one of them — thank you. Your support before we even opened our doors is something we won't forget.<br><br>Birdie and Eagle memberships open one week before launch. Stay tuned.</div>`
-    : `<div class="block-label">One more thing</div><div class="block-title">${remaining} Founder's Club spots left.</div><div class="block-body">If you've been thinking about it — now's the time. Founder's Club locks in your rate for life: <strong>30% off year one, 20% off forever</strong>. Once the 100 spots are gone, founding pricing closes permanently.</div><a href="https://tee365.org/founders" class="cta-ghost" style="margin-top:16px;">View Founder's Club &rarr;</a>`
-
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365 opens September 1st</title>
+function buildEmailB(name: string, unsub: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365 — September 2026</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}body{background:#05070c;font-family:Arial,Helvetica,sans-serif;color:#e5e7eb}
   .wrap{background:#05070c;padding:40px 20px}.container{max-width:600px;margin:0 auto;background:linear-gradient(180deg,#05070c,#070b12);border:1px solid rgba(255,255,255,.14)}
@@ -152,7 +138,6 @@ function buildEmailB(name: string, unsub: string, remaining: number): string {
   .code-sub{font-size:12px;color:#6b7280;margin-top:10px}
   .cta{display:block;background:#00A651;color:#fff;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none}
   .cta-ghost{display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651}
-  .date-badge{display:inline-block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:700;letter-spacing:.05em;padding:8px 18px;border-radius:6px;margin-bottom:20px}
   .sig{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.06)}
   .sig-name{font-size:15px;font-weight:600;color:#fff;font-style:italic}
   .sig-title{font-size:11px;color:#00A651;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
@@ -163,9 +148,8 @@ function buildEmailB(name: string, unsub: string, remaining: number): string {
   <tr><td class="header"><img src="https://tee365.org/email-logo.png" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">Early access</div>
-    <div class="date-badge">September 1, 2026 &nbsp;&middot;&nbsp; Opening Day</div>
     <div class="hero-title">This is what early access is all about, ${name}.</div>
-    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. Two weeks from now, Tee365 opens to the public — but <strong>you get there first.</strong><br><br>Here's your head start.</div>
+    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. We open in September 2026 — and <strong>you get there first.</strong><br><br>Here's your head start.</div>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">Your early access reward</div>
@@ -179,9 +163,14 @@ function buildEmailB(name: string, unsub: string, remaining: number): string {
     <p style="font-size:12px;color:#4b5563;text-align:center;margin:10px 0 22px;">One use per account. Applied at checkout on tee365.org.</p>
     <a href="https://tee365.org/book" class="cta">Book Your First Session &rarr;</a>
   </td></tr>
-  <tr><td class="block">${foundersBlock}</td></tr>
+  <tr><td class="block">
+    <div class="block-label">One more thing</div>
+    <div class="block-title">Founder's Club.</div>
+    <div class="block-body">If you've been thinking about a founding membership — now's the time. Founder's Club locks in your rate for life: <strong>30% off year one, 20% off forever</strong>. Once the 100 spots are gone, founding pricing closes permanently.</div>
+    <a href="https://tee365.org/founders" class="cta-ghost">View Founder's Club &rarr;</a>
+  </td></tr>
   <tr><td class="sig">
-    <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">Two weeks. Then the doors open. I'll see you on the other side.</p>
+    <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">Almost there. I'll see you on the other side.</p>
     <div class="sig-name">Jerrod</div>
     <div class="sig-title">Founder, Tee365</div>
   </td></tr>
