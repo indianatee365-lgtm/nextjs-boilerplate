@@ -55,6 +55,10 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createServiceClient()
 
+  if (request.nextUrl.searchParams.get("ping") === "1") {
+    return NextResponse.json({ pong: true })
+  }
+
   // Test mode: ?test=1 — sends only to Jerrod, never touches campaign_sends
   if (request.nextUrl.searchParams.get("test") === "1") {
     const { data: me } = await supabase
