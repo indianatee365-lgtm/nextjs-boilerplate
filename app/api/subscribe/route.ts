@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 
-function buildWelcomeHtml(displayName: string): string {
+function buildWelcomeHtml(displayName: string, unsubscribeToken: string): string {
+  const unsubscribeUrl = `https://tee365.org/api/unsubscribe?token=${unsubscribeToken}`
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,7 +75,7 @@ function buildWelcomeHtml(displayName: string): string {
         <p class="footer-text">
           You're receiving this because you signed up at <a href="https://tee365.org">tee365.org</a>.<br>
           Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545<br><br>
-          <a href="https://tee365.org">Visit our site</a>
+          <a href="https://tee365.org">Visit our site</a> &nbsp;&middot;&nbsp; <a href="${unsubscribeUrl}">Unsubscribe</a>
         </p>
       </td></tr>
     </table>
@@ -103,9 +104,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createServiceClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("waitlist")
     .insert({ email, first_name: firstName ?? null, source: "website" })
+    .select("unsubscribe_token")
+    .single()
 
   if (error && error.code !== "23505") {
     console.error("[subscribe] DB insert error:", error)
@@ -114,10 +117,11 @@ export async function POST(req: NextRequest) {
 
   const displayName = firstName?.trim() || "there"
   const isNew = !error
+  const unsubscribeToken = data?.unsubscribe_token ?? ""
 
   try {
     if (isNew) {
-      await sendViaResend(email, "Welcome to Tee365", buildWelcomeHtml(displayName))
+      await sendViaResend(email, "Welcome to Tee365", buildWelcomeHtml(displayName, unsubscribeToken))
     }
     await sendViaResend(
       "info@tee365.org",
