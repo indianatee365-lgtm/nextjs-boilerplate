@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-const LOGO = "https://tee365.org/email-logo-v2.png"
+const LOGO = "https://tee365.org/email-logo-v3.png"
 const BTN = "display:block;background:#00A651;color:#000000;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none;"
 const BTN_GHOST = "display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651;"
 
