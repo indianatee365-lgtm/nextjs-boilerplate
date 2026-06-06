@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
+import { notifyOwner, logEvent } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
@@ -145,8 +146,16 @@ export async function GET(request: NextRequest) {
       .delete()
       .eq("campaign", CAMPAIGN)
       .in("email", pending.map(r => r.email))
-    return NextResponse.json({ error: `Resend failed: ${await res.text()}` }, { status: 500 })
+    const errText = await res.text()
+    await notifyOwner(`Email B FAILED ❌
+Resend error: ${errText.slice(0,120)}`)
+    return NextResponse.json({ error: `Resend failed: ${errText}` }, { status: 500 })
   }
 
+  await Promise.all([
+    notifyOwner(`Email B sent ✅
+${pending.length} emails delivered, ${all.length - pending.length} skipped.`),
+    logEvent(supabase, "email_b_sent", `sent=${pending.length} skipped=${all.length - pending.length}`),
+  ])
   return NextResponse.json({ sent: pending.length, skipped: all.length - pending.length })
 }
