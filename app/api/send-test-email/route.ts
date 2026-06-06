@@ -49,9 +49,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-function buildEmailA(name: string, unsub: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365</title>
-<style>
+const LOGO = "https://tee365.org/email-logo-v2.png"
+const BTN = "display:block;background:#00A651;color:#000000;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none;"
+const BTN_GHOST = "display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651;"
+
+const BASE_STYLES = `
   *{margin:0;padding:0;box-sizing:border-box}body{background:#05070c;font-family:Arial,Helvetica,sans-serif;color:#e5e7eb}
   .wrap{background:#05070c;padding:40px 20px}.container{max-width:600px;margin:0 auto;background:linear-gradient(180deg,#05070c,#070b12);border:1px solid rgba(255,255,255,.14)}
   .header{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.08);text-align:center}
@@ -67,28 +69,38 @@ function buildEmailA(name: string, unsub: string): string {
   .perks{background:rgba(0,166,81,.06);border:1px solid rgba(0,166,81,.2);border-radius:8px;padding:18px 20px;margin-bottom:22px}
   .perk{font-size:13px;color:#9ca3af;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
   .perk:last-child{border-bottom:none}.perk strong{color:#00A651}
-  .cta{display:block;background:#00A651;color:#fff;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none}
-  .cta-ghost{display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651}
   .discount-box{background:rgba(0,166,81,.08);border:1px solid rgba(0,166,81,.25);border-radius:8px;padding:20px;margin-bottom:22px;text-align:center}
   .discount-big{font-size:42px;font-weight:900;color:#00A651;line-height:1}
   .discount-label{font-size:12px;color:#9ca3af;margin-top:4px}
+  .code-box{background:#0a1a0a;border:2px solid #00A651;border-radius:10px;padding:28px 20px;text-align:center;margin-bottom:8px}
+  .code-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px}
+  .code{font-size:36px;font-weight:900;color:#00A651;letter-spacing:6px;font-family:monospace}
+  .code-sub{font-size:12px;color:#6b7280;margin-top:10px}
   .sig{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.06)}
   .sig-name{font-size:15px;font-weight:600;color:#fff;font-style:italic}
   .sig-title{font-size:11px;color:#00A651;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
   .footer{padding:18px 40px;text-align:center}
   .footer-text{font-size:11px;color:#374151;line-height:1.8}.footer-text a{color:#4b5563;text-decoration:underline}
-</style></head><body>
+`
+
+function footer(unsub: string): string {
+  return `<tr><td class="footer"><p class="footer-text">You're receiving this because you signed up at <a href="https://tee365.org">tee365.org</a>.<br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545<br><br><a href="https://tee365.org">Visit our site</a> &nbsp;&middot;&nbsp; <a href="${unsub}">Unsubscribe</a></p></td></tr>`
+}
+
+function buildEmailA(name: string, unsub: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365</title>
+<style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="https://tee365.org/email-logo.png" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">For early access members</div>
     <div class="hero-title">Two things worth knowing, ${name}.</div>
-    <div class="hero-sub">You signed up before we opened our doors. Here's what's available to you right now — before the general public sees any of it.</div>
+    <div class="hero-sub">You signed up before we opened our doors. Here's what's available to you right now — before we open to the public.</div>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">01 &nbsp;&mdash;&nbsp; Founding Membership</div>
     <div class="block-title">Be one of 100 Founders.</div>
-    <div class="block-body">We open in September 2026. Founder's Club is the only membership tier that locks in your rate for life — as long as you stay active, your pricing never changes regardless of what rates do after launch.<br><br><strong>We've never announced this publicly.</strong> You're seeing it first.</div>
+    <div class="block-body">We open in September 2026. Founder's Club is the only membership tier that locks in your rate for life — as long as you stay active, your pricing never changes regardless of what rates do after launch.</div>
     <div class="perks">
       <div class="perk"><strong>30% off</strong> every session — all of year one</div>
       <div class="perk"><strong>20% off for life</strong> — locked in as long as you're a member</div>
@@ -97,7 +109,7 @@ function buildEmailA(name: string, unsub: string): string {
       <div class="perk"><strong>Founders &amp; Friends Day</strong> — 2 complimentary hours at a private pre-opening event</div>
       <div class="perk"><strong>Founders Wall</strong> — your name in the facility, permanent</div>
     </div>
-    <a href="https://tee365.org/founders" class="cta">Become a Founding Member &rarr;</a>
+    <a href="https://tee365.org/founders" style="${BTN}">Become a Founding Member &rarr;</a>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">02 &nbsp;&mdash;&nbsp; Gift Cards</div>
@@ -107,49 +119,26 @@ function buildEmailA(name: string, unsub: string): string {
       <div class="discount-big">20% off</div>
       <div class="discount-label">all gift cards &nbsp;&middot;&nbsp; through opening day</div>
     </div>
-    <a href="https://tee365.org/gift-cards" class="cta-ghost">Buy a Gift Card &rarr;</a>
+    <a href="https://tee365.org/gift-cards" style="${BTN_GHOST}">Buy a Gift Card &rarr;</a>
   </td></tr>
   <tr><td class="sig">
     <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">We're building fast. You'll hear from me again before we open — but only when there's something worth saying.</p>
     <div class="sig-name">Jerrod</div>
     <div class="sig-title">Founder, Tee365</div>
   </td></tr>
-  <tr><td class="footer"><p class="footer-text">You're receiving this because you signed up at <a href="https://tee365.org">tee365.org</a>.<br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545<br><br><a href="https://tee365.org">Visit our site</a> &nbsp;&middot;&nbsp; <a href="${unsub}">Unsubscribe</a></p></td></tr>
+  ${footer(unsub)}
 </table></div></body></html>`
 }
 
 function buildEmailB(name: string, unsub: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365 — September 2026</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}body{background:#05070c;font-family:Arial,Helvetica,sans-serif;color:#e5e7eb}
-  .wrap{background:#05070c;padding:40px 20px}.container{max-width:600px;margin:0 auto;background:linear-gradient(180deg,#05070c,#070b12);border:1px solid rgba(255,255,255,.14)}
-  .header{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.08);text-align:center}
-  .hero{padding:36px 40px 32px;border-bottom:1px solid rgba(255,255,255,.06)}
-  .eyebrow{font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#00A651;margin-bottom:10px}
-  .hero-title{font-size:28px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:14px}
-  .hero-sub{font-size:15px;color:#9ca3af;line-height:1.8}.hero-sub strong{color:#fff}
-  .block{padding:32px 40px;border-bottom:1px solid rgba(255,255,255,.06)}
-  .block-label{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#00A651;margin-bottom:14px}
-  .block-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:12px}
-  .block-body{font-size:14px;color:#9ca3af;line-height:1.8;margin-bottom:20px}.block-body strong{color:#fff}
-  .code-box{background:#0a1a0a;border:2px solid #00A651;border-radius:10px;padding:28px 20px;text-align:center;margin-bottom:8px}
-  .code-label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px}
-  .code{font-size:36px;font-weight:900;color:#00A651;letter-spacing:6px;font-family:monospace}
-  .code-sub{font-size:12px;color:#6b7280;margin-top:10px}
-  .cta{display:block;background:#00A651;color:#fff;font-size:14px;font-weight:700;text-align:center;padding:14px 28px;border-radius:8px;text-decoration:none}
-  .cta-ghost{display:block;background:transparent;color:#00A651;font-size:14px;font-weight:700;text-align:center;padding:13px 28px;border-radius:8px;text-decoration:none;border:1px solid #00A651}
-  .sig{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.06)}
-  .sig-name{font-size:15px;font-weight:600;color:#fff;font-style:italic}
-  .sig-title{font-size:11px;color:#00A651;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
-  .footer{padding:18px 40px;text-align:center}
-  .footer-text{font-size:11px;color:#374151;line-height:1.8}.footer-text a{color:#4b5563;text-decoration:underline}
-</style></head><body>
+<style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="https://tee365.org/email-logo.png" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">Early access</div>
     <div class="hero-title">This is what early access is all about, ${name}.</div>
-    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. We open in September 2026 — and <strong>you get there first.</strong><br><br>Here's your head start.</div>
+    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. We open in September 2026 — and <strong style="color:#fff;">you get there first.</strong><br><br>Here's your head start.</div>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">Your early access reward</div>
@@ -161,19 +150,19 @@ function buildEmailB(name: string, unsub: string): string {
       <div class="code-sub">$10 off your first booking &nbsp;&middot;&nbsp; expires October 31, 2026</div>
     </div>
     <p style="font-size:12px;color:#4b5563;text-align:center;margin:10px 0 22px;">One use per account. Applied at checkout on tee365.org.</p>
-    <a href="https://tee365.org/book" class="cta">Book Your First Session &rarr;</a>
+    <a href="https://tee365.org/book" style="${BTN}">Book Your First Session &rarr;</a>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">One more thing</div>
     <div class="block-title">Founder's Club.</div>
     <div class="block-body">If you've been thinking about a founding membership — now's the time. Founder's Club locks in your rate for life: <strong>30% off year one, 20% off forever</strong>. Once the 100 spots are gone, founding pricing closes permanently.</div>
-    <a href="https://tee365.org/founders" class="cta-ghost">View Founder's Club &rarr;</a>
+    <a href="https://tee365.org/founders" style="${BTN_GHOST}">View Founder's Club &rarr;</a>
   </td></tr>
   <tr><td class="sig">
     <p style="font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:20px;">Almost there. I'll see you on the other side.</p>
     <div class="sig-name">Jerrod</div>
     <div class="sig-title">Founder, Tee365</div>
   </td></tr>
-  <tr><td class="footer"><p class="footer-text">You're receiving this because you signed up at <a href="https://tee365.org">tee365.org</a>.<br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545<br><br><a href="https://tee365.org">Visit our site</a> &nbsp;&middot;&nbsp; <a href="${unsub}">Unsubscribe</a></p></td></tr>
+  ${footer(unsub)}
 </table></div></body></html>`
 }
