@@ -400,7 +400,7 @@ export async function sendFounderConfirmationEmail({
     method: "POST",
     headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      from: "Jerrod | Tee365 <jerrod@tee365.org>",
       to: [to],
       subject: `Welcome to Founder's Club — you're #${founderNumber} of 100`,
       html,
@@ -504,7 +504,7 @@ ${founderNote}
     method: "POST",
     headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      from: "Jerrod | Tee365 <jerrod@tee365.org>",
       to: [to],
       subject: `Your ${planName} membership — cancellation confirmed`,
       html,
@@ -546,7 +546,7 @@ ${founderNote}
     method: "POST",
     headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Jerrod at Tee365 <jerrod@tee365.org>",
+      from: "Jerrod | Tee365 <jerrod@tee365.org>",
       to: [to],
       subject: `Your ${planName} membership has been reactivated`,
       html,

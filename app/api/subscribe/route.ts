@@ -91,7 +91,7 @@ async function sendViaResend(to: string, subject: string, html: string) {
       "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: "Jerrod at Tee365 <jerrod@tee365.org>", to: [to], subject, html }),
+    body: JSON.stringify({ from: "Jerrod | Tee365 <jerrod@tee365.org>", to: [to], subject, html }),
   })
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }

@@ -132,7 +132,7 @@ def build_html(first_name: str, unsubscribe_token: str) -> str:
 def send(to_email: str, first_name: str, unsubscribe_token: str):
     html = build_html(first_name, unsubscribe_token)
     payload = json.dumps({
-        "from": "Jerrod at Tee365 <jerrod@tee365.org>",
+        "from": "Jerrod | Tee365 <jerrod@tee365.org>",
         "to": [to_email],
         "subject": "Before anyone else — Founder's Club is open.",
         "html": html,
