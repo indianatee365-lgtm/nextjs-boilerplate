@@ -39,6 +39,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_logs: {
+        Row: {
+          created_at: string | null
+          detail: string | null
+          event: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          detail?: string | null
+          event?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          detail?: string | null
+          event?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       bays: {
         Row: {
           active: boolean
@@ -935,6 +956,57 @@ export type Database = {
           is_on_season?: boolean
           name?: string
           start_month?: number
+        }
+        Relationships: []
+      }
+      waitlist: {
+        Row: {
+          converted_at: string | null
+          created_at: string | null
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          mobile: string | null
+          privacy_agreed: boolean | null
+          promo_code_sent: boolean | null
+          promo_code_sent_at: string | null
+          sms_opt_in: boolean | null
+          source: string | null
+          unsubscribe_token: string | null
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          privacy_agreed?: boolean | null
+          promo_code_sent?: boolean | null
+          promo_code_sent_at?: string | null
+          sms_opt_in?: boolean | null
+          source?: string | null
+          unsubscribe_token?: string | null
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          privacy_agreed?: boolean | null
+          promo_code_sent?: boolean | null
+          promo_code_sent_at?: string | null
+          sms_opt_in?: boolean | null
+          source?: string | null
+          unsubscribe_token?: string | null
+          unsubscribed_at?: string | null
         }
         Relationships: []
       }
