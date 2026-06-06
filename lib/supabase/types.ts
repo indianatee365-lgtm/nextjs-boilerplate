@@ -293,6 +293,27 @@ export type Database = {
           },
         ]
       }
+      campaign_sends: {
+        Row: {
+          campaign: string
+          email: string
+          id: string
+          sent_at: string | null
+        }
+        Insert: {
+          campaign: string
+          email: string
+          id?: string
+          sent_at?: string | null
+        }
+        Update: {
+          campaign?: string
+          email?: string
+          id?: string
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
       coupon_uses: {
         Row: {
           booking_id: string | null
