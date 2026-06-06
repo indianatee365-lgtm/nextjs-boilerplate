@@ -56,7 +56,7 @@ const BTN_GHOST = "display:block;background:transparent;color:#00A651;font-size:
 const BASE_STYLES = `
   *{margin:0;padding:0;box-sizing:border-box}body{background:#05070c;font-family:Arial,Helvetica,sans-serif;color:#e5e7eb}
   .wrap{background:#05070c;padding:40px 20px}.container{max-width:600px;margin:0 auto;background:linear-gradient(180deg,#05070c,#070b12);border:1px solid rgba(255,255,255,.14)}
-  .header{padding:28px 40px;border-bottom:1px solid rgba(255,255,255,.08);text-align:center}
+  .header{padding:24px 20px;border-bottom:1px solid rgba(255,255,255,.08);text-align:center}
   .hero{padding:36px 40px 28px;border-bottom:1px solid rgba(255,255,255,.06)}
   .eyebrow{font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#00A651;margin-bottom:10px}
   .hero-title{font-size:28px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:12px}
@@ -91,7 +91,7 @@ function buildEmailA(name: string, unsub: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365</title>
 <style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="${LOGO}" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="160" height="184" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">For early access members</div>
     <div class="hero-title">Two things worth knowing, ${name}.</div>
@@ -134,7 +134,7 @@ function buildEmailB(name: string, unsub: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tee365 — September 2026</title>
 <style>${BASE_STYLES}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-  <tr><td class="header"><img src="${LOGO}" width="150" height="150" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
+  <tr><td class="header"><img src="${LOGO}" width="160" height="184" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">Early access</div>
     <div class="hero-title">This is what early access is all about, ${name}.</div>
