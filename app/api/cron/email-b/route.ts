@@ -123,7 +123,11 @@ export async function GET(request: NextRequest) {
   }
 
   // Write flag BEFORE sending: if we crash after this, the flag prevents retry duplicates
-  await supabase.from("campaign_flags").insert({ campaign: CAMPAIGN })
+  const { error: flagError } = await supabase.from("campaign_flags").insert({ campaign: CAMPAIGN })
+  if (flagError) {
+    await supabase.from("campaign_sends").delete().eq("campaign", CAMPAIGN)
+    return NextResponse.json({ error: "Failed to write send flag, aborting", detail: flagError.message }, { status: 500 })
+  }
 
   // All recipients claimed, safe to send via Resend batch (single API call)
   const batch = pending.map(r => ({
