@@ -60,7 +60,10 @@ export async function GET(request: NextRequest) {
     return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } })
   }
 
-  // One-time send — no auth required
+  const auth = request.headers.get("authorization") ?? ""
+  if (!test && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const supabase = await createServiceClient()
 
