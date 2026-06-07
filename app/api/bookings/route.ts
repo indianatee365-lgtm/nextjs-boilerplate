@@ -26,6 +26,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Booking window gate — admin only until September 2026
+    const { data: callerProfile } = await serviceClient
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single()
+    if ((callerProfile as { role: string } | null)?.role !== "admin") {
+      return NextResponse.json({ error: "Bookings not yet available" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds } = body
 

@@ -21,15 +21,15 @@ function buildHtml(name: string, unsubToken: string): string {
   <tr><td class="body">
     <div class="eyebrow">A note from Jerrod</div>
     <div class="hero-title">Yeah, we jumped the gun.</div>
-    <p class="p">You got an email from us yesterday with the subject "Two weeks. Then we open." — that was supposed to be a preview we sent to ourselves before approving it. We got a little excited and hit send way too early. Opening day is still <strong>September 2026</strong>, not two weeks from now.</p>
+    <p class="p">You got an email from us yesterday with the subject "Two weeks. Then we open." That was supposed to be a preview we sent to ourselves before approving it. We got a little excited and hit send way too early. Opening day is still <strong>September 2026</strong>, not two weeks from now.</p>
     <p class="p">The good news: everything else in that email is real. Your promo code is live and locked in:</p>
     <div class="code-box">
       <div class="code-label">Your early access code</div>
       <div class="code">EARLYACCESS10</div>
       <div class="code-sub">$10 off your first booking &nbsp;·&nbsp; expires October 31, 2026</div>
     </div>
-    <p class="p">You won't be able to use it until the booking window opens — but we'll reach out the moment it does, and your code will be ready to go.</p>
-    <p class="p">We've been putting a lot of work into this place and honestly, we're just pumped. Too pumped, apparently. Thanks for being on the list — see you in September.</p>
+    <p class="p">You won't be able to use it until the booking window opens, but we'll reach out the moment it does, and your code will be ready to go.</p>
+    <p class="p">We've been putting a lot of work into this place and honestly, we're just pumped. Too pumped, apparently. Thanks for being on the list. See you in September.</p>
   </td></tr>
 
   <tr><td class="sig">

@@ -26,7 +26,7 @@ export default async function BookPage() {
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
         <h1 className="text-3xl font-bold text-white mb-3">Bookings Available September 2026</h1>
         <p className="text-neutral-400 max-w-sm">
-          We&apos;re getting the bays ready. Online booking opens when we do — check back in September.
+          We&apos;re getting the bays ready. Online booking opens when we do. Check back in September.
         </p>
       </main>
     )
