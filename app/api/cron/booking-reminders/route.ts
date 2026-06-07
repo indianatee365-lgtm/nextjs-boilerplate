@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { randomInt } from "crypto"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { grantBayAccess } from "@/lib/access-control"
@@ -7,9 +6,6 @@ import { logEvent, logFailure } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
-function generateAccessCode(): string {
-  return String(randomInt(100000, 1000000))
-}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
@@ -55,13 +51,21 @@ export async function GET(request: NextRequest) {
       continue
     }
 
-    const accessCode = generateAccessCode()
-
     try {
+      const { pinCode, visitorId } = await grantBayAccess({
+        bookingId: booking.id,
+        firstName: profile.first_name,
+        phone:     profile.phone,
+        bayName:   bay.name,
+        startsAt:  new Date(booking.starts_at),
+        endsAt:    new Date(booking.ends_at),
+      })
+      void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
+
       // Persist the access code
       await supabase
         .from("bookings")
-        .update({ access_code: accessCode })
+        .update({ access_code: pinCode })
         .eq("id", booking.id)
 
       // SMS the customer
@@ -69,16 +73,8 @@ export async function GET(request: NextRequest) {
         to: profile.phone,
         firstName: profile.first_name,
         bayName: bay.name,
-        accessCode,
+        accessCode: pinCode,
         startsAt: new Date(booking.starts_at),
-      })
-
-      // Send to access control system
-      await grantBayAccess({
-        accessCode,
-        bayName: bay.name,
-        startsAt: new Date(booking.starts_at),
-        endsAt: new Date(booking.ends_at),
       })
 
       // Mark reminder sent

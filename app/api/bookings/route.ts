@@ -5,7 +5,6 @@ import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
-import { randomInt } from "crypto"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 
@@ -308,10 +307,18 @@ export async function POST(request: NextRequest) {
       const minsUntil = (startDate.getTime() - Date.now()) / 60000
       if (minsUntil <= 15 && p?.phone && p.sms_consent) {
         try {
-          const accessCode = String(randomInt(100000, 1000000))
-          await serviceClient.from("bookings").update({ access_code: accessCode }).eq("id", booking.id)
-          await sendAccessCodeReminder({ to: p.phone, firstName: p.first_name, bayName: bay.name, accessCode, startsAt: startDate })
-          await grantBayAccess({ accessCode, bayName: bay.name, startsAt: startDate, endsAt: endDate })
+          const { pinCode, visitorId } = await grantBayAccess({
+            bookingId: booking.id,
+            firstName: p.first_name ?? "Customer",
+            lastName:  p.last_name  ?? undefined,
+            phone:     p.phone,
+            bayName:   bay.name,
+            startsAt:  startDate,
+            endsAt:    endDate,
+          })
+          await serviceClient.from("bookings").update({ access_code: pinCode }).eq("id", booking.id)
+          await sendAccessCodeReminder({ to: p.phone, firstName: p.first_name, bayName: bay.name, accessCode: pinCode, startsAt: startDate })
+          void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await serviceClient.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
           await logEvent(serviceClient, "access-code-sent-immediate", `booking=${booking.id} to=${p.phone} starts_in_min=${minsUntil.toFixed(1)} path=free`)

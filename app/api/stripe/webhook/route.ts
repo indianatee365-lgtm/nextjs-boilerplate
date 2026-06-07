@@ -3,7 +3,7 @@ import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail } from "@/lib/resend/email"
-import { randomBytes, randomInt } from "crypto"
+import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 
@@ -331,16 +331,24 @@ export async function POST(request: NextRequest) {
     const minutesUntilStart = (new Date(booking.starts_at).getTime() - Date.now()) / 60000
     if (minutesUntilStart <= 15 && profile?.phone && profile.sms_consent && bay) {
       try {
-        const accessCode = String(randomInt(100000, 1000000))
-        await supabase.from("bookings").update({ access_code: accessCode }).eq("id", booking.id)
+        const { pinCode, visitorId } = await grantBayAccess({
+          bookingId: booking.id,
+          firstName: profile.first_name,
+          lastName:  profile.last_name ?? undefined,
+          phone:     profile.phone,
+          bayName:   bay.name,
+          startsAt:  new Date(booking.starts_at),
+          endsAt:    new Date(booking.ends_at),
+        })
+        await supabase.from("bookings").update({ access_code: pinCode }).eq("id", booking.id)
         await sendAccessCodeReminder({
           to: profile.phone,
           firstName: profile.first_name,
           bayName: bay.name,
-          accessCode,
+          accessCode: pinCode,
           startsAt: new Date(booking.starts_at),
         })
-        await grantBayAccess({ accessCode, bayName: bay.name, startsAt: new Date(booking.starts_at), endsAt: new Date(booking.ends_at) })
+        void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await supabase.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
         await logEvent(supabase, "access-code-sent-immediate", `booking=${booking.id} to=${profile.phone} starts_in_min=${minutesUntilStart.toFixed(1)}`)
