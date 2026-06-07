@@ -23,7 +23,7 @@ export default async function AnnouncementBar() {
   const showCount = sold >= 80
   const message = showCount
     ? `Only ${remaining} of 100 Founder's Club spots left · Closes Aug 18 →`
-    : `Founder's Club — Lock in lifetime pricing · Closes Aug 18 →`
+    : `Founder's Club: Lock in lifetime pricing · Closes Aug 18 →`
 
   return (
     <a

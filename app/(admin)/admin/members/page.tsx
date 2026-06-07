@@ -72,10 +72,10 @@ export default async function AdminMembersPage({
                     <td className="px-4 py-3">
                       <Link href={userHref} className="block hover:text-brand">
                         <p>{p?.first_name} {p?.last_name}</p>
-                        <p className="text-xs text-neutral-500">{p?.phone ?? "—"}</p>
+                        <p className="text-xs text-neutral-500">{p?.phone ?? "N/A"}</p>
                       </Link>
                     </td>
-                    <td className="px-4 py-3"><Link href={userHref} className="block">{plan?.name ?? "—"}</Link></td>
+                    <td className="px-4 py-3"><Link href={userHref} className="block">{plan?.name ?? "N/A"}</Link></td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         m.status === "active" ? "bg-green-500/20 text-green-400" :
@@ -84,7 +84,7 @@ export default async function AdminMembersPage({
                       }`}>{m.status}</span>
                     </td>
                     <td className="px-4 py-3 text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                    <td className="px-4 py-3 text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</td>
+                    <td className="px-4 py-3 text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}}</td>
                   </tr>
                 )
               })}

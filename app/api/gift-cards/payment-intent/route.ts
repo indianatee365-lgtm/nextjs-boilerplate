@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         senderName,
         amountCents: String(amountCents),
       },
-      description: `Tee365 Gift Card — $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
+      description: `Tee365 Gift Card $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
     })
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret })
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       const sc = await createServiceClient()
       await logFailure(sc, "gift-card-checkout-API-FAILED",
         `err=${String(err).slice(0, 300)}`,
-        `ALERT /api/gift-cards/payment-intent failed — customer hit Buy and our API errored. Reason: ${String(err).slice(0, 150)}.`)
+        `ALERT /api/gift-cards/payment-intent failed, customer hit Buy and our API errored. Reason: ${String(err).slice(0, 150)}.`)
     } catch { /* best-effort */ }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

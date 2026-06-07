@@ -3,14 +3,14 @@ import { FAQItem } from "./FAQItem";
 
 export const metadata: Metadata = {
   title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
-  description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+  description: "Answers to common questions about Tee365: South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
   alternates: {
     canonical: "https://tee365.org/faq",
   },
   openGraph: {
     type: "website",
     title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
-    description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+    description: "Answers to common questions about Tee365: South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
     url: "https://tee365.org/faq",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "FAQ | Indoor Golf Simulator South Bend | Tee365",
-    description: "Answers to common questions about Tee365 — South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
+    description: "Answers to common questions about Tee365: South Bend's 24/7 indoor golf simulator. Hours, booking, clubs, pricing, and more.",
     images: ["https://tee365.org/hero.jpg"],
   },
 };
@@ -138,7 +138,7 @@ export default function FAQPage() {
         name: "Will you sell gift cards?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes — gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email.",
+          text: "Yes, gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email.",
         },
       },
       {
@@ -146,7 +146,7 @@ export default function FAQPage() {
         name: "What is your cancellation policy?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Cancellations made more than 24 hours before your session start time receive a full refund to your original payment method. Cancellations within 24 hours of the session are non-refundable — the full session amount is forfeited. You can cancel from your account at tee365.org/account/bookings.",
+          text: "Cancellations made more than 24 hours before your session start time receive a full refund to your original payment method. Cancellations within 24 hours of the session are non-refundable. The full session amount is forfeited. You can cancel from your account at tee365.org/account/bookings.",
         },
       },
       {
@@ -154,7 +154,7 @@ export default function FAQPage() {
         name: "Can I reschedule my booking?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes. You can reschedule up to 4 hours before your session from your account at tee365.org/account/bookings. A flat $5 reschedule fee always applies. The new session is priced at the current rate for the new time — if the new rate is higher you pay the difference plus the fee; if it's lower you get a refund of the difference (minus the fee). Rescheduling within 4 hours is not available through self-service — email us at info@tee365.org and we'll do our best.",
+          text: "Yes. You can reschedule up to 4 hours before your session from your account at tee365.org/account/bookings. A flat $5 reschedule fee always applies. The new session is priced at the current rate for the new time. If the new rate is higher you pay the difference plus the fee; if it's lower you get a refund of the difference (minus the fee). Rescheduling within 4 hours is not available through self-service. Email us at info@tee365.org and we'll do our best.",
         },
       },
     ],
@@ -193,9 +193,9 @@ export default function FAQPage() {
             { q: "Is there a dress code?", a: "While there is no specific dress code, please wear appropriate attire for public settings." },
             { q: "Is there food or beverage available?", a: "There is no food or beverage sold on site. You’re welcome to bring your own food or beverage. No glass bottles are allowed." },
             { q: "Is alcohol allowed?", a: "There is NO ALCOHOL allowed on premises. There is a zero tolerance policy for consuming alcohol in Tee365." },
-            { q: "Will you sell gift cards?", a: "Yes — gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email." },
-            { q: "What is your cancellation policy?", a: "Cancellations more than 24 hours before your session receive a full refund. Cancellations within 24 hours are non-refundable — the full session amount is forfeited. You can cancel any upcoming booking from your account page." },
-            { q: "Can I reschedule my booking?", a: "Yes. You can reschedule up to 4 hours before your session from your account page. A flat $5 reschedule fee always applies. The new session is priced at the current rate for the new time — if that rate is higher you pay the difference plus the $5 fee; if it's lower you get a refund of the difference (the $5 fee still applies). Need to reschedule within 4 hours? Email us at info@tee365.org and we'll do our best." },
+            { q: "Will you sell gift cards?", a: "Yes, gift cards are live now at tee365.org/gift-cards. Through opening day, all gift cards are 20% off (a $100 card sells for $80; the recipient gets the full face value). Delivered instantly by email." },
+            { q: "What is your cancellation policy?", a: "Cancellations more than 24 hours before your session receive a full refund. Cancellations within 24 hours are non-refundable. The full session amount is forfeited. You can cancel any upcoming booking from your account page." },
+            { q: "Can I reschedule my booking?", a: "Yes. You can reschedule up to 4 hours before your session from your account page. A flat $5 reschedule fee always applies. The new session is priced at the current rate for the new time. If that rate is higher you pay the difference plus the $5 fee; if it's lower you get a refund of the difference (the $5 fee still applies). Need to reschedule within 4 hours? Email us at info@tee365.org and we'll do our best." },
           ].map(({ q, a }, i) => (
             <FAQItem key={q} q={q} a={a} first={i === 0} />
           ))}

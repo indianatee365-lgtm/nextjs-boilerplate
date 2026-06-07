@@ -72,20 +72,20 @@ export default async function AdminPage() {
     <main className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Admin Dashboard</h1>
 
-      {/* Operational stats — row 1 */}
+      {/* Operational stats: row 1 */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
         <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
         <StatCard icon={<XCircle size={18} />} label="Cancellations (30d)" value={String(cancellations30d ?? 0)} href="/admin/cancellations" />
         <StatCard
           icon={<Clock size={18} />}
-          label={(failureCount24h ?? 0) > 0 ? "Failures (24h) — CHECK" : "System health (24h)"}
+          label={(failureCount24h ?? 0) > 0 ? "Failures (24h) - CHECK" : "System health (24h)"}
           value={`${failureCount24h ?? 0} / ${logsCount24h ?? 0}`}
           href={(failureCount24h ?? 0) > 0 ? "/admin/logs?filter=failures" : "/admin/logs?filter=all"}
         />
       </div>
 
-      {/* Membership & liability — row 2 */}
+      {/* Membership & liability: row 2 */}
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
         <StatCard icon={<Users size={18} />} label="All members" value={String(allMembersCount ?? 0)} href="/admin/members" />
@@ -93,7 +93,7 @@ export default async function AdminPage() {
         <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
       </div>
 
-      {/* Sales card — full width, clickable */}
+      {/* Sales card: full width, clickable */}
       <Link
         href="/admin/sales"
         className="mt-4 block rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:bg-white/10 hover:border-brand/30"
@@ -155,7 +155,7 @@ export default async function AdminPage() {
                   const bay = b.bays as { name: string } | null
                   return (
                     <tr key={b.id} className="border-b border-white/5 text-neutral-300">
-                      <td className="px-4 py-3">{p ? `${p.first_name} ${p.last_name}` : "—"}</td>
+                      <td className="px-4 py-3">{p ? `${p.first_name} ${p.last_name}` : "N/A"}</td>
                       <td className="px-4 py-3">{bay?.name}</td>
                       <td className="px-4 py-3">
                         {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createServiceClient()
 
-  // date is the client's local midnight expressed in UTC — use it directly.
+  // date is the client's local midnight expressed in UTC. Use it directly.
   // dayEnd covers 28 hours from local midnight to handle sessions crossing into the next day.
   const dayStart = new Date(date)
   const dayEnd = new Date(date.getTime() + 28 * 60 * 60 * 1000)

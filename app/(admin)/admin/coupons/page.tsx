@@ -48,7 +48,7 @@ export default async function AdminCouponsPage() {
               {coupons.map((c) => (
                 <tr key={c.id} className="border-b border-white/5 text-neutral-300">
                   <td className="px-4 py-3 font-mono font-medium">{c.code}</td>
-                  <td className="px-4 py-3 text-neutral-400 text-xs">{c.name ?? "—"}</td>
+                  <td className="px-4 py-3 text-neutral-400 text-xs">{c.name ?? "N/A"}</td>
                   <td className="px-4 py-3">{fmt(c)}</td>
                   <td className="px-4 py-3">{c.uses_count}{c.max_uses ? ` / ${c.max_uses}` : ""}</td>
                   <td className="px-4 py-3 text-neutral-400">{c.max_uses_per_user ?? "Unlimited"}</td>

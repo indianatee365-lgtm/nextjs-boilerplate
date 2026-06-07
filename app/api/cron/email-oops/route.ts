@@ -48,9 +48,9 @@ function buildHtml(name: string, unsubToken: string): string {
 </table></div></body></html>`
 }
 
-// GET ?preview=1 — renders HTML directly in browser (no auth, preview only)
-// GET ?test=1    — sends to m20thesailorman@gmail.com only
-// GET (default)  — requires CRON_SECRET, sends to full waitlist
+// GET ?preview=1: renders HTML directly in browser (no auth, preview only)
+// GET ?test=1   : sends to m20thesailorman@gmail.com only
+// GET (default) : requires CRON_SECRET, sends to full waitlist
 export async function GET(request: NextRequest) {
   const preview = request.nextUrl.searchParams.get("preview") === "1"
   const test = request.nextUrl.searchParams.get("test") === "1"
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ test: true, ok: res.ok })
   }
 
-  // Production send — full waitlist, no re-send guard needed (this is a one-off correction)
+  // Production send: full waitlist, no re-send guard needed (this is a one-off correction)
   const { data: all } = await supabase
     .from("campaign_sends")
     .select("email")

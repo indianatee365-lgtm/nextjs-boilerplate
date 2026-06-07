@@ -70,10 +70,10 @@ export default async function AdminGiftCardsPage() {
                 <tr key={c.id} className="border-b border-white/5 text-neutral-300">
                   <td className="px-4 py-3 font-mono font-medium text-xs">{c.code}</td>
                   <td className="px-4 py-3">
-                    <p className="text-white">{c.recipient_name ?? "—"}</p>
+                    <p className="text-white">{c.recipient_name ?? "N/A"}</p>
                     {c.recipient_email && <p className="text-xs text-neutral-500">{c.recipient_email}</p>}
                   </td>
-                  <td className="px-4 py-3 text-neutral-400">{c.purchased_by ?? "—"}</td>
+                  <td className="px-4 py-3 text-neutral-400">{c.purchased_by ?? "N/A"}</td>
                   <td className="px-4 py-3">${Number(c.original_amount).toFixed(2)}</td>
                   <td className="px-4 py-3 font-semibold text-white">${Number(c.balance).toFixed(2)}</td>
                   <td className="px-4 py-3 text-neutral-400">{c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}</td>

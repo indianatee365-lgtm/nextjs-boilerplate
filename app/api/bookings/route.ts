@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Booking window gate — admin only until September 2026
+    // Booking window gate: admin only until September 2026
     const { data: callerProfile } = await serviceClient
       .from("profiles")
       .select("role")
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
     // Guard against zero/sub-minimum amounts
     const amountCents = Math.round(pricing.total * 100)
 
-    // $0 booking — gift card covers the full amount; skip Stripe entirely
+    // $0 booking: gift card covers the full amount; skip Stripe entirely
     if (amountCents === 0) {
       const { data: booking, error: bookingError } = await serviceClient
         .from("bookings")
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
         } catch (e) {
           await logFailure(serviceClient, "access-code-IMMEDIATE-FAILED",
             `booking=${booking.id} to=${p.phone} starts_in_min=${minsUntil.toFixed(1)} path=free err=${String(e).slice(0, 200)}`,
-            `ALERT Access code FAILED — booking=${booking.id} session starts in ${minsUntil.toFixed(0)}min. Customer may be locked out. CALL THEM.`)
+            `ALERT Access code FAILED, booking=${booking.id} session starts in ${minsUntil.toFixed(0)}min. Customer may be locked out. CALL THEM.`)
         }
       }
 
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
       await serviceClient.from("profiles").update({ stripe_customer_id: stripeCustomerId }).eq("id", user.id)
     }
 
-    // Create Stripe PaymentIntent — setup_future_usage saves the card on file for future charges
+    // Create Stripe PaymentIntent: setup_future_usage saves the card on file for future charges
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",

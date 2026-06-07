@@ -141,7 +141,7 @@ export default function PersonalInfoSection({
                   </button>
                 </div>
                 <p className={`mt-2 text-xs font-medium ${editSmsConsent ? "text-brand" : "text-neutral-500"}`}>
-                  {editSmsConsent ? "On — you will receive SMS messages" : "Off — you will not receive SMS messages"}
+                  {editSmsConsent ? "On: you will receive SMS messages" : "Off: you will not receive SMS messages"}
                 </p>
               </div>
             )}

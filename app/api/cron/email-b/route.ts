@@ -13,18 +13,18 @@ const SUBJECT = "Two weeks. Then we open. Here's $10 off."
 
 function buildHtml(name: string, unsubToken: string): string {
   const unsub = `https://tee365.org/api/unsubscribe?token=${unsubToken}`
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Tee365 — September 2026</title><style>${BASE}</style></head><body>
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Tee365: September 2026</title><style>${BASE}</style></head><body>
 <div class="wrap"><table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
   <tr><td class="header"><img src="${LOGO}" width="210" height="210" alt="Tee365 Mishawaka" style="display:inline-block;"></td></tr>
   <tr><td class="hero">
     <div class="eyebrow">Early access</div>
     <div class="hero-title">This is what early access is all about, ${name}.</div>
-    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. We open in September 2026 — and <strong style="color:#fff;">you get there first.</strong><br><br>Here's your head start.</div>
+    <div class="hero-sub">You signed up before we had a sign on the door. Before we had keys to the building. We open in September 2026, and <strong style="color:#fff;">you get there first.</strong><br><br>Here's your head start.</div>
   </td></tr>
   <tr><td class="block">
     <div class="block-label">Your early access reward</div>
     <div class="block-title">$10 off your first booking.</div>
-    <div class="block-body">No strings. No membership required. Book any bay, any time — use this code at checkout and $10 comes off your first session automatically.</div>
+    <div class="block-body">No strings. No membership required. Book any bay, any time. Use this code at checkout and $10 comes off your first session automatically.</div>
     <div class="code-box">
       <div class="code-label">Your promo code</div>
       <div class="code">EARLYACCESS10</div>
@@ -36,7 +36,7 @@ function buildHtml(name: string, unsubToken: string): string {
   <tr><td class="block">
     <div class="block-label">One more thing</div>
     <div class="block-title">Founder's Club.</div>
-    <div class="block-body">If you've been thinking about a founding membership — now's the time. Founder's Club locks in your rate for life: <strong>30% off year one, 20% off forever</strong>. Once the 100 spots are gone, founding pricing closes permanently.</div>
+    <div class="block-body">If you've been thinking about a founding membership, now's the time. Founder's Club locks in your rate for life: <strong>30% off year one, 20% off forever</strong>. Once the 100 spots are gone, founding pricing closes permanently.</div>
     <a href="https://tee365.org/founders" style="${BTN_GHOST}">View Founder's Club &rarr;</a>
   </td></tr>
   <tr><td class="sig">
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ pong: true })
   }
 
-  // Test mode: ?test=1 — sends only to Jerrod, never touches campaign_sends
+  // Test mode: ?test=1, sends only to Jerrod, never touches campaign_sends
   if (request.nextUrl.searchParams.get("test") === "1") {
     const { data: me } = await supabase
       .from("waitlist")
@@ -109,23 +109,23 @@ export async function GET(request: NextRequest) {
 
   // Insert ALL pending into campaign_sends BEFORE sending.
   // Unique constraint (campaign, email) means if two invocations race,
-  // one will get a conflict error and abort — preventing any double-send.
+  // one will get a conflict error and abort, preventing any double-send.
   const { error: insertError } = await supabase
     .from("campaign_sends")
     .insert(pending.map(r => ({ campaign: CAMPAIGN, email: r.email })))
 
   if (insertError) {
-    // 23505 = unique violation — another invocation is already sending
+    // 23505 = unique violation, another invocation is already sending
     return NextResponse.json(
-      { error: "Concurrent invocation detected — aborting to prevent duplicates", code: insertError.code },
+      { error: "Concurrent invocation detected, aborting to prevent duplicates", code: insertError.code },
       { status: 409 }
     )
   }
 
-  // Write flag BEFORE sending — if we crash after this, the flag prevents retry duplicates
+  // Write flag BEFORE sending: if we crash after this, the flag prevents retry duplicates
   await supabase.from("campaign_flags").insert({ campaign: CAMPAIGN })
 
-  // All recipients claimed — safe to send via Resend batch (single API call)
+  // All recipients claimed, safe to send via Resend batch (single API call)
   const batch = pending.map(r => ({
     from: "Jerrod | Tee365 <jerrod@tee365.org>",
     to: [r.email],
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!res.ok) {
-    // Resend failed — roll back campaign_sends so we can retry cleanly
+    // Resend failed, roll back campaign_sends so we can retry cleanly
     await supabase
       .from("campaign_sends")
       .delete()

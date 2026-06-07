@@ -243,7 +243,7 @@ export default function BookingFlow({
         return
       }
       if (data.clientSecret === null) {
-        // Gift card covered full amount — booking already confirmed
+        // Gift card covered full amount, booking already confirmed
         router.push(`/account/bookings?confirmed=${data.bookingId}`)
         return
       }
@@ -254,7 +254,7 @@ export default function BookingFlow({
       })
       setTimeLeft(EXPIRY_SECONDS)
     } catch {
-      setBookingError("Could not reserve slot — please try again")
+      setBookingError("Could not reserve slot. Please try again")
     } finally {
       setReserving(false)
     }
@@ -644,7 +644,7 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
-          {/* Disclosures — expandable accordion, shown before slot is reserved */}
+          {/* Disclosures: expandable accordion, shown before slot is reserved */}
           {!reservedBooking && disclosures.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-sm font-medium text-white">

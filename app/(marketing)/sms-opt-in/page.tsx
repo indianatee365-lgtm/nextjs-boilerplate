@@ -49,12 +49,12 @@ export default function SmsOptInPage() {
           <p>Tee365 sends two types of SMS messages:</p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
             <li>
-              <strong className="text-white">Booking confirmation</strong> — sent immediately after a booking is
+              <strong className="text-white">Booking confirmation</strong>: sent immediately after a booking is
               paid and confirmed. Contains bay number, session date/time, and a note that an access code will
               follow before the session.
             </li>
             <li>
-              <strong className="text-white">Access code reminder</strong> — sent approximately 10–20 minutes
+              <strong className="text-white">Access code reminder</strong>: sent approximately 10–20 minutes
               before a booked session begins. Contains the unique numeric access code required to enter the facility.
             </li>
           </ul>

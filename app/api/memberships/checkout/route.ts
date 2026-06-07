@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       const sc = await createServiceClient()
       await logFailure(sc, "membership-checkout-API-FAILED",
         `err=${String(err).slice(0, 300)}`,
-        `ALERT /api/memberships/checkout failed — customer hit Buy and our API errored. They saw a generic error message. Reason: ${message}.`)
+        `ALERT /api/memberships/checkout failed, customer hit Buy and our API errored. They saw a generic error message. Reason: ${message}.`)
     } catch { /* best-effort */ }
     return NextResponse.json({ error: message }, { status: 500 })
   }

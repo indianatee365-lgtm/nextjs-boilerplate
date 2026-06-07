@@ -13,7 +13,7 @@ export default async function BookPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login") // LAUNCH: remove this line to open tee sheet to public
 
-  // Admin gate — bookings not open to public until September 2026
+  // Admin gate: bookings not open to public until September 2026
   const { data: profile } = await serviceClient
     .from("profiles")
     .select("role, first_name, last_name, is_minor, parental_consent_verified")

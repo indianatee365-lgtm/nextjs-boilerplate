@@ -98,7 +98,7 @@ export default async function FoundersPage() {
             <ul className="space-y-4">
               {[
                 ["30% off year one, 20% forever", "From opening through August 2027 at 30% off. Every booking after that, 20% off forever."],
-                ["21-day advance booking", "The best booking window available — 3 weeks out, before anyone else can touch the calendar."],
+                ["21-day advance booking", "The best booking window available. 3 weeks out, before anyone else can touch the calendar."],
                 ["Up to 3 active reservations", "Keep your calendar loaded. Hold three upcoming sessions at once."],
               ].map(([title, desc]) => (
                 <li key={title} className="flex gap-3">
@@ -119,7 +119,7 @@ export default async function FoundersPage() {
                 ["Founders & Friends Day", "A private pre-opening event the day before Tee365 opens to the public. Founders, friends, and family only. Two complimentary hours included."],
                 ["Name on the Founders Wall", "A permanent installation in the facility. The 100 people who made this happen, listed for as long as we're open."],
                 ["Member number #1–100", "Your number is assigned in the order you join. It stays with you forever."],
-                ["48-hour early booking access", "When the booking calendar goes live, Founders get in first — two full days before the public."],
+                ["48-hour early booking access", "When the booking calendar goes live, Founders get in first, two full days before the public."],
                 ["Reserved league slot", "Every league, every season. You have a spot if you want it."],
               ].map(([title, desc]) => (
                 <li key={title} className="flex gap-3">
@@ -160,7 +160,7 @@ export default async function FoundersPage() {
           </div>
           <div className="rounded-lg border border-white/10 p-4">
             <p className="font-semibold text-white mb-1">Reactivation at Founder&apos;s terms</p>
-            <p>If you ever cancel and come back, you return at your original Founder&apos;s pricing — not current market rates.</p>
+            <p>If you ever cancel and come back, you return at your original Founder&apos;s pricing, not current market rates.</p>
           </div>
           <div className="rounded-lg border border-white/10 p-4">
             <p className="font-semibold text-white mb-1">Opening day guarantee</p>

@@ -83,7 +83,7 @@ export default function CancelMembershipSection({
               {isFounder && (
                 <p className="rounded-lg bg-brand/10 border border-brand/30 px-3 py-2 text-xs text-neutral-200">
                   <strong className="text-brand">Founder #{founderNumber}</strong> is permanently yours.
-                  You can reactivate any time at your original Founder's terms — same discount, same booking window, same number.
+                  You can reactivate any time at your original Founder's terms: same discount, same booking window, same number.
                 </p>
               )}
               {planType === "founder" && (

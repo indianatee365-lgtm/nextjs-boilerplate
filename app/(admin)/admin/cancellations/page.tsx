@@ -108,10 +108,10 @@ export default async function AdminCancellationsPage({
                   <tr key={b.id} className="border-b border-white/5 text-neutral-300 hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${b.user_id}`} className="hover:text-brand">
-                        {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "—"}
+                        {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "N/A"}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{b.bays?.name ?? "—"}</td>
+                    <td className="px-4 py-3">{b.bays?.name ?? "N/A"}</td>
                     <td className="px-4 py-3 text-xs">
                       {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" "}
                       {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}

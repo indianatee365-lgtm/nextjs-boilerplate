@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         price_data: {
           currency: "usd",
           product_data: {
-            name: `Tee365 Gift Card — $${dollars}`,
+            name: `Tee365 Gift Card: $${dollars}`,
             description: `A gift card for ${recipientName} from ${senderName}`,
           },
           unit_amount: amountCents,

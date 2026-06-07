@@ -392,7 +392,7 @@ export default function RescheduleFlow({
                 </div>
               ) : (
                 <div className="flex justify-between text-sm text-neutral-400">
-                  <span>No charge or refund</span><span>—</span>
+                  <span>No charge or refund</span><span>-</span>
                 </div>
               )}
             </div>

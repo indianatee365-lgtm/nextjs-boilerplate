@@ -42,10 +42,10 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-white mb-2">3a. Membership Cancellations</h2>
           <ul className="list-disc pl-5 space-y-2 text-neutral-300">
-            <li>You may cancel your membership at any time from your account page. Cancellation takes effect at the end of your current billing period — you keep all member benefits until then, and no further charges will be made.</li>
+            <li>You may cancel your membership at any time from your account page. Cancellation takes effect at the end of your current billing period. You keep all member benefits until then, and no further charges will be made.</li>
             <li>If you change your mind before the period ends, you can reactivate in one click from your account page at no cost.</li>
             <li>Monthly membership fees already paid are non-refundable. We do not pro-rate partial months.</li>
-            <li>Founder's Club: the one-time joining fee is refundable only within 30 days of joining. After 30 days the joining fee is non-refundable. Your Founder member number and Founders Wall placement are permanent — you may reactivate at any time at your original Founder's terms (same discount, same booking window, same number).</li>
+            <li>Founder's Club: the one-time joining fee is refundable only within 30 days of joining. After 30 days the joining fee is non-refundable. Your Founder member number and Founders Wall placement are permanent. You may reactivate at any time at your original Founder's terms (same discount, same booking window, same number).</li>
             <li>To reactivate after a membership has fully ended, contact us at info@tee365.org.</li>
           </ul>
         </section>
@@ -56,7 +56,7 @@ export default function TermsPage() {
             <li>Bookings may be rescheduled up to <strong>4 hours before the session start time</strong> through your account at <a href="/account/bookings" className="text-brand hover:underline">tee365.org/account/bookings</a>.</li>
             <li>A <strong>flat $5.00 reschedule fee</strong> applies to every reschedule, regardless of the new time selected.</li>
             <li>The new session is priced at the current rate for the selected day and time. If the new rate is higher than the original rate, you will be charged the difference plus the $5.00 fee. If the new rate is lower, you will receive a refund of the difference, and the $5.00 fee will still apply.</li>
-            <li>Rescheduling within 4 hours of the session start time is not permitted through self-service. Contact us at <a href="mailto:info@tee365.org" className="text-brand hover:underline">info@tee365.org</a> — we will do our best to accommodate you based on availability, but cannot guarantee a reschedule at that point.</li>
+            <li>Rescheduling within 4 hours of the session start time is not permitted through self-service. Contact us at <a href="mailto:info@tee365.org" className="text-brand hover:underline">info@tee365.org</a>. We will do our best to accommodate you based on availability, but cannot guarantee a reschedule at that point.</li>
             <li>Tee365 reserves the right to deny a reschedule request if no suitable availability exists.</li>
           </ul>
         </section>

@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About Tee365 | Indoor Golf Simulator in South Bend, Indiana",
-  description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana — built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
+  description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana, built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
   alternates: {
     canonical: "https://tee365.org/about",
   },
   openGraph: {
     type: "website",
     title: "About Tee365 | Indoor Golf Simulator in South Bend, Indiana",
-    description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana — built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
+    description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana, built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
     url: "https://tee365.org/about",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "About Tee365 | Indoor Golf Simulator in South Bend, Indiana",
-    description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana — built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
+    description: "Tee365 is a 24/7 indoor golf simulator in South Bend, Indiana, built by a local for golfers who want to practice and play year-round. A note from founder Jerrod.",
     images: ["https://tee365.org/hero.jpg"],
   },
 };
@@ -79,7 +79,7 @@ export default function AboutPage() {
           </p>
 
           <div className="pt-4 border-t border-white/10">
-            <p className="text-sm font-semibold italic text-white">— Jerrod</p>
+            <p className="text-sm font-semibold italic text-white">- Jerrod</p>
             <p className="mt-1 text-xs uppercase tracking-widest text-neutral-400">Founder, Tee365</p>
           </div>
 

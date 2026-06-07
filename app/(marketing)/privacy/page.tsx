@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Tee365",
-  description: "Privacy policy for Tee365 — how we collect, use, and protect your information.",
+  description: "Privacy policy for Tee365: how we collect, use, and protect your information.",
   alternates: { canonical: "https://tee365.org/privacy" },
 }
 
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 mt-2 space-y-1">
             <li>Name and contact information (email address, phone number)</li>
             <li>Booking details (date, time, bay, duration)</li>
-            <li>Payment information (processed securely by Stripe — we do not store card numbers)</li>
+            <li>Payment information (processed securely by Stripe; we do not store card numbers)</li>
           </ul>
         </section>
 

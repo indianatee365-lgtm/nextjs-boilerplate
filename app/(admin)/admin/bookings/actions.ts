@@ -109,7 +109,7 @@ export async function cancelBooking(bookingId: string) {
     try {
       await getStripe().paymentIntents.cancel(b.stripe_payment_intent_id)
     } catch {
-      // Already cancelled or captured — ignore
+      // Already cancelled or captured, ignore
     }
   } else if (b.stripe_charge_id && Number(b.total) > 0) {
     // Issue Stripe refund for confirmed paid bookings

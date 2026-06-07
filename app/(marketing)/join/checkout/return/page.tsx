@@ -33,7 +33,7 @@ function ReturnContent() {
   if (redirectStatus === "processing") {
     return (
       <div className="text-center">
-        <p className="text-neutral-300 mb-4">Your payment is processing — check your account in a moment.</p>
+        <p className="text-neutral-300 mb-4">Your payment is processing. Check your account in a moment.</p>
         <button onClick={() => router.push("/account")} className="btn-primary">Go to my account</button>
       </div>
     )

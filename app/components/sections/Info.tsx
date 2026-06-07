@@ -186,7 +186,7 @@ export default function Info() {
         >
           <h3 className="text-lg font-semibold text-white">Gift Cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
-            Give the gift of golf. Buy now at 20% off through opening day — the recipient gets the full value.
+            Give the gift of golf. Buy now at 20% off through opening day, the recipient gets the full value.
           </p>
 
           <a

@@ -114,7 +114,7 @@ export default async function MinorConsentPage({
   return (
     <main className="mx-auto max-w-lg px-4 py-12">
       <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-8">
-        <h1 className="text-xl font-semibold text-white">Parental Consent — Tee365 Indoor Golf</h1>
+        <h1 className="text-xl font-semibold text-white">Parental Consent: Tee365 Indoor Golf</h1>
         <p className="mt-2 text-sm text-neutral-400">
           <span className="text-white font-medium">{minorName}</span> has created a Tee365 account and listed you as their parent or guardian.
         </p>

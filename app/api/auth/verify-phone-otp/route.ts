@@ -1,4 +1,4 @@
-// SCAFFOLD — not implemented yet.
+// SCAFFOLD: not implemented yet.
 // When ready: compare submitted OTP against stored hash, check expiry,
 // and set profiles.phone_verified = true on match.
 // See ROADMAP for full implementation plan.

@@ -71,7 +71,7 @@ export default async function AdminUserDashboardPage({
 
   return (
     <>
-      {/* Admin context — interactive */}
+      {/* Admin context: interactive */}
       <div className="mx-auto max-w-3xl px-4 pt-6">
         <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 flex items-center justify-between">
           <div>
@@ -82,7 +82,7 @@ export default async function AdminUserDashboardPage({
         </div>
       </div>
 
-      {/* Faithful mirror — wrapped inert. Clicks/forms blocked; text selectable; visuals identical to /account. */}
+      {/* Faithful mirror: wrapped inert. Clicks/forms blocked; text selectable; visuals identical to /account. */}
       <div inert>
         <main className="mx-auto max-w-3xl px-4 py-10">
           <div className="flex items-center justify-between">

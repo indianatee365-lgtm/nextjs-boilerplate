@@ -128,16 +128,16 @@ export default function BookingsManager({
                   {bookings.map((b) => (
                     <tr key={b.id} className="border-b border-white/5 text-neutral-300">
                       <td className="px-4 py-3">
-                        {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "—"}
+                        {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "N/A"}}
                       </td>
-                      <td className="px-4 py-3">{b.bays?.name ?? "—"}</td>
+                      <td className="px-4 py-3">{b.bays?.name ?? "N/A"}</td>
                       <td className="px-4 py-3">
                         {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" "}
                         {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </td>
                       <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-neutral-500">{b.created_at ? getAge(b.created_at) : "—"}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-neutral-600">{b.stripe_payment_intent_id ?? "—"}</td>
+                      <td className="px-4 py-3 text-neutral-500">{b.created_at ? getAge(b.created_at) : "N/A"}}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-neutral-600">{b.stripe_payment_intent_id ?? "N/A"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -44,7 +44,7 @@ const PLAN_DETAILS: Record<string, {
     firstCharge: "$199 joining fee + $29 first month",
     benefits: [
       "30% off year one, 20% off forever",
-      "21-day advance booking — best available",
+      "21-day advance booking (best available)",
       "2 free hours at Founders & Friends Day",
       "Reserved league slot, guaranteed",
       "Name on the permanent Founders Wall",
@@ -67,9 +67,9 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
   const [error, setError] = useState<string | null>(null)
 
   const labels: Record<string, string> = {
-    birdie: "Subscribe — $10.00/mo",
-    eagle: "Subscribe — $39.00/mo",
-    founder: "Claim your spot — $228.00 today",
+    birdie: "Subscribe for $10.00/mo",
+    eagle: "Subscribe for $39.00/mo",
+    founder: "Claim your spot ($228.00 today)",
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -87,14 +87,14 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
         redirect: "if_required",
       })
       if (stripeError) {
-        setError(stripeError.message ?? "Payment failed — please try again")
+        setError(stripeError.message ?? "Payment failed. Please try again.")
         setSubmitting(false)
       } else if (paymentIntent) {
         const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
         router.push(`/join/checkout/return?redirect_status=${status}`)
       }
     } catch {
-      setError("Something went wrong — please try again")
+      setError("Something went wrong. Please try again.")
       setSubmitting(false)
     }
   }
@@ -103,7 +103,7 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       <PaymentElement
         options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-        onLoadError={() => setError("Payment form unavailable — please refresh the page and try again")}
+        onLoadError={() => setError("Payment form unavailable. Please refresh the page and try again.")}
       />
       {error && (
         <p className="text-sm text-red-400">{error}</p>
@@ -148,7 +148,7 @@ function CheckoutContent() {
       }
       setClientSecret(data.clientSecret)
     }).catch(() => {
-      setApiError("Connection error — please try again")
+      setApiError("Connection error. Please try again.")
     })
   }, [planSlug, router])
 
@@ -169,7 +169,7 @@ function CheckoutContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
 
-          {/* Left — plan summary */}
+          {/* Left: plan summary */}
           <div className="lg:sticky lg:top-10">
             <p className="text-xs font-semibold tracking-widest uppercase text-brand mb-2">Tee365 Membership</p>
             <h1 className="text-3xl font-bold text-white mb-1">{plan.name}</h1>
@@ -194,7 +194,7 @@ function CheckoutContent() {
             <p className="mt-6 text-xs text-neutral-600 text-center">Secured by Stripe · tee365.org</p>
           </div>
 
-          {/* Right — payment form */}
+          {/* Right: payment form */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white mb-5">Payment</h2>
             {apiError ? (

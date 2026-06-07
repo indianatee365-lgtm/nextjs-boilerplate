@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     let rescheduled = false
 
     if (netCharge <= 0 || Math.round(netCharge * 100) < 50) {
-      // No extra charge — apply the reschedule immediately
+      // No extra charge: apply the reschedule immediately
       await serviceClient.from("bookings").update({
         bay_id: newBay.id,
         starts_at: newStart.toISOString(),

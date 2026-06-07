@@ -3,14 +3,14 @@ import { Instagram, Facebook, Music2 } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-  description: "Get in touch with Tee365 — South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+  description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
   alternates: {
     canonical: "https://tee365.org/contact",
   },
   openGraph: {
     type: "website",
     title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-    description: "Get in touch with Tee365 — South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
     url: "https://tee365.org/contact",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-    description: "Get in touch with Tee365 — South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
     images: ["https://tee365.org/hero.jpg"],
   },
 };

@@ -42,7 +42,7 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
         router.push(`/gift-cards/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`)
       }
     } catch {
-      setError("Something went wrong — please try again")
+      setError("Something went wrong. Please try again.")
       setSubmitting(false)
     }
   }
@@ -63,7 +63,7 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
         <p className="label mb-2">Payment</p>
         <PaymentElement
           options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
-          onLoadError={() => setError("Payment form unavailable — please refresh the page and try again")}
+          onLoadError={() => setError("Payment form unavailable. Please refresh the page and try again.")}
         />
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}

@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       results.push({ id: booking.id, sent: false, error: String(err) })
       await logFailure(supabase, "access-code-CRON-FAILED",
         `booking=${booking.id} to=${profile.phone} starts_at=${booking.starts_at} err=${String(err).slice(0, 200)}`,
-        `ALERT Access code FAILED (cron) — booking=${booking.id} session at ${new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}. Customer may be locked out. CALL THEM.`)
+        `ALERT Access code FAILED (cron), booking=${booking.id} session at ${new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}. Customer may be locked out. CALL THEM.`)
     }
   }
 

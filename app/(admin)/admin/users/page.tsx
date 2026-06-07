@@ -37,7 +37,7 @@ export default async function AdminUsersPage() {
               {profiles.map((p) => (
                 <tr key={p.id} className="border-b border-white/5 text-neutral-300 hover:bg-white/[0.03] transition-colors">
                   <td className="px-4 py-3"><Link href={`/admin/users/${p.id}`} className="block hover:text-brand">{p.first_name} {p.last_name}</Link></td>
-                  <td className="px-4 py-3"><Link href={`/admin/users/${p.id}`} className="block">{p.phone ?? "—"}</Link></td>
+                  <td className="px-4 py-3"><Link href={`/admin/users/${p.id}`} className="block">{p.phone ?? "N/A"}</Link></td>
                   <td className="px-4 py-3">
                     <Link href={`/admin/users/${p.id}`} className="block">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${

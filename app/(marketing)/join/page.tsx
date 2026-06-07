@@ -4,7 +4,7 @@ import { JoinButton } from "./JoinClient"
 
 export const metadata: Metadata = {
   title: "Membership | Tee365",
-  description: "Join Tee365 and get discounts, priority booking, and more. Three tiers — pick the one that fits your game.",
+  description: "Join Tee365 and get discounts, priority booking, and more. Three tiers. Pick the one that fits your game.",
   alternates: { canonical: "https://tee365.org/join" },
 }
 
@@ -54,7 +54,7 @@ export default async function JoinPage() {
         <h1 className="text-4xl font-bold text-white mb-4">Play more. Pay less.</h1>
         <p className="text-neutral-400 max-w-xl mx-auto">
           Members get discounts on every session, priority booking windows, and more.
-          No contracts on Birdie or Eagle — cancel any time.
+          No contracts on Birdie or Eagle. Cancel any time.
         </p>
       </div>
 
@@ -187,7 +187,7 @@ export default async function JoinPage() {
               <ul className="space-y-2.5 mb-8">
                 {[
                   "30% off year one, 20% off forever",
-                  "21-day advance booking — best available",
+                  "21-day advance booking (best available)",
                   "2 free hours at Founders & Friends Day",
                   "Reserved league slot, guaranteed",
                   "Name on the permanent Founders Wall",
@@ -237,9 +237,9 @@ export default async function JoinPage() {
               ["Bay discount", "10%", "20%", "20% (30% yr 1)"],
               ["Advance booking", "10 days", "14 days", "21 days"],
               ["Active reservations", "2", "3", "3"],
-              ["Signup bonus", "—", "2 free hours", "2 hrs at Founders Day"],
-              ["League priority", "—", "Early registration", "Reserved slot"],
-              ["Founders Wall", "—", "—", "✓"],
+              ["Signup bonus", "None", "2 free hours", "2 hrs at Founders Day"],
+              ["League priority", "None", "Early registration", "Reserved slot"],
+              ["Founders Wall", "None", "None", "✓"],
               ["Cancel anytime", "✓", "✓", "✓"],
             ].map(([feature, b, e, f]) => (
               <tr key={feature}>
@@ -264,11 +264,11 @@ export default async function JoinPage() {
             },
             {
               q: "Can I switch plans later?",
-              a: "Yes — contact us and we'll handle the upgrade or downgrade. Upgrades take effect right away; downgrades take effect at the next billing cycle.",
+              a: "Yes, contact us and we'll handle the upgrade or downgrade. Upgrades take effect right away; downgrades take effect at the next billing cycle.",
             },
             {
               q: "What happens to my Founder's status if I cancel?",
-              a: "Your member number and name on the Founders Wall are permanent. Active benefits (discount, booking window) pause and resume when you reactivate — always at your original Founder's terms.",
+              a: "Your member number and name on the Founders Wall are permanent. Active benefits (discount, booking window) pause and resume when you reactivate, always at your original Founder's terms.",
             },
             {
               q: "Is there a contract?",

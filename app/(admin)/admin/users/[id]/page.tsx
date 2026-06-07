@@ -25,7 +25,7 @@ export default async function AdminUserDetailPage({
   ])
   if (!target) notFound()
   const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string }
-  const targetEmail = authUserRes?.user?.email ?? "—"
+  const targetEmail = authUserRes?.user?.email ?? "N/A"
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
     serviceClient.from("memberships").select("id, status, plan_type, started_at, current_period_end, cancelled_at, cancellation_requested_at, founder_number, stripe_customer_id, stripe_subscription_id, membership_plans(name, display_name)").eq("user_id", id).order("started_at", { ascending: false }),
@@ -55,11 +55,11 @@ export default async function AdminUserDetailPage({
 
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <Field label="Email" value={targetEmail} />
-        <Field label="Phone" value={t.phone ?? "—"} />
+        <Field label="Phone" value={t.phone ?? "N/A"} />
         <Field label="Role" value={t.role ?? "user"} />
         <Field label="Joined" value={new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} />
         <Field label="SMS consent" value={t.sms_consent ? "Yes" : "No"} />
-        <Field label="Stripe customer" value={t.stripe_customer_id ?? "—"} />
+        <Field label="Stripe customer" value={t.stripe_customer_id ?? "N/A"} />
       </div>
 
       {/* Memberships */}
@@ -85,9 +85,9 @@ export default async function AdminUserDetailPage({
                         }`}>{m.status}{m.cancellation_requested_at ? " · cancel pending" : ""}</span>
                       </td>
                       <td className="px-4 py-2 text-xs text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                      <td className="px-4 py-2 text-xs text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</td>
-                      <td className="px-4 py-2 text-xs text-brand font-semibold">{m.founder_number ? `#${m.founder_number}` : "—"}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-neutral-500 break-all">{m.stripe_subscription_id ?? "—"}</td>
+                      <td className="px-4 py-2 text-xs text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}</td>
+                      <td className="px-4 py-2 text-xs text-brand font-semibold">{m.founder_number ? `#${m.founder_number}` : "N/A"}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-neutral-500 break-all">{m.stripe_subscription_id ?? "N/A"}</td>
                     </tr>
                   )
                 })}
@@ -112,10 +112,10 @@ export default async function AdminUserDetailPage({
                   return (
                     <tr key={b.id} className="border-t border-white/5 text-neutral-300">
                       <td className="px-4 py-2 text-xs">{new Date(b.starts_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}</td>
-                      <td className="px-4 py-2 text-xs">{bay?.name ?? "—"}</td>
+                      <td className="px-4 py-2 text-xs">{bay?.name ?? "N/A"}</td>
                       <td className="px-4 py-2 text-xs">{b.status}</td>
                       <td className="px-4 py-2 text-xs">${Number(b.total).toFixed(2)}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-neutral-400">{b.access_code ?? "—"}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-neutral-400">{b.access_code ?? "N/A"}</td>
                     </tr>
                   )
                 })}

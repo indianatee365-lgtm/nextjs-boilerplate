@@ -77,7 +77,7 @@ export default async function AdminBaysPage() {
                       <td className="px-4 py-3">{bay?.name ?? "All bays"}</td>
                       <td className="px-4 py-3">{new Date(b.starts_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}</td>
                       <td className="px-4 py-3">{new Date(b.ends_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}</td>
-                      <td className="px-4 py-3 text-neutral-500">{b.reason ?? "—"}</td>
+                      <td className="px-4 py-3 text-neutral-500">{b.reason ?? "N/A"}</td>
                     </tr>
                   )
                 })}

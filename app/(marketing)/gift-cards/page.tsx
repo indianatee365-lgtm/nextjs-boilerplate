@@ -3,7 +3,7 @@ import { PurchaseForm, BalanceChecker } from "./GiftCardStore"
 
 export const metadata: Metadata = {
   title: "Gift Cards | Tee365",
-  description: "Give the gift of golf. Purchase a Tee365 gift card for any amount — delivered instantly by email.",
+  description: "Give the gift of golf. Purchase a Tee365 gift card for any amount, delivered instantly by email.",
 }
 
 export default function GiftCardsPage() {

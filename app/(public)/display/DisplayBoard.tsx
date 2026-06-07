@@ -47,7 +47,7 @@ export default function DisplayBoard({
     return () => clearInterval(interval)
   }, [])
 
-  // Supabase Realtime — subscribe to booking changes
+  // Supabase Realtime: subscribe to booking changes
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
