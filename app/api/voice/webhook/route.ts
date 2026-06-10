@@ -24,7 +24,7 @@ async function handleLookupMembership(phone: string): Promise<string> {
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("plan_type, founder_status_active, membership_paused")
+    .select("plan_type, founder_status_active, membership_paused, current_period_end")
     .eq("user_id", profile.id)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -41,6 +41,10 @@ async function handleLookupMembership(phone: string): Promise<string> {
   if (membership.founder_status_active) parts.push("Founding member: yes")
   if (membership.membership_paused) parts.push("Status: PAUSED")
   else parts.push("Status: active")
+  if (membership.current_period_end) {
+    const nextCharge = new Date(membership.current_period_end)
+    parts.push(`Next charge: ${nextCharge.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}`)
+  }
 
   return parts.join(". ")
 }
