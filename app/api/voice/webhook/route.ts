@@ -8,6 +8,14 @@ function normalizePhone(raw: string): string {
   return raw.startsWith("+") ? raw : "+" + raw
 }
 
+function parseArgs(raw: unknown): Record<string, string> {
+  if (typeof raw === "string") {
+    try { return JSON.parse(raw) } catch { return {} }
+  }
+  if (raw && typeof raw === "object") return raw as Record<string, string>
+  return {}
+}
+
 async function handleLookupMembership(phone: string): Promise<string> {
   const supabase = await createServiceClient()
   const normalized = normalizePhone(phone)
@@ -112,7 +120,6 @@ async function forwardToN8n(payload: unknown): Promise<void> {
 }
 
 export async function POST(request: NextRequest) {
-
   const body = await request.json()
   const msg = body?.message
 
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     for (const toolCall of msg.toolCallList ?? []) {
       const name: string = toolCall.function?.name
-      const args = JSON.parse(toolCall.function?.arguments ?? "{}")
+      const args = parseArgs(toolCall.function?.arguments)
       let result = "Tool not found"
 
       if (name === "lookup_membership") {
