@@ -108,13 +108,6 @@ async function forwardToN8n(payload: unknown): Promise<void> {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.VAPI_WEBHOOK_SECRET
-  if (secret) {
-    const header = request.headers.get("x-vapi-secret")
-    if (header !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-  }
 
   const body = await request.json()
   const msg = body?.message
