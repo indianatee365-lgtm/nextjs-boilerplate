@@ -105,6 +105,28 @@ async function handleLookupUpcomingBooking(phone: string): Promise<string> {
   return parts.join(". ")
 }
 
+async function handleSendInfoSms(callerPhone: string): Promise<string> {
+  if (!callerPhone || callerPhone === "unknown") {
+    return "Unable to send: caller phone number unavailable."
+  }
+  const key = process.env.TELNYX_API_KEY
+  const from = process.env.TELNYX_PHONE_NUMBER ?? ""
+  if (!key || !from) return "SMS service not configured."
+
+  const digits = callerPhone.replace(/[^\d]/g, "")
+  const to = callerPhone.startsWith("+") ? callerPhone : (digits.length === 10 ? "+1" + digits : (digits.length === 11 && digits.startsWith("1") ? "+" + digits : "+" + digits))
+  const fromNorm = from.startsWith("+") ? from : "+1" + from.replace(/[^\d]/g, "")
+
+  const res = await fetch("https://api.telnyx.com/v2/messages", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: fromNorm, to, text: "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out." }),
+  })
+
+  if (!res.ok) return "Failed to send -- please note the info instead."
+  return "Done. Sent the website and email to your phone."
+}
+
 async function forwardToN8n(payload: unknown): Promise<void> {
   const url = process.env.N8N_VOICE_WEBHOOK_URL
   if (!url) return
@@ -139,6 +161,8 @@ export async function POST(request: NextRequest) {
         result = await handleLookupMembership(args.phone ?? "")
       } else if (name === "lookup_upcoming_booking") {
         result = await handleLookupUpcomingBooking(args.phone ?? "")
+      } else if (name === "send_info_sms") {
+        result = await handleSendInfoSms(msg.call?.customer?.number ?? "")
       }
 
       results.push({ toolCallId: toolCall.id, result })
