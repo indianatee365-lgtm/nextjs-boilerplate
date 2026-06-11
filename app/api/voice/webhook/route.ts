@@ -118,6 +118,18 @@ async function handleSendInfoSms(callerPhone: string): Promise<string> {
     return "Sorry, the text didn't go through. Would you like me to read it instead?"
   }
 }
+async function lookupCallerName(phone: string): Promise<string | null> {
+  if (!phone || phone === "unknown") return null
+  const supabase = await createServiceClient()
+  const { data } = await supabase
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("phone", normalizePhone(phone))
+    .single()
+  if (!data) return null
+  return [data.first_name, data.last_name].filter(Boolean).join(" ") || null
+}
+
 async function forwardToN8n(payload: unknown): Promise<void> {
   const url = process.env.N8N_VOICE_WEBHOOK_URL
   if (!url) return
@@ -163,10 +175,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (msg.type === "end-of-call-report") {
+    const callerPhone = msg.call?.customer?.number ?? "unknown"
+    const callerName = await lookupCallerName(callerPhone)
     await forwardToN8n({
       type: "vapi-call-ended",
       callId: msg.call?.id,
-      caller: msg.call?.customer?.number ?? "unknown",
+      caller: callerPhone,
+      callerName,
       durationSeconds: msg.call?.endedAt && msg.call?.startedAt
         ? Math.round((new Date(msg.call.endedAt).getTime() - new Date(msg.call.startedAt).getTime()) / 1000)
         : null,
