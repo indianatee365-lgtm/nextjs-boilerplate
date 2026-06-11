@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { sendInfoSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 
 function normalizePhone(raw: string): string {
@@ -107,32 +108,16 @@ async function handleLookupUpcomingBooking(phone: string): Promise<string> {
 
 async function handleSendInfoSms(callerPhone: string): Promise<string> {
   if (!callerPhone || callerPhone === "unknown") {
-    return "Unable to send: caller phone number unavailable."
+    return "I wasn't able to get your phone number from the call. Would you like me to read it instead?"
   }
-  const key = process.env.TELNYX_API_KEY
-  const from = process.env.TELNYX_PHONE_NUMBER ?? ""
-  if (!key || !from) return "SMS service not configured."
-
-  const digits = callerPhone.replace(/[^\d]/g, "")
-  const to = callerPhone.startsWith("+") ? callerPhone : (digits.length === 10 ? "+1" + digits : (digits.length === 11 && digits.startsWith("1") ? "+" + digits : "+" + digits))
-  const fromNorm = from.startsWith("+") ? from : "+1" + from.replace(/[^\d]/g, "")
-
-  const res = await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: fromNorm, to, text: "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out." }),
-  })
-
-  if (!res.ok) {
-    let errMsg = "unknown error"
-    try { const errBody = await res.json(); errMsg = JSON.stringify(errBody) } catch {}
-    console.error("[send_info_sms] failed", { to, fromNorm, status: res.status, err: errMsg })
-    return "Failed to send. Status " + res.status + ": " + errMsg
+  try {
+    await sendInfoSms(callerPhone)
+    return "Done. Sent the website and email to your phone."
+  } catch (err) {
+    console.error("[send_info_sms] failed", { callerPhone, err })
+    return "Sorry, the text didn't go through. Would you like me to read it instead?"
   }
-  console.log("[send_info_sms] sent to", to)
-  return "Done. Sent the website and email to your phone."
 }
-
 async function forwardToN8n(payload: unknown): Promise<void> {
   const url = process.env.N8N_VOICE_WEBHOOK_URL
   if (!url) return

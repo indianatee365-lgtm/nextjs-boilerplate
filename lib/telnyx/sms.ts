@@ -88,3 +88,9 @@ export async function sendAccessCodeReminder({
     "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out."
   )
 }
+export async function sendInfoSms(to: string) {
+  await sendSms(
+    normalizePhone(to),
+    "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out."
+  )
+}
