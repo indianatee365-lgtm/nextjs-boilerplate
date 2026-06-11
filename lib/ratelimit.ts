@@ -3,12 +3,19 @@ import { Redis } from "@upstash/redis"
 
 const noopLimiter = { limit: async () => ({ success: true }) } as unknown as Ratelimit
 
-function makeRatelimit(limiter: Parameters<typeof Ratelimit>[0]["limiter"]) {
+function makeRedis() {
   const url = process.env.UPSTASH_REDIS_REST_URL
   const token = process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) return noopLimiter
-  return new Ratelimit({ redis: new Redis({ url, token }), limiter, analytics: true })
+  if (!url || !token) return null
+  return new Redis({ url, token })
 }
 
-export const authRatelimit = makeRatelimit(Ratelimit.slidingWindow(5, "60s"))
-export const giftCardRatelimit = makeRatelimit(Ratelimit.slidingWindow(30, "60s"))
+const redis = makeRedis()
+
+export const authRatelimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "60s"), analytics: true })
+  : noopLimiter
+
+export const giftCardRatelimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "60s"), analytics: true })
+  : noopLimiter
