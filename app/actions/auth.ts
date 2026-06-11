@@ -9,6 +9,13 @@ import { sendParentalConsentRequestEmail } from "@/lib/resend/email"
 import { headers } from "next/headers"
 import { authRatelimit } from "@/lib/ratelimit"
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "")
+  if (digits.length === 10) return "+1" + digits
+  if (digits.length === 11 && digits.startsWith("1")) return "+" + digits
+  return raw.startsWith("+") ? raw : "+" + raw
+}
+
 async function verifyTurnstile(token: string | null): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY
   if (!secret) return true
@@ -75,7 +82,7 @@ export async function signup(
     email,
     password,
     options: {
-      data: { first_name: firstName, last_name: lastName, phone },
+      data: { first_name: firstName, last_name: lastName, phone: phone?.trim() ? normalizePhone(phone.trim()) : undefined },
     },
   })
 
