@@ -123,7 +123,13 @@ async function handleSendInfoSms(callerPhone: string): Promise<string> {
     body: JSON.stringify({ from: fromNorm, to, text: "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out." }),
   })
 
-  if (!res.ok) return "Failed to send -- please note the info instead."
+  if (!res.ok) {
+    let errMsg = "unknown error"
+    try { const errBody = await res.json(); errMsg = JSON.stringify(errBody) } catch {}
+    console.error("[send_info_sms] failed", { to, fromNorm, status: res.status, err: errMsg })
+    return "Failed to send. Status " + res.status + ": " + errMsg
+  }
+  console.log("[send_info_sms] sent to", to)
   return "Done. Sent the website and email to your phone."
 }
 
