@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
     }
 
     const startDate = new Date(startsAt)
+    if (startDate.getTime() < Date.now() - 60000) {
+      return NextResponse.json({ error: "Booking start time must be in the future" }, { status: 400 })
+    }
     const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000)
 
     // Check bay exists
