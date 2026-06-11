@@ -158,9 +158,9 @@ export async function POST(request: NextRequest) {
       let result = "Tool not found"
 
       if (name === "lookup_membership") {
-        result = await handleLookupMembership(args.phone ?? "")
+        result = await handleLookupMembership(args.phone || msg.call?.customer?.number || "")
       } else if (name === "lookup_upcoming_booking") {
-        result = await handleLookupUpcomingBooking(args.phone ?? "")
+        result = await handleLookupUpcomingBooking(args.phone || msg.call?.customer?.number || "")
       } else if (name === "send_info_sms") {
         result = await handleSendInfoSms(msg.call?.customer?.number ?? "")
       }
