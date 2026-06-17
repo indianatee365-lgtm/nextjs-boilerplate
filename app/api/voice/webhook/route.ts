@@ -118,6 +118,7 @@ async function handleSendInfoSms(callerPhone: string): Promise<string> {
     return "Sorry, the text didn't go through. Would you like me to read it instead?"
   }
 }
+
 async function lookupCallerName(phone: string): Promise<string | null> {
   if (!phone || phone === "unknown") return null
   const supabase = await createServiceClient()
@@ -128,6 +129,38 @@ async function lookupCallerName(phone: string): Promise<string | null> {
     .single()
   if (!data) return null
   return [data.first_name, data.last_name].filter(Boolean).join(" ") || null
+}
+
+async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
+  try {
+    const supabase = await createServiceClient()
+    const call = msg.call as Record<string, unknown> | undefined
+    const artifact = msg.artifact as Record<string, unknown> | undefined
+    const callerPhone = (call?.customer as Record<string, unknown> | undefined)?.number as string ?? "unknown"
+    const callerName = await lookupCallerName(callerPhone)
+
+    const startedAt = call?.startedAt as string | undefined
+    const endedAt = call?.endedAt as string | undefined
+    const durationSeconds = startedAt && endedAt
+      ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+      : null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from("call_logs").insert({
+      vapi_call_id: call?.id as string ?? null,
+      caller_phone: callerPhone !== "unknown" ? normalizePhone(callerPhone) : null,
+      caller_name: callerName,
+      started_at: startedAt ?? null,
+      ended_at: endedAt ?? null,
+      duration_seconds: durationSeconds,
+      ended_reason: msg.endedReason as string ?? null,
+      summary: msg.summary as string ?? null,
+      transcript: artifact?.transcript as string ?? null,
+      recording_url: artifact?.recordingUrl as string ?? null,
+    })
+  } catch (err) {
+    console.error("[voice/webhook] failed to persist call log", err)
+  }
 }
 
 async function forwardToN8n(payload: unknown): Promise<void> {
@@ -176,12 +209,12 @@ export async function POST(request: NextRequest) {
 
   if (msg.type === "end-of-call-report") {
     const callerPhone = msg.call?.customer?.number ?? "unknown"
-    const callerName = await lookupCallerName(callerPhone)
+    await persistCallLog(msg)
     await forwardToN8n({
       type: "vapi-call-ended",
       callId: msg.call?.id,
       caller: callerPhone,
-      callerName,
+      callerName: await lookupCallerName(callerPhone),
       durationSeconds: msg.call?.endedAt && msg.call?.startedAt
         ? Math.round((new Date(msg.call.endedAt).getTime() - new Date(msg.call.startedAt).getTime()) / 1000)
         : null,

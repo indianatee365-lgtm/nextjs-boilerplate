@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, DollarSign, TrendingUp } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, DollarSign, TrendingUp, Phone } from "lucide-react"
 import { computeRevenue } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Admin | Tee365" }
@@ -122,6 +122,7 @@ export default async function AdminPage() {
           { href: "/admin/users", icon: <UserCircle size={16} />, label: "Users" },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
+          { href: "/admin/phone", icon: <Phone size={16} />, label: "Phone Agent" },
         ].map((item) => (
           <Link
             key={item.href}
