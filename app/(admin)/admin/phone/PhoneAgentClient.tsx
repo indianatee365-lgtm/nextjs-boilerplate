@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Phone, ChevronDown, ChevronUp, Mic, Clock, PhoneOff, PhoneIncoming } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Phone, ChevronDown, ChevronUp, Mic, Clock, PhoneOff, PhoneIncoming, Bot, Save, RotateCcw, CheckCircle, AlertCircle } from "lucide-react"
 
 type CallLog = {
   id: string
@@ -37,12 +37,12 @@ function formatTime(iso: string | null, timeZone = "America/Indiana/Indianapolis
 function endedReasonBadge(reason: string | null) {
   if (!reason) return null
   const map: Record<string, { label: string; cls: string }> = {
-    "customer-ended-call":    { label: "Caller hung up",    cls: "bg-neutral-500/20 text-neutral-400" },
-    "assistant-ended-call":   { label: "Agent ended",       cls: "bg-blue-500/20 text-blue-400" },
-    "customer-did-not-answer":{ label: "No answer",         cls: "bg-yellow-500/20 text-yellow-400" },
-    "voicemail":              { label: "Voicemail",         cls: "bg-yellow-500/20 text-yellow-400" },
-    "max-duration-exceeded":  { label: "Max duration",      cls: "bg-orange-500/20 text-orange-400" },
-    "error":                  { label: "Error",             cls: "bg-red-500/20 text-red-400" },
+    "customer-ended-call":     { label: "Caller hung up",  cls: "bg-neutral-500/20 text-neutral-400" },
+    "assistant-ended-call":    { label: "Agent ended",     cls: "bg-blue-500/20 text-blue-400" },
+    "customer-did-not-answer": { label: "No answer",       cls: "bg-yellow-500/20 text-yellow-400" },
+    "voicemail":               { label: "Voicemail",       cls: "bg-yellow-500/20 text-yellow-400" },
+    "max-duration-exceeded":   { label: "Max duration",    cls: "bg-orange-500/20 text-orange-400" },
+    "error":                   { label: "Error",           cls: "bg-red-500/20 text-red-400" },
   }
   const def = { label: reason.replace(/-/g, " "), cls: "bg-neutral-500/20 text-neutral-400" }
   const { label, cls } = map[reason] ?? def
@@ -113,6 +113,149 @@ function CallRow({ call }: { call: CallLog }) {
   )
 }
 
+function PromptEditor() {
+  const [prompt, setPrompt] = useState("")
+  const [savedPrompt, setSavedPrompt] = useState("")
+  const [agentName, setAgentName] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle")
+  const [errorMsg, setErrorMsg] = useState("")
+  const [unconfigured, setUnconfigured] = useState(false)
+
+  const fetchPrompt = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin/vapi-agent")
+      if (res.status === 503) {
+        setUnconfigured(true)
+        return
+      }
+      const data = await res.json()
+      if (data.error) { setErrorMsg(data.error); setStatus("error"); return }
+      setPrompt(data.systemPrompt)
+      setSavedPrompt(data.systemPrompt)
+      setAgentName(data.agentName)
+    } catch {
+      setErrorMsg("Failed to load agent prompt")
+      setStatus("error")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchPrompt() }, [fetchPrompt])
+
+  async function handleSave() {
+    setSaving(true)
+    setStatus("idle")
+    try {
+      const res = await fetch("/api/admin/vapi-agent", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systemPrompt: prompt }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setErrorMsg(data.error ?? "Save failed")
+        setStatus("error")
+      } else {
+        setSavedPrompt(prompt)
+        setStatus("saved")
+        setTimeout(() => setStatus("idle"), 3000)
+      }
+    } catch {
+      setErrorMsg("Network error")
+      setStatus("error")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isDirty = prompt !== savedPrompt
+
+  if (unconfigured) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Bot size={16} className="text-neutral-400" />
+          <h2 className="text-sm font-semibold text-white">Agent Prompt</h2>
+        </div>
+        <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4">
+          <p className="text-sm text-yellow-400 font-medium mb-1">Not configured</p>
+          <p className="text-xs text-neutral-400">
+            Add <code className="bg-white/10 px-1 rounded">VAPI_API_KEY</code> and{" "}
+            <code className="bg-white/10 px-1 rounded">VAPI_AGENT_ID</code> to Vercel environment variables to enable prompt editing.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Bot size={16} className="text-neutral-400" />
+          <h2 className="text-sm font-semibold text-white">
+            Agent Prompt
+            {agentName && <span className="ml-2 text-xs text-neutral-500 font-normal">{agentName}</span>}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {status === "saved" && (
+            <span className="flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle size={12} /> Saved
+            </span>
+          )}
+          {status === "error" && (
+            <span className="flex items-center gap-1 text-xs text-red-400">
+              <AlertCircle size={12} /> {errorMsg}
+            </span>
+          )}
+          {isDirty && (
+            <button
+              onClick={() => setPrompt(savedPrompt)}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-neutral-400 hover:text-white transition-colors"
+            >
+              <RotateCcw size={11} /> Reset
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!isDirty || saving}
+            className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+          >
+            <Save size={11} />
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="h-48 rounded-lg bg-white/5 border border-white/10 animate-pulse" />
+      ) : (
+        <>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            rows={14}
+            className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-sm text-neutral-200 font-mono leading-relaxed placeholder-neutral-600 focus:border-white/30 focus:outline-none resize-y"
+            placeholder="Enter the agent's system prompt..."
+            spellCheck={false}
+          />
+          <div className="flex justify-between mt-2">
+            <p className="text-xs text-neutral-600">
+              Changes go live immediately after saving - no redeploy needed.
+            </p>
+            <p className="text-xs text-neutral-600">{prompt.length.toLocaleString()} chars</p>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function PhoneAgentClient({
   calls,
   stats,
@@ -151,6 +294,11 @@ export default function PhoneAgentClient({
         <StatCard icon={<Phone size={16} />} label="This week" value={String(stats.callsThisWeek)} />
         <StatCard icon={<Clock size={16} />} label="Avg duration" value={formatDuration(stats.avgDurationSeconds)} />
         <StatCard icon={<PhoneOff size={16} />} label="Missed / no answer" value={String(stats.missedCalls)} />
+      </div>
+
+      {/* Prompt editor */}
+      <div className="mb-8">
+        <PromptEditor />
       </div>
 
       {/* Search */}
