@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { notifyOwner } from "@/lib/observability/notify"
 import { revalidatePath } from "next/cache"
 import Stripe from "stripe"
 import { sendCancellationConfirmation, sendReactivationConfirmation } from "@/lib/resend/email"
@@ -9,14 +10,6 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     httpClient: Stripe.createFetchHttpClient(),
   })
-}
-
-async function notifyOwner(msg: string) {
-  await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + process.env.TELNYX_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.TELNYX_PHONE_NUMBER, to: "+15749990622", text: msg }),
-  }).catch(() => {})
 }
 
 export async function cancelMembership(): Promise<{ error?: string; ok?: boolean }> {

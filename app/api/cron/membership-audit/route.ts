@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
+import { notifyOwner } from "@/lib/observability/notify"
 import Stripe from "stripe"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     httpClient: Stripe.createFetchHttpClient(),
   })
-}
-
-async function notifyOwner(msg: string) {
-  await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + process.env.TELNYX_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.TELNYX_PHONE_NUMBER, to: "+15749990622", text: msg }),
-  }).catch(() => {})
 }
 
 export async function GET(request: NextRequest) {

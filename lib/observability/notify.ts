@@ -1,30 +1,44 @@
-/**
- * Owner-facing telemetry helpers. Use these in any code path that handles
- * money, customer experience, or physical access — anything where a silent
- * failure would be discovered late.
- *
- * - logEvent: write a row to admin_logs (audit trail)
- * - notifyOwner: SMS the owner (use sparingly, only for things requiring action)
- * - logFailure: convenience wrapper for failure + optional SMS
- */
-
-export async function notifyOwner(msg: string): Promise<void> {
-  await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + process.env.TELNYX_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: process.env.TELNYX_PHONE_NUMBER,
-      to: "+15749990622",
-      text: msg,
-    }),
-  }).catch(() => {})
-}
+import { createServiceClient } from "@/lib/supabase/server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
+
+export async function notifyOwner(msg: string): Promise<void> {
+  let ok = false
+  let errDetail = ""
+  try {
+    const res = await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.TELNYX_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env.TELNYX_PHONE_NUMBER,
+        to: "+15749990622",
+        text: msg,
+      }),
+    })
+    if (res.ok) {
+      ok = true
+    } else {
+      const body = await res.json().catch(() => ({}))
+      errDetail = `status=${res.status} body=${JSON.stringify(body).slice(0, 200)}`
+    }
+  } catch (err) {
+    errDetail = String(err).slice(0, 200)
+  }
+
+  if (!ok) {
+    try {
+      const sc = await createServiceClient()
+      await sc.from("admin_logs").insert({
+        event: "notify-owner-FAILED",
+        detail: `${errDetail} | msg=${msg.slice(0, 100)}`,
+      })
+    } catch { /* logging must never throw */ }
+  }
+}
 
 export async function logEvent(
   supabase: SupabaseClient,

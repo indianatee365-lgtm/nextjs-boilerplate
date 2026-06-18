@@ -5,18 +5,10 @@ import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sm
 import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
-import { logEvent, logFailure } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
-}
-
-async function notifyOwner(msg: string) {
-  await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + process.env.TELNYX_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.TELNYX_PHONE_NUMBER, to: "+15749990622", text: msg }),
-  }).catch(() => {})
 }
 
 function getStripe() {
