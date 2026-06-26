@@ -3,14 +3,14 @@ import { Instagram, Facebook, Music2 } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-  description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+  description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Call, text, or email us.",
   alternates: {
     canonical: "https://tee365.org/contact",
   },
   openGraph: {
     type: "website",
     title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Call, text, or email us.",
     url: "https://tee365.org/contact",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Contact Tee365 | Indoor Golf Simulator South Bend, IN",
-    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Reach us by email or follow along on social media.",
+    description: "Get in touch with Tee365, South Bend's 24/7 indoor golf simulator. Call, text, or email us.",
     images: ["https://tee365.org/hero.jpg"],
   },
 };
@@ -36,6 +36,17 @@ export default function ContactPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8 space-y-8">
 
           <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#00A651] mb-3">Phone</h2>
+            <a
+              href="tel:+15744449365"
+              className="text-sm text-neutral-300 transition hover:text-white"
+            >
+              (574) 444-9365
+            </a>
+            <p className="mt-1 text-xs text-neutral-500">Calls answered by our AI agent. Text anytime.</p>
+          </div>
+
+          <div className="border-t border-white/10 pt-8">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-[#00A651] mb-3">Email</h2>
             <a
               href="mailto:info@tee365.org"
