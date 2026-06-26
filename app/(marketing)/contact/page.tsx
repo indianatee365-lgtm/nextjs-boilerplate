@@ -43,7 +43,6 @@ export default function ContactPage() {
             >
               (574) 444-9365
             </a>
-            <p className="mt-1 text-xs text-neutral-500">Calls answered by our AI agent. Text anytime.</p>
           </div>
 
           <div className="border-t border-white/10 pt-8">
