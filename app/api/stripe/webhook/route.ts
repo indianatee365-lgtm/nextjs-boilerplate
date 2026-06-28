@@ -391,11 +391,14 @@ export async function POST(request: NextRequest) {
     if (subId) {
       const { data: m } = await supabase
         .from("memberships")
-        .select("user_id, plan_type")
+        .select("user_id, plan_type, profiles(first_name, last_name)")
         .eq("stripe_subscription_id", subId)
         .maybeSingle()
-      const mm = m as { user_id?: string; plan_type?: string } | null
-      if (mm?.user_id) userInfo = `${mm.plan_type ?? "?"} user=${mm.user_id}`
+      const mm = m as { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+      if (mm?.user_id) {
+        const name = [mm.profiles?.first_name, mm.profiles?.last_name].filter(Boolean).join(" ") || mm.user_id
+        userInfo = `${mm.plan_type ?? "?"} – ${name}`
+      }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from("admin_logs").insert({
@@ -418,11 +421,14 @@ export async function POST(request: NextRequest) {
     if (subId) {
       const { data: m } = await supabase
         .from("memberships")
-        .select("user_id, plan_type")
+        .select("user_id, plan_type, profiles(first_name, last_name)")
         .eq("stripe_subscription_id", subId)
         .maybeSingle()
-      const mm = m as { user_id?: string; plan_type?: string } | null
-      if (mm?.user_id) userInfo = `${mm.plan_type ?? "?"} user=${mm.user_id}`
+      const mm = m as { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+      if (mm?.user_id) {
+        const name = [mm.profiles?.first_name, mm.profiles?.last_name].filter(Boolean).join(" ") || mm.user_id
+        userInfo = `${mm.plan_type ?? "?"} – ${name}`
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
