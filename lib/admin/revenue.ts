@@ -1,11 +1,8 @@
 /**
  * Revenue bucketing helpers for the admin dashboard.
  *
- * One DB query per source (bookings / gift cards / memberships) since Jan 1.
+ * One DB query per source (bookings / gift cards / memberships / renewals) since Jan 1.
  * Rows are bucketed into Today / 7d / MTD / YTD in JS — cheap on small row counts.
- *
- * Excludes recurring membership renewals (no transactions table yet; renewals logged
- * to admin_logs as free-text and parsing is fragile). Initial sign-up only.
  */
 
 export type RevenueBuckets = {
@@ -19,6 +16,7 @@ export type RevenueBreakdown = {
   bookings: RevenueBuckets
   giftCards: RevenueBuckets
   memberships: RevenueBuckets
+  renewals: RevenueBuckets
   total: RevenueBuckets
 }
 
@@ -57,7 +55,7 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   const { todayStart, weekStart, monthStart, yearStart } = computePeriodBoundaries()
   const boundaries = { todayStart, weekStart, monthStart }
 
-  const [{ data: bookings }, { data: giftCards }, { data: memberships }] = await Promise.all([
+  const [{ data: bookings }, { data: giftCards }, { data: memberships }, { data: renewalLogs }] = await Promise.all([
     serviceClient
       .from("bookings")
       .select("total, gift_card_applied, refund_amount, paid_at, status")
@@ -71,11 +69,17 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
       .from("memberships")
       .select("started_at, plan_type, membership_plans(price_monthly, joining_fee)")
       .gte("started_at", yearStart.toISOString()),
+    serviceClient
+      .from("admin_logs")
+      .select("detail, created_at")
+      .eq("event", "invoice-paid-subscription_cycle")
+      .gte("created_at", yearStart.toISOString()),
   ])
 
   const bookingBuckets = emptyBuckets()
   const giftBuckets = emptyBuckets()
   const memBuckets = emptyBuckets()
+  const renewalBuckets = emptyBuckets()
 
   for (const b of (bookings ?? []) as Array<{
     total: number; gift_card_applied: number | null; refund_amount: number | null; paid_at: string; status: string
@@ -97,12 +101,18 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
     addToBuckets(memBuckets, signupRevenue, new Date(m.started_at), boundaries)
   }
 
-  const total: RevenueBuckets = {
-    today: bookingBuckets.today + giftBuckets.today + memBuckets.today,
-    week: bookingBuckets.week + giftBuckets.week + memBuckets.week,
-    mtd: bookingBuckets.mtd + giftBuckets.mtd + memBuckets.mtd,
-    ytd: bookingBuckets.ytd + giftBuckets.ytd + memBuckets.ytd,
+  // Parse renewal amounts from admin_logs detail string: "birdie – John Smith sub=sub_xxx amount=$29.00"
+  for (const r of (renewalLogs ?? []) as Array<{ detail: string; created_at: string }>) {
+    const match = r.detail.match(/amount=\$([0-9.]+)/)
+    if (match) addToBuckets(renewalBuckets, parseFloat(match[1]), new Date(r.created_at), boundaries)
   }
 
-  return { bookings: bookingBuckets, giftCards: giftBuckets, memberships: memBuckets, total }
+  const total: RevenueBuckets = {
+    today: bookingBuckets.today + giftBuckets.today + memBuckets.today + renewalBuckets.today,
+    week: bookingBuckets.week + giftBuckets.week + memBuckets.week + renewalBuckets.week,
+    mtd: bookingBuckets.mtd + giftBuckets.mtd + memBuckets.mtd + renewalBuckets.mtd,
+    ytd: bookingBuckets.ytd + giftBuckets.ytd + memBuckets.ytd + renewalBuckets.ytd,
+  }
+
+  return { bookings: bookingBuckets, giftCards: giftBuckets, memberships: memBuckets, renewals: renewalBuckets, total }
 }
