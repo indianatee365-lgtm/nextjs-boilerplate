@@ -384,17 +384,33 @@ export async function POST(request: NextRequest) {
   // Membership creation is owned by payment_intent.succeeded. Renewals extend current_period_end
   // via customer.subscription.updated. We log here for an audit trail.
   if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object as Stripe.Invoice & { billing_reason?: string; subscription?: string; amount_paid?: number }
+    const invoice = event.data.object as Stripe.Invoice & { billing_reason?: string; subscription?: string; customer?: string; amount_paid?: number }
     const subId = invoice.subscription as string | undefined
+    const custId = invoice.customer as string | undefined
     const amount = ((invoice.amount_paid ?? 0) / 100).toFixed(2)
     let userInfo = "unknown"
-    if (subId) {
-      const { data: m } = await supabase
-        .from("memberships")
-        .select("user_id, plan_type, profiles(first_name, last_name)")
-        .eq("stripe_subscription_id", subId)
-        .maybeSingle()
-      const mm = m as { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+    // Try subscription ID first, fall back to customer ID if not found
+    {
+      type MemberRow = { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+      let mm: MemberRow = null
+      if (subId) {
+        const { data } = await supabase
+          .from("memberships")
+          .select("user_id, plan_type, profiles(first_name, last_name)")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle()
+        mm = data as MemberRow
+      }
+      if (!mm?.user_id && custId) {
+        const { data } = await supabase
+          .from("memberships")
+          .select("user_id, plan_type, profiles(first_name, last_name)")
+          .eq("stripe_customer_id", custId)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        mm = data as MemberRow
+      }
       if (mm?.user_id) {
         const name = [mm.profiles?.first_name, mm.profiles?.last_name].filter(Boolean).join(" ") || mm.user_id
         userInfo = `${mm.plan_type ?? "?"} – ${name}`
@@ -414,17 +430,32 @@ export async function POST(request: NextRequest) {
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string; customer?: string; amount_due?: number; attempt_count?: number; next_payment_attempt?: number }
     const subId = invoice.subscription as string | undefined
+    const custId = invoice.customer as string | undefined
     const amountDue = ((invoice.amount_due ?? 0) / 100).toFixed(2)
     const nextAttempt = invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000).toISOString().slice(0, 16) : "none"
 
     let userInfo = "unknown"
-    if (subId) {
-      const { data: m } = await supabase
-        .from("memberships")
-        .select("user_id, plan_type, profiles(first_name, last_name)")
-        .eq("stripe_subscription_id", subId)
-        .maybeSingle()
-      const mm = m as { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+    {
+      type MemberRow = { user_id?: string; plan_type?: string; profiles?: { first_name?: string; last_name?: string } | null } | null
+      let mm: MemberRow = null
+      if (subId) {
+        const { data } = await supabase
+          .from("memberships")
+          .select("user_id, plan_type, profiles(first_name, last_name)")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle()
+        mm = data as MemberRow
+      }
+      if (!mm?.user_id && custId) {
+        const { data } = await supabase
+          .from("memberships")
+          .select("user_id, plan_type, profiles(first_name, last_name)")
+          .eq("stripe_customer_id", custId)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        mm = data as MemberRow
+      }
       if (mm?.user_id) {
         const name = [mm.profiles?.first_name, mm.profiles?.last_name].filter(Boolean).join(" ") || mm.user_id
         userInfo = `${mm.plan_type ?? "?"} – ${name}`
