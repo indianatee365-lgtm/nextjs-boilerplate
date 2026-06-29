@@ -24,6 +24,7 @@ export default async function Header() {
         </Link>
         <nav className="flex items-center gap-1">
           <Link href="/about" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">About</Link>
+          <Link href="/events" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Events</Link>
           <Link href="/gift-cards" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Gift Cards</Link>
           <Link href="/founders" className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-sm font-semibold tracking-wide text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Founder&apos;s</Link>
           {user ? (
