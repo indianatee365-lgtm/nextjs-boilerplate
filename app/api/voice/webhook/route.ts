@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { sendInfoSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 
+const OWNER_PHONE = "+15749990622"
+
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "")
   if (digits.length === 10) return "+1" + digits
@@ -119,6 +121,40 @@ async function handleSendInfoSms(callerPhone: string): Promise<string> {
   }
 }
 
+async function handleCaptureEventLead(args: Record<string, string>, callerPhone: string): Promise<string> {
+  const name = args.name?.trim() || "unknown"
+  const eventType = args.event_type?.trim() || "unspecified"
+  const eventDate = args.event_date?.trim() || "unspecified"
+  const phone = args.phone?.trim() || callerPhone || "unknown"
+
+  const smsText = [
+    "Tee365 event lead:",
+    `Name: ${name}`,
+    `Type: ${eventType}`,
+    `Date: ${eventDate}`,
+    `Phone: ${phone}`,
+  ].join("\n")
+
+  try {
+    await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.TELNYX_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env.TELNYX_PHONE_NUMBER,
+        to: OWNER_PHONE,
+        text: smsText,
+      }),
+    })
+  } catch (err) {
+    console.error("[capture_event_lead] sms failed", err)
+  }
+
+  return "Got it. I have sent your information to Jerrod and I will transfer you to him now."
+}
+
 async function lookupCallerName(phone: string): Promise<string | null> {
   if (!phone || phone === "unknown") return null
   const supabase = await createServiceClient()
@@ -187,6 +223,7 @@ export async function POST(request: NextRequest) {
 
   if (msg.type === "tool-calls") {
     const results: { toolCallId: string; result: string }[] = []
+    const callerPhone: string = msg.call?.customer?.number ?? "unknown"
 
     for (const toolCall of msg.toolCallList ?? []) {
       const name: string = toolCall.function?.name
@@ -194,11 +231,13 @@ export async function POST(request: NextRequest) {
       let result = "Tool not found"
 
       if (name === "lookup_membership") {
-        result = await handleLookupMembership(args.phone || msg.call?.customer?.number || "")
+        result = await handleLookupMembership(args.phone || callerPhone)
       } else if (name === "lookup_upcoming_booking") {
-        result = await handleLookupUpcomingBooking(args.phone || msg.call?.customer?.number || "")
+        result = await handleLookupUpcomingBooking(args.phone || callerPhone)
       } else if (name === "send_info_sms") {
-        result = await handleSendInfoSms(msg.call?.customer?.number ?? "")
+        result = await handleSendInfoSms(callerPhone)
+      } else if (name === "capture_event_lead") {
+        result = await handleCaptureEventLead(args, callerPhone)
       }
 
       results.push({ toolCallId: toolCall.id, result })
