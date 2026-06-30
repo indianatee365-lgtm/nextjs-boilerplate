@@ -17,6 +17,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${base}/founders`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${base}/events`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${base}/gift-cards`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: `${base}/faq`,
       lastModified: new Date(),
       changeFrequency: "monthly",
@@ -32,7 +50,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${base}/contact`,
       lastModified: new Date(),
       changeFrequency: "yearly",
-      priority: 0.4,
+      priority: 0.5,
     },
     {
       url: `${base}/privacy`,

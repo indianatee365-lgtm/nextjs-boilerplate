@@ -3,8 +3,26 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "../join/JoinClient"
 
 export const metadata: Metadata = {
-  title: "Founder's Club | Tee365",
-  description: "Become one of the 100 founding members of Tee365.",
+  title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
+  description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+  alternates: {
+    canonical: "https://tee365.org/founders",
+  },
+  openGraph: {
+    type: "website",
+    title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
+    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    url: "https://tee365.org/founders",
+    images: [{ url: "https://tee365.org/hero.jpg" }],
+    siteName: "Tee365",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
+    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    images: ["https://tee365.org/hero.jpg"],
+  },
   robots: { index: true, follow: true },
 }
 

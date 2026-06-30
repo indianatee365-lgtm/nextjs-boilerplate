@@ -6,17 +6,22 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 
 const LOCAL_BUSINESS_SCHEMA = {
   "@context": "https://schema.org",
-  "@type": "LocalBusiness",
+  "@type": ["LocalBusiness", "SportsActivityLocation"],
   name: "Tee365",
   description:
-    "24/7 indoor golf simulator bays in South Bend, Indiana near Notre Dame and the Michiana region.",
+    "24/7 indoor golf simulator bays in Mishawaka, Indiana near Notre Dame and the Michiana region.",
   url: "https://tee365.org",
   logo: "https://tee365.org/favicon.ico",
   image: "https://tee365.org/hero.jpg",
+  telephone: "+15744449365",
+  email: "info@tee365.org",
+  priceRange: "$$",
   address: {
     "@type": "PostalAddress",
-    addressLocality: "South Bend",
+    streetAddress: "4615 Grape Rd",
+    addressLocality: "Mishawaka",
     addressRegion: "IN",
+    postalCode: "46545",
     addressCountry: "US",
   },
   geo: {
@@ -24,6 +29,12 @@ const LOCAL_BUSINESS_SCHEMA = {
     latitude: "41.6764",
     longitude: "-86.2520",
   },
+  areaServed: [
+    { "@type": "City", name: "South Bend" },
+    { "@type": "City", name: "Mishawaka" },
+    { "@type": "City", name: "Granger" },
+    { "@type": "City", name: "Notre Dame" },
+  ],
   openingHours: "Mo-Su 00:00-23:59",
   sameAs: [
     "https://www.instagram.com/tee365.mishawaka",

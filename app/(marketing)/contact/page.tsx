@@ -61,7 +61,7 @@ export default function ContactPage() {
               <a
                 href="https://www.instagram.com/tee365.mishawaka"
                 target="_blank"
-                rel="nofollow noreferrer noopener"
+                rel="noreferrer noopener"
                 className="flex items-center gap-3 text-sm text-neutral-300 transition hover:text-white"
               >
                 <Instagram size={16} />
@@ -70,7 +70,7 @@ export default function ContactPage() {
               <a
                 href="https://www.facebook.com/people/Tee365/61578292102933/"
                 target="_blank"
-                rel="nofollow noreferrer noopener"
+                rel="noreferrer noopener"
                 className="flex items-center gap-3 text-sm text-neutral-300 transition hover:text-white"
               >
                 <Facebook size={16} />
@@ -79,7 +79,7 @@ export default function ContactPage() {
               <a
                 href="https://www.tiktok.com/@tee36568"
                 target="_blank"
-                rel="nofollow noreferrer noopener"
+                rel="noreferrer noopener"
                 className="flex items-center gap-3 text-sm text-neutral-300 transition hover:text-white"
               >
                 <Music2 size={16} />

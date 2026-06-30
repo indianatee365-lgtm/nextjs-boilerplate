@@ -23,6 +23,38 @@ export const metadata: Metadata = {
   },
 };
 
+const EVENTS_SERVICE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  serviceType: "Indoor Golf Simulator Rental",
+  provider: {
+    "@type": "LocalBusiness",
+    name: "Tee365",
+    url: "https://tee365.org",
+    telephone: "+15744449365",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "4615 Grape Rd",
+      addressLocality: "Mishawaka",
+      addressRegion: "IN",
+      postalCode: "46545",
+      addressCountry: "US",
+    },
+  },
+  areaServed: { "@type": "City", name: "South Bend" },
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "Group Events and Private Bookings",
+    itemListElement: [
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Bachelor & Bachelorette Parties" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Corporate Events & Team Building" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Birthday Parties" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Group Outings" } },
+    ],
+  },
+};
+
+
 const events = [
   {
     label: "Bachelor & Bachelorette Parties",
@@ -49,6 +81,7 @@ const events = [
 export default function EventsPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-10 py-12">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(EVENTS_SERVICE_SCHEMA) }} />
       <header className="px-6 md:px-12">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">Group bookings &amp; private events</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Bring Your Group to Tee365</h1>
