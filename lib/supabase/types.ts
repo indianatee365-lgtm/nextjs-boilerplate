@@ -504,6 +504,36 @@ export type Database = {
         }
         Relationships: []
       }
+      event_leads: {
+        Row: {
+          caller_phone: string | null
+          created_at: string
+          event_date: string | null
+          event_type: string | null
+          id: string
+          name: string | null
+          phone: string | null
+        }
+        Insert: {
+          caller_phone?: string | null
+          created_at?: string
+          event_date?: string | null
+          event_type?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          caller_phone?: string | null
+          created_at?: string
+          event_date?: string | null
+          event_type?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
       gift_card_transactions: {
         Row: {
           amount: number

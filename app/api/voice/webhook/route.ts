@@ -127,6 +127,19 @@ async function handleCaptureEventLead(args: Record<string, string>, callerPhone:
   const eventDate = args.event_date?.trim() || "unspecified"
   const phone = args.phone?.trim() || callerPhone || "unknown"
 
+  try {
+    const supabase = await createServiceClient()
+    await supabase.from("event_leads").insert({
+      name,
+      event_type: eventType,
+      event_date: eventDate,
+      phone,
+      caller_phone: callerPhone || null,
+    })
+  } catch (err) {
+    console.error("[capture_event_lead] db insert failed", err)
+  }
+
   const smsText = [
     "Tee365 event lead:",
     `Name: ${name}`,
