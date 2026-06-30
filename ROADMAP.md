@@ -98,8 +98,8 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
   - **Architecture:** existing outer storefront doors stay → new interior aluminum + glass vestibule → Unifi Access Ultra keypad on inner door → 6-digit Unifi-issued PIN unlocks → bay floor.
   - **Brain:** Unifi UDM-Pro on site runs Network, Protect (camera NVR), and Access controllers. No separate server. Managed from existing labwork laptop.
   - **Ordering sequence (bench-first to limit risk):**
-    - [ ] **Phase 1A — bench gear (~$578).** UDM-Pro + Access Ultra + cheap strike + 24V PSU. Target: 2026-06-05
-    - [ ] **Bench test (6-check verification).** Pass = commit to Unifi. Fail = fall back to PDK; loss ~$50. Target: 2026-06-15
+    - [x] **Phase 1A — bench gear.** UDM-Pro + Access Ultra received 2026-06-14. API confirmed on UDM-Pro. Strike + 24V PSU not ordered yet (needed to complete bench test).
+    - [ ] **Bench test (6-check verification).** UDM-Pro API confirmed. Access Ultra set up, needs PoE - USW-Pro-24-PoE arriving week of 2026-06-16. Still need: cheap strike + 24V PSU to complete. Pass = commit to Unifi.
     - [ ] **Phase 1B — network spine (~$2,550).** USW-Pro-24-PoE + 3× U6-Pro + 2× 4TB IronWolf + APC 1500VA UPS + 12U rack. Only after bench passes. Target: 2026-06-15
     - [ ] **Get 3 glazier quotes** (Action Glass / Quality Glass / Glass Doctor) with HES 1006 + Access Ultra spec sheets attached. Target: 2026-06-15
     - [ ] **Site walk-through** — count cameras, confirm cable drop locations. Target: 2026-06-15
