@@ -5,7 +5,7 @@ export default function HeroFull() {
       <div className="absolute inset-0">
         <img
           src="/hero.jpg"
-          alt="Indoor golf simulator bay at Tee365 in South Bend, Indiana near Notre Dame"
+          alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
           className="h-full w-full object-cover object-[center_72%]"
           width="1920"
           height="1080"
@@ -24,8 +24,8 @@ export default function HeroFull() {
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">
             <span className="block">Indoor Golf Simulator</span>
-            <span className="block">in South Bend, Indiana</span>
-            <span className="block">Near Notre Dame and Mishawaka</span>
+            <span className="block">in Mishawaka, Indiana</span>
+            <span className="block">Near Notre Dame and South Bend</span>
           </h1>
 
           <h2 className="mt-4 text-2xl font-semibold tracking-tight text-emerald sm:text-3xl md:text-4xl leading-[1.1]">

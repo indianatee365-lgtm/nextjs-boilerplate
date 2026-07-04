@@ -44,17 +44,17 @@ const LOCAL_BUSINESS_SCHEMA = {
 };
 
 export const metadata: Metadata = {
-  title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
+  title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",
   description:
-    "Book a private 24/7 indoor golf simulator bay in South Bend, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
+    "Book a private 24/7 indoor golf simulator bay in Mishawaka, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
   alternates: {
     canonical: "https://tee365.org",
   },
   openGraph: {
     type: "website",
-    title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
+    title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",
     description:
-      "Book a private 24/7 indoor golf simulator bay in South Bend, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
+      "Book a private 24/7 indoor golf simulator bay in Mishawaka, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
     url: "https://tee365.org",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -62,9 +62,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Indoor Golf Simulator in South Bend Near Notre Dame | Tee365",
+    title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",
     description:
-      "Book a private 24/7 indoor golf simulator bay in South Bend, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
+      "Book a private 24/7 indoor golf simulator bay in Mishawaka, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
     images: ["https://tee365.org/hero.jpg"],
   },
   robots: {

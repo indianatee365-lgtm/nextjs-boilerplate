@@ -41,7 +41,7 @@ export default function LocalSEO() {
             href="/indoor-golf-simulator-south-bend"
             className="text-lg font-semibold text-emerald hover:underline"
           >
-            Learn more about indoor golf simulators in South Bend →
+            Learn more about indoor golf simulators in Mishawaka →
           </Link>
         </div>
       </div>

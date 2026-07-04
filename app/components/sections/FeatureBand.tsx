@@ -57,7 +57,7 @@ export default function FeatureBand() {
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40">
             <img
               src="/hero.jpg"
-              alt="Indoor golf simulator bay at Tee365 in South Bend, Indiana near Notre Dame"
+              alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
               className="h-[320px] w-full object-cover md:h-[420px]"
               width="1920"
               height="1080"
