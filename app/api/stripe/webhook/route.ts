@@ -215,6 +215,15 @@ export async function POST(request: NextRequest) {
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
 
+    // Subscription invoices are already handled by invoice.payment_succeeded
+    if (paymentIntent.invoice) {
+      return NextResponse.json({ received: true })
+    }
+    // Typed payments (reschedule, gift_card, membership) already handled above
+    if (paymentIntent.metadata?.type) {
+      return NextResponse.json({ received: true })
+    }
+
     const { data: booking } = await supabase
       .from("bookings")
       .update({
@@ -235,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     if (!booking) {
       console.error("Booking not found for payment intent", paymentIntent.id)
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+      return NextResponse.json({ received: true })
     }
 
     const profile = booking.profiles as { first_name: string; last_name: string; phone: string | null; sms_consent: boolean } | null
