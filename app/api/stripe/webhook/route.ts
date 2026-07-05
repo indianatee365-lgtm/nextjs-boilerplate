@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === "payment_intent.succeeded") {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent
+    const paymentIntent = event.data.object as Stripe.PaymentIntent & { invoice?: string | null }
 
     // Subscription invoices are already handled by invoice.payment_succeeded
     if (paymentIntent.invoice) {
