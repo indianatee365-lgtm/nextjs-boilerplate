@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).from("admin_logs").insert({ event: "membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"} pi=${_pi.id}` })
+      await supabase.from("profiles").update({ stripe_customer_id }).eq("id", user_id)
 
       const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
 
