@@ -35,8 +35,8 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   const body = {
     first_name:   grant.firstName || "Customer",
     last_name:    grant.lastName  || `Bay ${grant.bayName}`,
-    start_time:   Math.floor(grant.startsAt.getTime() / 1000),
-    end_time:     Math.floor(grant.endsAt.getTime() / 1000),
+    start_time:   grant.startsAt.getTime(),
+    end_time:     grant.endsAt.getTime(),
     visit_reason: "Others",
     mobile_phone: grant.phone,
     remarks:      `Booking ${grant.bookingId} - ${grant.bayName}`,
