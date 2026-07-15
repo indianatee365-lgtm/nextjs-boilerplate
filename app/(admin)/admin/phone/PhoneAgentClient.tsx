@@ -98,10 +98,10 @@ function CallRow({ call }: { call: CallLog }) {
               </pre>
             </div>
           )}
-          {call.recording_url && (
+          {call.recording_url && call.vapi_call_id && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-2">Recording</p>
-              <audio controls src={call.recording_url} className="w-full h-10" />
+              <audio controls src={`/api/admin/vapi-recording/${call.vapi_call_id}`} className="w-full h-10" />
             </div>
           )}
           {!call.summary && !call.transcript && !call.recording_url && (
