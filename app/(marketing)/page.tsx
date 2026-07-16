@@ -1,5 +1,6 @@
 import HeroFull from "@/app/components/sections/HeroFull"
 import HowItWorks from "@/app/components/sections/HowItWorks"
+import TechBand from "@/app/components/sections/TechBand"
 import FeatureBand from "@/app/components/sections/FeatureBand"
 import Info from "@/app/components/sections/Info"
 import LocalSEO from "@/app/components/sections/LocalSEO"
@@ -15,6 +16,7 @@ export default function HomePage() {
       <PageContainer>
         <div className="space-y-16">
           <HowItWorks />
+          <TechBand />
           <LocalSEO />
           <FeatureBand />
           <div id="waitlist" className="scroll-mt-20">

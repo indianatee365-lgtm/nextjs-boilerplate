@@ -79,6 +79,22 @@ export default function FAQPage() {
       },
       {
         "@type": "Question",
+        name: "What launch monitor technology does Tee365 use?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Every bay runs on the Uneekor XR, an overhead camera-based launch monitor and swing analysis system. It tracks 19 data points per swing, club speed, face angle, path, spin, carry, and more, with no stickers or marked balls required. Full breakdown on our Technology page.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is it as good as Trackman?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "It's the same class of technology, built specifically for an indoor bay. Trackman and other radar-based systems were designed for outdoor range use and can be more sensitive to bay depth indoors. The Uneekor XR reads the ball and club directly from overhead at impact, so you get comparable data (club speed, spin, path, launch angle, and more) without needing the extra room a radar signal wants.",
+        },
+      },
+      {
+        "@type": "Question",
         name: "Is there an age requirement? ",
         acceptedAnswer: {
           "@type": "Answer",
@@ -186,6 +202,8 @@ export default function FAQPage() {
             { q: "Will there be staff at Tee365?", a: "Tee365 is designed to be a fully autonomous facility, reducing the need for staff. There will be resources available to help with any issue that could foreseeably arise." },
             { q: "Do I bring my own golf clubs?", a: "Yes you bring your own clubs. We expect that you leave the bay in the same condition you found it, so please clean your clubs and shoes prior to using the simulator bay." },
             { q: "Does Tee365 offer rental clubs?", a: "We at Tee365 want to make golf as accessible as possible. While we do not aim to offer rental clubs, we look to offer a small selection of clubs for use by those that do not have clubs of their own, or do not have clubs with them." },
+            { q: "What launch monitor technology does Tee365 use?", a: "Every bay runs on the Uneekor XR, an overhead camera-based launch monitor and swing analysis system. It tracks 19 data points per swing, club speed, face angle, path, spin, carry, and more, with no stickers or marked balls required. Full breakdown on our Technology page." },
+            { q: "Is it as good as Trackman?", a: "It's the same class of technology, built specifically for an indoor bay. Trackman and other radar-based systems were designed for outdoor range use and can be more sensitive to bay depth indoors. The Uneekor XR reads the ball and club directly from overhead at impact, so you get comparable data (club speed, spin, path, launch angle, and more) without needing the extra room a radar signal wants." },
             { q: "Is there an age requirement?", a: "Minimum age for public booking is 18. Exceptions will be made for members and high school partners." },
             { q: "How many players are allowed in each bay per booking?", a: "4 players per bay is the recommended maximum." },
             { q: "How long should I book a bay for?", a: "2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip: if you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half." },

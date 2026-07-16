@@ -69,6 +69,7 @@ export default function IndoorGolfSimulatorSouthBendPage() {
             <li>• Practice year-round</li>
             <li>• Play full rounds in less time</li>
             <li>• Private bays for focus and comfort</li>
+            <li>• Uneekor XR overhead tracking in every bay</li>
             <li>• Minutes from Notre Dame</li>
           </ul>
         </div>
@@ -87,6 +88,11 @@ export default function IndoorGolfSimulatorSouthBendPage() {
       <section className="mt-14 max-w-3xl">
         <h2 className="text-2xl font-semibold tracking-tight text-white">Near Notre Dame and Michiana</h2>
         <p className="mt-4 text-base leading-7 text-neutral-200">Tee365 is located in Mishawaka, right in the heart of Michiana and minutes from Notre Dame. It's a convenient indoor golf option for students, alumni, and local golfers looking for a reliable place to practice through winter and early spring.</p>
+      </section>
+
+      <section className="mt-14 max-w-3xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-white">Real tracking technology</h2>
+        <p className="mt-4 text-base leading-7 text-neutral-200">Every bay runs on the Uneekor XR, an overhead camera system built specifically for indoor simulator spaces, giving serious golfers tour-level feedback without needing the open range space a radar-based system wants. See the <a href="/technology" className="underline hover:text-white">full breakdown</a>.</p>
       </section>
 
       <section className="mt-14 max-w-3xl">
