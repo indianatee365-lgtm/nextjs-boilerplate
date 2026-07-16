@@ -194,8 +194,12 @@ async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
       ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
       : null
 
+    if (durationSeconds === null) {
+      console.warn("[voice/webhook] duration unavailable", { callId: call?.id, startedAt, endedAt })
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("call_logs").insert({
+    const { error } = await (supabase as any).from("call_logs").insert({
       vapi_call_id: call?.id as string ?? null,
       caller_phone: callerPhone !== "unknown" ? normalizePhone(callerPhone) : null,
       caller_name: callerName,
@@ -207,6 +211,10 @@ async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
       transcript: artifact?.transcript as string ?? null,
       recording_url: artifact?.recordingUrl as string ?? null,
     })
+
+    if (error) {
+      console.error("[voice/webhook] call_logs insert error", { callId: call?.id, error })
+    }
   } catch (err) {
     console.error("[voice/webhook] failed to persist call log", err)
   }
