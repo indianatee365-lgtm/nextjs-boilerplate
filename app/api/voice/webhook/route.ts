@@ -180,7 +180,52 @@ async function lookupCallerName(phone: string): Promise<string | null> {
   return [data.first_name, data.last_name].filter(Boolean).join(" ") || null
 }
 
-async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
+// The end-of-call-report webhook's call object omits startedAt/endedAt in
+// practice (despite Vapi's own docs listing them), so duration always came
+// through as unknown. Vapi's REST API returns them reliably, so fall back
+// to a direct fetch when the webhook didn't include them.
+async function fetchVapiCallTimes(callId: string): Promise<{ startedAt?: string; endedAt?: string }> {
+  const apiKey = process.env.VAPI_API_KEY
+  if (!apiKey) return {}
+  try {
+    const res = await fetch(`https://api.vapi.ai/call/${callId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!res.ok) return {}
+    const data = await res.json()
+    return { startedAt: data.startedAt, endedAt: data.endedAt }
+  } catch {
+    return {}
+  }
+}
+
+async function resolveCallTimes(
+  call: Record<string, unknown> | undefined
+): Promise<{ startedAt?: string; endedAt?: string; durationSeconds: number | null }> {
+  let startedAt = call?.startedAt as string | undefined
+  let endedAt = call?.endedAt as string | undefined
+
+  if ((!startedAt || !endedAt) && call?.id) {
+    const fetched = await fetchVapiCallTimes(call.id as string)
+    startedAt = startedAt ?? fetched.startedAt
+    endedAt = endedAt ?? fetched.endedAt
+  }
+
+  const durationSeconds = startedAt && endedAt
+    ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+    : null
+
+  if (durationSeconds === null) {
+    console.warn("[voice/webhook] duration unavailable", { callId: call?.id, startedAt, endedAt })
+  }
+
+  return { startedAt, endedAt, durationSeconds }
+}
+
+async function persistCallLog(
+  msg: Record<string, unknown>,
+  times: { startedAt?: string; endedAt?: string; durationSeconds: number | null }
+): Promise<void> {
   try {
     const supabase = await createServiceClient()
     const call = msg.call as Record<string, unknown> | undefined
@@ -188,24 +233,14 @@ async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
     const callerPhone = (call?.customer as Record<string, unknown> | undefined)?.number as string ?? "unknown"
     const callerName = await lookupCallerName(callerPhone)
 
-    const startedAt = call?.startedAt as string | undefined
-    const endedAt = call?.endedAt as string | undefined
-    const durationSeconds = startedAt && endedAt
-      ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
-      : null
-
-    if (durationSeconds === null) {
-      console.warn("[voice/webhook] duration unavailable", { callId: call?.id, startedAt, endedAt })
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any).from("call_logs").insert({
       vapi_call_id: call?.id as string ?? null,
       caller_phone: callerPhone !== "unknown" ? normalizePhone(callerPhone) : null,
       caller_name: callerName,
-      started_at: startedAt ?? null,
-      ended_at: endedAt ?? null,
-      duration_seconds: durationSeconds,
+      started_at: times.startedAt ?? null,
+      ended_at: times.endedAt ?? null,
+      duration_seconds: times.durationSeconds,
       ended_reason: msg.endedReason as string ?? null,
       summary: msg.summary as string ?? null,
       transcript: artifact?.transcript as string ?? null,
@@ -280,15 +315,14 @@ export async function POST(request: NextRequest) {
 
   if (msg.type === "end-of-call-report") {
     const callerPhone = msg.call?.customer?.number ?? "unknown"
-    await persistCallLog(msg)
+    const times = await resolveCallTimes(msg.call)
+    await persistCallLog(msg, times)
     await forwardToN8n({
       type: "vapi-call-ended",
       callId: msg.call?.id,
       caller: callerPhone,
       callerName: await lookupCallerName(callerPhone),
-      durationSeconds: msg.call?.endedAt && msg.call?.startedAt
-        ? Math.round((new Date(msg.call.endedAt).getTime() - new Date(msg.call.startedAt).getTime()) / 1000)
-        : null,
+      durationSeconds: times.durationSeconds,
       summary: msg.summary ?? null,
       transcript: msg.artifact?.transcript ?? null,
       recordingUrl: buildRecordingLink(msg.call?.id),
