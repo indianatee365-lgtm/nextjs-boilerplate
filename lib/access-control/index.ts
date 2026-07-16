@@ -41,8 +41,8 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
     body: JSON.stringify({
       first_name:   grant.firstName || "Customer",
       last_name:    grant.lastName  || `Bay ${grant.bayName}`,
-      start_time:   grant.startsAt.getTime(),
-      end_time:     grant.endsAt.getTime(),
+      start_time:   Math.floor(grant.startsAt.getTime() / 1000),
+      end_time:     Math.floor(grant.endsAt.getTime() / 1000),
       visit_reason: "Others",
       mobile_phone: grant.phone,
       remarks:      `Booking ${grant.bookingId} - ${grant.bayName}`,
