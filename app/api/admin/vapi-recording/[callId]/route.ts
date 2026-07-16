@@ -12,15 +12,26 @@ async function assertAdmin() {
   return profile?.role === "admin"
 }
 
+// Lets links generated outside a logged-in browser session (the Telegram call
+// recap, sent via n8n) through, without requiring the admin dashboard's login.
+function hasValidLinkToken(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get("token")
+  const secret = process.env.VAPI_RECORDING_LINK_SECRET
+  return Boolean(token && secret && token === secret)
+}
+
 // Vapi now requires authenticated requests to fetch call recordings (public
 // recordingUrl values stop working July 2026). This proxies the admin UI's
-// <audio> requests through an authenticated Vapi call and redirects to the
-// short-lived signed URL Vapi returns.
+// <audio> requests, and the recording link sent to Telegram, through an
+// authenticated Vapi call and redirects to the short-lived signed URL Vapi
+// returns.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ callId: string }> }
 ) {
-  if (!await assertAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!hasValidLinkToken(request) && !await assertAdmin()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const apiKey = process.env.VAPI_API_KEY
   if (!apiKey) {

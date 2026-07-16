@@ -212,6 +212,17 @@ async function persistCallLog(msg: Record<string, unknown>): Promise<void> {
   }
 }
 
+// Vapi's raw recordingUrl requires an authenticated request as of July 2026
+// and can't be opened directly from a Telegram notification. Point the
+// recap at our own proxy instead, authenticated with a shared secret since
+// there's no logged-in admin session when this link gets clicked from Telegram.
+function buildRecordingLink(callId?: string): string | null {
+  if (!callId) return null
+  const secret = process.env.VAPI_RECORDING_LINK_SECRET
+  if (!secret) return null
+  return `https://tee365.org/api/admin/vapi-recording/${callId}?token=${secret}`
+}
+
 async function forwardToN8n(payload: unknown): Promise<void> {
   const url = process.env.N8N_VOICE_WEBHOOK_URL
   if (!url) return
@@ -272,7 +283,7 @@ export async function POST(request: NextRequest) {
         : null,
       summary: msg.summary ?? null,
       transcript: msg.artifact?.transcript ?? null,
-      recordingUrl: msg.artifact?.recordingUrl ?? null,
+      recordingUrl: buildRecordingLink(msg.call?.id),
       endedReason: msg.endedReason ?? null,
     })
   }
