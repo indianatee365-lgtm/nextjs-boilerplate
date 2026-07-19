@@ -5,6 +5,7 @@ import { logout } from "@/app/actions/auth"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
+import HourCreditsSection from "./HourCreditsSection"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 
@@ -28,7 +29,8 @@ export default async function AccountPage({
 
   const serviceClient = await createServiceClient()
 
-  const [{ data: profile }, { data: membership }, { data: upcomingBookings }] =
+  const nowIso = new Date().toISOString()
+  const [{ data: profile }, { data: membership }, { data: upcomingBookings }, { data: hourCredits }] =
     await Promise.all([
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
       serviceClient
@@ -45,7 +47,19 @@ export default async function AccountPage({
         .in("status", ["confirmed", "pending"])
         .order("starts_at")
         .limit(5),
+      serviceClient
+        .from("hour_credits")
+        .select("hours_remaining, expires_at")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .gt("hours_remaining", 0)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .order("expires_at", { ascending: true, nullsFirst: false }),
     ])
+
+  const creditRows = (hourCredits ?? []) as { hours_remaining: number; expires_at: string | null }[]
+  const availableCreditHours = creditRows.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
+  const nextCreditExpiry = creditRows.find((c) => c.expires_at)?.expires_at ?? null
 
   // Fetch saved payment methods from Stripe
   const stripeCustomerId = (profile as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null
@@ -161,6 +175,9 @@ export default async function AccountPage({
           </Link>
         </div>
       )}
+
+      {/* Free hours balance + code redemption */}
+      <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} />
 
       {/* Quick actions */}
       <div className="mt-6 grid grid-cols-3 gap-3">

@@ -141,6 +141,8 @@ export type Database = {
           coupon_discount: number
           coupon_id: string | null
           created_at: string
+          credit_discount: number
+          credit_hours_applied: number
           discount_percent_applied: number | null
           duration_minutes: number
           ends_at: string
@@ -178,6 +180,8 @@ export type Database = {
           coupon_discount?: number
           coupon_id?: string | null
           created_at?: string
+          credit_discount?: number
+          credit_hours_applied?: number
           discount_percent_applied?: number | null
           duration_minutes: number
           ends_at: string
@@ -215,6 +219,8 @@ export type Database = {
           coupon_discount?: number
           coupon_id?: string | null
           created_at?: string
+          credit_discount?: number
+          credit_hours_applied?: number
           discount_percent_applied?: number | null
           duration_minutes?: number
           ends_at?: string
@@ -617,6 +623,112 @@ export type Database = {
           stripe_payment_id?: string | null
         }
         Relationships: []
+      }
+      hour_credit_uses: {
+        Row: {
+          booking_id: string
+          created_at: string
+          hour_credit_id: string
+          hours_used: number
+          id: string
+          user_id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          hour_credit_id: string
+          hours_used: number
+          id?: string
+          user_id: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          hour_credit_id?: string
+          hours_used?: number
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hour_credit_uses_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hour_credit_uses_hour_credit_id_fkey"
+            columns: ["hour_credit_id"]
+            isOneToOne: false
+            referencedRelation: "hour_credits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hour_credit_uses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hour_credits: {
+        Row: {
+          active: boolean
+          code: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          hours: number
+          hours_remaining: number
+          id: string
+          reason: string | null
+          redeemed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          hours: number
+          hours_remaining: number
+          id?: string
+          reason?: string | null
+          redeemed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          hours?: number
+          hours_remaining?: number
+          id?: string
+          reason?: string | null
+          redeemed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hour_credits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hour_credits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       league_participants: {
         Row: {

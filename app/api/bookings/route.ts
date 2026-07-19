@@ -7,6 +7,7 @@ import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
+import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds } = body
+    const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds, applyHourCredits } = body
 
     // Validate inputs
     if (!bayId || !startsAt || !durationMinutes) {
@@ -187,6 +188,13 @@ export async function POST(request: NextRequest) {
       giftCardBalance = Number(giftCard.balance)
     }
 
+    // Hour credits: applied automatically when the client opts in (default in the UI)
+    let creditHours = 0
+    if (applyHourCredits === true) {
+      const credits = await getAvailableHourCredits(serviceClient, user.id)
+      creditHours = Math.min(sumCreditHours(credits), durationMinutes / 60)
+    }
+
     // Calculate price
     const pricing = calculateBookingPrice({
       pricePerHour,
@@ -195,6 +203,7 @@ export async function POST(request: NextRequest) {
       couponDiscountType,
       couponDiscountValue,
       giftCardBalance,
+      creditHours,
       context,
     })
 
@@ -218,6 +227,8 @@ export async function POST(request: NextRequest) {
           coupon_discount: pricing.couponDiscount,
           tax: pricing.tax,
           gift_card_applied: pricing.giftCardApplied,
+          credit_hours_applied: pricing.creditHoursApplied,
+          credit_discount: pricing.creditDiscount,
           total: pricing.total,
           membership_id: membershipId,
           coupon_id: couponId,
@@ -251,6 +262,11 @@ export async function POST(request: NextRequest) {
         await serviceClient.from("coupon_uses").insert({
           coupon_id: couponId, user_id: user.id, booking_id: booking.id,
         })
+      }
+
+      // Deduct hour credits (paid bookings do this in the Stripe webhook instead)
+      if (pricing.creditHoursApplied > 0) {
+        await consumeHourCredits(serviceClient, user.id, booking.id, pricing.creditHoursApplied)
       }
 
       // Deduct gift card balance
@@ -298,6 +314,7 @@ export async function POST(request: NextRequest) {
             subtotal: pricing.subtotal, membershipDiscount: pricing.membershipDiscount,
             couponDiscount: pricing.couponDiscount, tax: pricing.tax,
             giftCardApplied: pricing.giftCardApplied, total: pricing.total,
+            hourCreditDiscount: pricing.creditDiscount,
           })
           await logEvent(serviceClient, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email} path=free`)
         } catch (e) {
@@ -400,6 +417,8 @@ export async function POST(request: NextRequest) {
         coupon_discount: pricing.couponDiscount,
         tax: pricing.tax,
         gift_card_applied: pricing.giftCardApplied,
+        credit_hours_applied: pricing.creditHoursApplied,
+        credit_discount: pricing.creditDiscount,
         total: pricing.total,
         membership_id: membershipId,
         coupon_id: couponId,

@@ -90,6 +90,7 @@ export default function BookingFlow({
   userName,
   disclosures,
   isAuthenticated,
+  availableCreditHours = 0,
 }: {
   bays: Bay[]
   advanceDays: number
@@ -97,6 +98,7 @@ export default function BookingFlow({
   userName: string
   disclosures: Disclosure[]
   isAuthenticated: boolean
+  availableCreditHours?: number
 }) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("date")
@@ -106,6 +108,7 @@ export default function BookingFlow({
   const [selectedDuration, setSelectedDuration] = useState(60)
   const [couponCode, setCouponCode] = useState("")
   const [giftCardCode, setGiftCardCode] = useState("")
+  const [useFreeHours, setUseFreeHours] = useState(true)
   const [availability, setAvailability] = useState<BayAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(new Date())
@@ -234,6 +237,7 @@ export default function BookingFlow({
           durationMinutes: selectedDuration,
           couponCode: couponCode || undefined,
           giftCardCode: giftCardCode || undefined,
+          applyHourCredits: useFreeHours && availableCreditHours > 0,
           disclosureIds: Array.from(acknowledgedDisclosures),
         }),
       })
@@ -353,6 +357,7 @@ export default function BookingFlow({
     ? calculateBookingPrice({
         pricePerHour: selectedStart.pricePerHour,
         durationMinutes: selectedDuration,
+        creditHours: useFreeHours ? availableCreditHours : 0,
         context: getPricingContext(new Date(selectedStart.startsAt)),
       })
     : null
@@ -604,6 +609,12 @@ export default function BookingFlow({
               <span>Subtotal</span>
               <span>${pricingPreview.subtotal.toFixed(2)}</span>
             </div>
+            {pricingPreview.creditDiscount > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Free hours ({pricingPreview.creditHoursApplied} hr{pricingPreview.creditHoursApplied !== 1 ? "s" : ""})</span>
+                <span>−${pricingPreview.creditDiscount.toFixed(2)}</span>
+              </div>
+            )}
             {pricingPreview.membershipDiscount > 0 && (
               <div className="flex justify-between text-green-400">
                 <span>Member discount</span>
@@ -611,6 +622,22 @@ export default function BookingFlow({
               </div>
             )}
           </div>
+
+          {/* Free hour credits toggle */}
+          {availableCreditHours > 0 && (
+            <div className="mt-5 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3">
+              <label className="flex cursor-pointer items-center gap-3 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={useFreeHours}
+                  onChange={(e) => setUseFreeHours(e.target.checked)}
+                  disabled={!!reservedBooking}
+                  className="h-4 w-4 rounded border-white/20 bg-white/10 accent-brand"
+                />
+                Use my free hours ({availableCreditHours} hr{availableCreditHours !== 1 ? "s" : ""} available)
+              </label>
+            </div>
+          )}
 
           {/* Coupon / gift card disabled once reserved */}
           <div className="mt-5">

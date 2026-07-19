@@ -43,6 +43,8 @@ export interface BookingPrice {
   pricePerHour: number
   durationHours: number
   subtotal: number
+  creditHoursApplied: number
+  creditDiscount: number
   membershipDiscount: number
   couponDiscount: number
   taxableAmount: number
@@ -99,6 +101,7 @@ export function calculateBookingPrice({
   couponDiscountType,
   couponDiscountValue = 0,
   giftCardBalance = 0,
+  creditHours = 0,
   context,
 }: {
   pricePerHour: number
@@ -107,16 +110,25 @@ export function calculateBookingPrice({
   couponDiscountType?: "percent" | "fixed"
   couponDiscountValue?: number
   giftCardBalance?: number
+  creditHours?: number
   context: PricingContext
 }): BookingPrice {
   const durationHours = durationMinutes / 60
   const subtotal = parseFloat((pricePerHour * durationHours).toFixed(2))
 
+  // Hour credits come off the top: they reduce billable time at the slot's rate,
+  // so all percentage discounts below only apply to hours actually being paid for.
+  const creditHoursApplied = Math.min(creditHours, durationHours)
+  const creditDiscount = parseFloat(
+    Math.min(pricePerHour * creditHoursApplied, subtotal).toFixed(2)
+  )
+  const afterCredits = subtotal - creditDiscount
+
   // Membership discount applied first
   const membershipDiscount = parseFloat(
-    ((subtotal * membershipDiscountPercent) / 100).toFixed(2)
+    ((afterCredits * membershipDiscountPercent) / 100).toFixed(2)
   )
-  const afterMembership = subtotal - membershipDiscount
+  const afterMembership = afterCredits - membershipDiscount
 
   // Coupon discount applied after membership
   let couponDiscount = 0
@@ -144,6 +156,8 @@ export function calculateBookingPrice({
     pricePerHour,
     durationHours,
     subtotal,
+    creditHoursApplied,
+    creditDiscount,
     membershipDiscount,
     couponDiscount,
     taxableAmount,
