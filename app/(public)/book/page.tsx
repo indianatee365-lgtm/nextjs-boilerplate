@@ -54,7 +54,8 @@ export default async function BookPage() {
     advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
   }
 
-  const [{ data: bays }, { data: disclosures }] = await Promise.all([
+  const nowIso = new Date().toISOString()
+  const [{ data: bays }, { data: disclosures }, { data: hourCredits }] = await Promise.all([
     serviceClient
       .from("bays")
       .select("id, number, name")
@@ -65,7 +66,17 @@ export default async function BookPage() {
       .select("id, title, body")
       .eq("active", true)
       .order("created_at"),
+    serviceClient
+      .from("hour_credits")
+      .select("hours_remaining")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .gt("hours_remaining", 0)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
   ])
+
+  const availableCreditHours = (hourCredits ?? []).reduce(
+    (sum, c) => sum + Number((c as { hours_remaining: number }).hours_remaining), 0)
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -80,6 +91,7 @@ export default async function BookPage() {
         userName={userName}
         disclosures={disclosures ?? []}
         isAuthenticated={!!user}
+        availableCreditHours={availableCreditHours}
       />
     </main>
   )

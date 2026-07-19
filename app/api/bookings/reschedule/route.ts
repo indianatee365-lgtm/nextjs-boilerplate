@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const { data: booking } = await serviceClient
       .from("bookings")
-      .select("id, user_id, status, starts_at, duration_minutes, total")
+      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied")
       .eq("id", bookingId)
       .eq("user_id", user.id)
       .single()
@@ -104,8 +104,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Price the new slot with the original booking's hour credits still applied,
+    // so the delta only reflects the rate difference, never lost free hours.
     const newPricing = calculateBookingPrice({
       pricePerHour, durationMinutes, membershipDiscountPercent, context,
+      creditHours: Number((booking as { credit_hours_applied?: number }).credit_hours_applied ?? 0),
     })
 
     const originalTotal = Number(booking.total)

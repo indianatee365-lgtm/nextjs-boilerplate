@@ -6,6 +6,7 @@ import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmatio
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
+import { consumeHourCredits } from "@/lib/hour-credits"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -238,6 +239,7 @@ export async function POST(request: NextRequest) {
         id, user_id, bay_id, starts_at, ends_at,
         subtotal, tax, total, coupon_discount, membership_discount,
         coupon_id, gift_card_id, gift_card_applied,
+        credit_hours_applied, credit_discount,
         bays(name),
         profiles!user_id(first_name, last_name, phone, sms_consent)
       `)
@@ -253,6 +255,7 @@ export async function POST(request: NextRequest) {
     const b = booking as typeof booking & {
       subtotal: number; tax: number; total: number
       coupon_discount: number; membership_discount: number; gift_card_applied: number
+      credit_hours_applied: number; credit_discount: number
     }
 
     // Record coupon use
@@ -288,6 +291,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Deduct hour credits (idempotent: webhook retries are guarded inside)
+    if (Number(b.credit_hours_applied) > 0) {
+      await consumeHourCredits(supabase, booking.user_id, booking.id, Number(b.credit_hours_applied))
+    }
+
     // Send confirmation SMS: access code will be sent separately 15 min before session
     if (profile?.phone && profile.sms_consent && bay) {
       try {
@@ -321,6 +329,7 @@ export async function POST(request: NextRequest) {
           tax: Number(b.tax ?? 0),
           giftCardApplied: Number(b.gift_card_applied ?? 0),
           total: Number(b.total ?? 0),
+          hourCreditDiscount: Number(b.credit_discount ?? 0),
         })
         await logEvent(supabase, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email}`)
       } catch (emailError) {

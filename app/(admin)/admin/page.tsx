@@ -122,6 +122,7 @@ export default async function AdminPage() {
           { href: "/admin/users", icon: <UserCircle size={16} />, label: "Users" },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
+          { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },
           { href: "/admin/phone", icon: <Phone size={16} />, label: "Phone Agent" },
         ].map((item) => (
           <Link

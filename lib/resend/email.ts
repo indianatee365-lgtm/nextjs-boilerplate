@@ -104,6 +104,7 @@ function buildEmailHtml({
   tax,
   giftCardApplied,
   total,
+  hourCreditDiscount = 0,
 }: {
   firstName: string
   bayName: string
@@ -115,6 +116,7 @@ function buildEmailHtml({
   tax: number
   giftCardApplied: number
   total: number
+  hourCreditDiscount?: number
 }): string {
   const dateStr = startsAt.toLocaleDateString("en-US", {
     weekday: "long",
@@ -136,6 +138,7 @@ function buildEmailHtml({
 
   const lines = [
     lineItem("Subtotal", fmt(subtotal)),
+    hourCreditDiscount > 0 ? lineItem("Free hours applied", `−${fmt(hourCreditDiscount)}`, true) : "",
     membershipDiscount > 0 ? lineItem("Member discount", `−${fmt(membershipDiscount)}`, true) : "",
     couponDiscount > 0 ? lineItem("Coupon discount", `−${fmt(couponDiscount)}`, true) : "",
     tax > 0 ? lineItem("Indiana sales tax (7%)", fmt(tax)) : "",
@@ -226,6 +229,7 @@ export async function sendBookingConfirmationEmail({
   tax,
   giftCardApplied,
   total,
+  hourCreditDiscount = 0,
 }: {
   to: string
   firstName: string
@@ -238,6 +242,7 @@ export async function sendBookingConfirmationEmail({
   tax: number
   giftCardApplied: number
   total: number
+  hourCreditDiscount?: number
 }) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -260,6 +265,7 @@ export async function sendBookingConfirmationEmail({
         tax,
         giftCardApplied,
         total,
+        hourCreditDiscount,
       }),
     }),
   })

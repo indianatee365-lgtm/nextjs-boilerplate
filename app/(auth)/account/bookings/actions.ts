@@ -7,6 +7,7 @@ import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
+import { restoreHourCredits, moveHourCreditUses } from "@/lib/hour-credits"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -61,6 +62,13 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
     })
     .eq("id", bookingId)
 
+  // Hour credits follow the same forfeit rules as dollars: refund-eligible cancels
+  // get their hours back; inside the forfeit window they are lost. Pending bookings
+  // never consumed credits, so restoring is a safe no-op there.
+  if (refundEligible || b.status === "pending") {
+    await restoreHourCredits(serviceClient, bookingId)
+  }
+
   return { refunded: refundEligible }
 }
 
@@ -87,7 +95,7 @@ export async function finalizeReschedule({
 
   const { data: original } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id")
+    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied")
     .eq("id", originalBookingId)
     .eq("user_id", user.id)
     .single()
@@ -148,8 +156,13 @@ export async function finalizeReschedule({
     }
   }
 
+  // Carry the original booking's hour credits over so rescheduling never costs the
+  // customer their free hours; value is recomputed at the new slot's rate.
+  const carriedCreditHours = Number((original as { credit_hours_applied?: number }).credit_hours_applied ?? 0)
+
   const newPricing = calculateBookingPrice({
     pricePerHour, durationMinutes: original.duration_minutes, membershipDiscountPercent, context,
+    creditHours: carriedCreditHours,
   })
 
   // Final conflict check (race condition guard)
@@ -186,6 +199,8 @@ export async function finalizeReschedule({
       coupon_discount: 0,
       tax: newPricing.tax,
       gift_card_applied: 0,
+      credit_hours_applied: newPricing.creditHoursApplied,
+      credit_discount: newPricing.creditDiscount,
       total: newPricing.total,
       membership_id: membershipId,
       paid_at: new Date().toISOString(),
@@ -196,6 +211,12 @@ export async function finalizeReschedule({
     .single()
 
   if (!newBooking) throw new Error("Failed to create rescheduled booking")
+
+  // Keep credit usage attached to the live booking so a later cancellation
+  // restores the right hours.
+  if (carriedCreditHours > 0) {
+    await moveHourCreditUses(serviceClient, originalBookingId, newBooking.id)
+  }
 
   // Send confirmation notifications
   const [{ data: profile }, { data: bay }, { data: { user: authUser } }] = await Promise.all([
@@ -227,6 +248,7 @@ export async function finalizeReschedule({
         subtotal: newPricing.subtotal,
         membershipDiscount: newPricing.membershipDiscount,
         couponDiscount: 0, tax: newPricing.tax, giftCardApplied: 0,
+        hourCreditDiscount: newPricing.creditDiscount,
         total: newPricing.total,
       })
       await logEvent(serviceClient, "reschedule-email-sent", `newBooking=${newBooking.id} to=${authUser.email}`)
