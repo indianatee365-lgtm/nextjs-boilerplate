@@ -1,5 +1,49 @@
+import { createServiceClient } from "@/lib/supabase/server"
+import { logEvent } from "@/lib/observability/notify"
+
 function fmt(amount: number): string {
   return `$${amount.toFixed(2)}`
+}
+
+// Every email template funnels through here, so every send - success or
+// failure - gets one admin_logs row without relying on each call site to
+// remember to log it. `kind` identifies which template sent it.
+async function sendResendEmail({
+  to,
+  from,
+  subject,
+  html,
+  kind,
+}: {
+  to: string
+  from: string
+  subject: string
+  html: string
+  kind: string
+}) {
+  const supabase = await createServiceClient()
+  let res: Response
+  try {
+    res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    })
+  } catch (err) {
+    await logEvent(supabase, "email-send-FAILED", `kind=${kind} to=${to} err=${String(err).slice(0, 200)}`)
+    throw err
+  }
+
+  if (!res.ok) {
+    const body = await res.text()
+    await logEvent(supabase, "email-send-FAILED", `kind=${kind} to=${to} status=${res.status} err=${body.slice(0, 200)}`)
+    throw new Error(`Resend error ${res.status}: ${body}`)
+  }
+
+  await logEvent(supabase, "email-sent", `kind=${kind} to=${to} subject=${subject.slice(0, 100)}`)
 }
 
 export async function sendGiftCardEmail({
@@ -65,24 +109,13 @@ export async function sendGiftCardEmail({
 </body>
 </html>`
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Tee365 <bookings@tee365.org>",
-      to: [recipientEmail],
-      subject: `🎁 You've received a ${fmt(amount)} Tee365 gift card!`,
-      html,
-    }),
+  await sendResendEmail({
+    to: recipientEmail,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: `🎁 You've received a ${fmt(amount)} Tee365 gift card!`,
+    html,
+    kind: "gift-card",
   })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Resend error ${res.status}: ${body}`)
-  }
 }
 
 function lineItem(label: string, value: string, isDiscount = false): string {
@@ -244,36 +277,25 @@ export async function sendBookingConfirmationEmail({
   total: number
   hourCreditDiscount?: number
 }) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Tee365 <bookings@tee365.org>",
-      to: [to],
-      subject: "Your Tee365 booking is confirmed",
-      html: buildEmailHtml({
-        firstName,
-        bayName,
-        startsAt,
-        endsAt,
-        subtotal,
-        membershipDiscount,
-        couponDiscount,
-        tax,
-        giftCardApplied,
-        total,
-        hourCreditDiscount,
-      }),
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "Your Tee365 booking is confirmed",
+    html: buildEmailHtml({
+      firstName,
+      bayName,
+      startsAt,
+      endsAt,
+      subtotal,
+      membershipDiscount,
+      couponDiscount,
+      tax,
+      giftCardApplied,
+      total,
+      hourCreditDiscount,
     }),
+    kind: "booking-confirmation",
   })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Resend error ${res.status}: ${body}`)
-  }
 }
 
 export async function sendParentalConsentRequestEmail({
@@ -285,17 +307,11 @@ export async function sendParentalConsentRequestEmail({
   minorFirstName: string
   consentUrl: string
 }) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Tee365 <bookings@tee365.org>",
-      to: [to],
-      subject: `Parental consent needed for ${minorFirstName}'s Tee365 account`,
-      html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: `Parental consent needed for ${minorFirstName}'s Tee365 account`,
+    html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
 <div style="max-width:520px;margin:0 auto;background:#141414;border-radius:12px;padding:36px;border:1px solid #262626">
   <h1 style="margin:0 0 8px;font-size:22px;color:#fff">Parental Consent Required</h1>
   <p style="margin:0 0 20px;color:#a3a3a3;font-size:14px">Tee365 Indoor Golf</p>
@@ -309,9 +325,8 @@ export async function sendParentalConsentRequestEmail({
   <hr style="border:none;border-top:1px solid #262626;margin:24px 0">
   <p style="color:#737373;font-size:12px">Questions? Reply to this email or contact us at bookings@tee365.org</p>
 </div></body></html>`,
-    }),
+    kind: "parental-consent-request",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 export async function sendMinorAccountApprovedEmail({
@@ -321,17 +336,11 @@ export async function sendMinorAccountApprovedEmail({
   to: string
   firstName: string
 }) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Tee365 <bookings@tee365.org>",
-      to: [to],
-      subject: "You're all set — your Tee365 account is ready",
-      html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "You're all set — your Tee365 account is ready",
+    html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
 <div style="max-width:520px;margin:0 auto;background:#141414;border-radius:12px;padding:36px;border:1px solid #262626">
   <h1 style="margin:0 0 20px;font-size:22px;color:#fff">You're good to go, ${firstName}!</h1>
   <p style="color:#d4d4d4;line-height:1.6">Your parent or guardian has completed the consent form. Your Tee365 account is now fully active and you can book a bay.</p>
@@ -341,9 +350,8 @@ export async function sendMinorAccountApprovedEmail({
   <hr style="border:none;border-top:1px solid #262626;margin:24px 0">
   <p style="color:#737373;font-size:12px">Tee365 Indoor Golf &nbsp;·&nbsp; bookings@tee365.org</p>
 </div></body></html>`,
-    }),
+    kind: "minor-account-approved",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 export async function sendFounderConfirmationEmail({
@@ -402,17 +410,13 @@ export async function sendFounderConfirmationEmail({
   </td></tr></table>
 </body></html>`
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Jerrod | Tee365 <jerrod@tee365.org>",
-      to: [to],
-      subject: `Welcome to Founder's Club — you're #${founderNumber} of 100`,
-      html,
-    }),
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `Welcome to Founder's Club — you're #${founderNumber} of 100`,
+    html,
+    kind: "founder-confirmation",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 export async function sendEagleConfirmationEmail({
@@ -457,17 +461,13 @@ export async function sendEagleConfirmationEmail({
   </td></tr></table>
 </body></html>`
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Tee365 <bookings@tee365.org>",
-      to: [to],
-      subject: "Welcome to Eagle — your 2 free hours are waiting",
-      html,
-    }),
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "Welcome to Eagle — your 2 free hours are waiting",
+    html,
+    kind: "eagle-confirmation",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 
@@ -506,17 +506,13 @@ ${founderNote}
 <tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
 <p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
 </td></tr></table></td></tr></table></body></html>`
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Jerrod | Tee365 <jerrod@tee365.org>",
-      to: [to],
-      subject: `Your ${planName} membership — cancellation confirmed`,
-      html,
-    }),
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `Your ${planName} membership — cancellation confirmed`,
+    html,
+    kind: "cancellation-confirmation",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 export async function sendReactivationConfirmation({
@@ -548,17 +544,13 @@ ${founderNote}
 <tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
 <p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
 </td></tr></table></td></tr></table></body></html>`
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Jerrod | Tee365 <jerrod@tee365.org>",
-      to: [to],
-      subject: `Your ${planName} membership has been reactivated`,
-      html,
-    }),
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `Your ${planName} membership has been reactivated`,
+    html,
+    kind: "reactivation-confirmation",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
 export async function sendPaymentRetryEmail({
@@ -590,15 +582,11 @@ export async function sendPaymentRetryEmail({
 <tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
 <p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
 </td></tr></table></td></tr></table></body></html>`
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Jerrod | Tee365 <jerrod@tee365.org>",
-      to: [to],
-      subject: `${firstName}, finish setting up your ${planName} membership?`,
-      html,
-    }),
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `${firstName}, finish setting up your ${planName} membership?`,
+    html,
+    kind: "payment-retry",
   })
-  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }

@@ -1,3 +1,6 @@
+import { createServiceClient } from "@/lib/supabase/server"
+import { logEvent } from "@/lib/observability/notify"
+
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "")
   if (digits.length === 10) return "+1" + digits
@@ -5,24 +8,37 @@ function normalizePhone(phone: string): string {
   return phone.startsWith("+") ? phone : "+" + phone
 }
 
-async function sendSms(to: string, body: string) {
-  const res = await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + process.env.TELNYX_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: normalizePhone(process.env.TELNYX_PHONE_NUMBER ?? ""),
-      to: normalizePhone(to),
-      text: body,
-    }),
-  })
+// Every SMS template funnels through here, so every send - success or
+// failure - gets one admin_logs row without relying on each call site to
+// remember to log it. `kind` identifies which template sent it.
+async function sendSms(to: string, body: string, kind: string) {
+  const supabase = await createServiceClient()
+  let res: Response
+  try {
+    res = await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.TELNYX_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: normalizePhone(process.env.TELNYX_PHONE_NUMBER ?? ""),
+        to: normalizePhone(to),
+        text: body,
+      }),
+    })
+  } catch (err) {
+    await logEvent(supabase, "sms-send-FAILED", `kind=${kind} to=${to} err=${String(err).slice(0, 200)}`)
+    throw err
+  }
 
   if (!res.ok) {
-    const err = await res.json()
+    const err = await res.json().catch(() => ({}))
+    await logEvent(supabase, "sms-send-FAILED", `kind=${kind} to=${to} status=${res.status} err=${JSON.stringify(err).slice(0, 200)}`)
     throw new Error("Telnyx SMS failed: " + JSON.stringify(err))
   }
+
+  await logEvent(supabase, "sms-sent", `kind=${kind} to=${to}`)
 }
 
 export async function sendBookingConfirmation({
@@ -61,7 +77,7 @@ export async function sendBookingConfirmation({
     "Reply STOP to opt out, HELP for info. Msg & data rates may apply.",
   ].join("\n")
 
-  await sendSms(to, message)
+  await sendSms(to, message, "booking-confirmation")
 }
 
 export async function sendAccessCodeReminder({
@@ -85,13 +101,15 @@ export async function sendAccessCodeReminder({
 
   await sendSms(
     to,
-    "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out."
+    "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out.",
+    "access-code-reminder"
   )
 }
 export async function sendInfoSms(to: string) {
   await sendSms(
     normalizePhone(to),
-    "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out."
+    "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out.",
+    "info"
   )
 }
 
@@ -108,6 +126,7 @@ export async function sendPaymentRetrySms({
 }) {
   await sendSms(
     to,
-    `Hi ${firstName}! Your Tee365 ${planName} signup ($${amount}) didn't go through - looks like checkout expired before it finished. No charge was made.\nWant to try again? tee365.org/join\nQuestions? info@tee365.org\nReply STOP to opt out.`
+    `Hi ${firstName}! Your Tee365 ${planName} signup ($${amount}) didn't go through - looks like checkout expired before it finished. No charge was made.\nWant to try again? tee365.org/join\nQuestions? info@tee365.org\nReply STOP to opt out.`,
+    "payment-retry"
   )
 }
