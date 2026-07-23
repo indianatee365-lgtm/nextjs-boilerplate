@@ -560,3 +560,45 @@ ${founderNote}
   })
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
+
+export async function sendPaymentRetryEmail({
+  to, firstName, planName, amount,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  amount: string
+}) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your checkout didn't finish</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Looks like your <strong style="color:#fff;">${planName}</strong> signup ($${amount}) didn't go through — checkout expired before it finished. No charge was made, and nothing is pending on your account.</p>
+<p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.6;">If you'd like to pick up where you left off, just click below.</p>
+<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/join" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Finish signing up</a>
+</td></tr></table>
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">Questions or ran into an issue? Just reply to this email.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Jerrod | Tee365 <jerrod@tee365.org>",
+      to: [to],
+      subject: `${firstName}, finish setting up your ${planName} membership?`,
+      html,
+    }),
+  })
+  if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
+}

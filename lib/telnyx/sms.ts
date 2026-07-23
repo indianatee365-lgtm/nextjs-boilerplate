@@ -94,3 +94,20 @@ export async function sendInfoSms(to: string) {
     "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out."
   )
 }
+
+export async function sendPaymentRetrySms({
+  to,
+  firstName,
+  planName,
+  amount,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  amount: string
+}) {
+  await sendSms(
+    to,
+    `Hi ${firstName}! Your Tee365 ${planName} signup ($${amount}) didn't go through - looks like checkout expired before it finished. No charge was made.\nWant to try again? tee365.org/join\nQuestions? info@tee365.org\nReply STOP to opt out.`
+  )
+}
