@@ -32,11 +32,20 @@ export async function notifyOwner(msg: string): Promise<void> {
   if (!ok) {
     try {
       const sc = await createServiceClient()
-      await sc.from("admin_logs").insert({
+      const { error } = await sc.from("admin_logs").insert({
         event: "notify-owner-FAILED",
         detail: `${errDetail} | msg=${msg.slice(0, 100)}`,
       })
-    } catch { /* logging must never throw */ }
+      // Supabase-js resolves with {error}, it does not throw - so this check
+      // is required, not the try/catch. Without it, a bad insert (schema
+      // mismatch, RLS, etc.) fails completely silently: no log row, no
+      // exception, nothing in Vercel logs either. console.error at least
+      // gets it into Vercel's function logs even when the DB write itself
+      // is what's broken.
+      if (error) console.error("admin_logs insert failed (notify-owner-FAILED):", error, { msg })
+    } catch (err) {
+      console.error("notifyOwner logging threw:", err, { msg })
+    }
   }
 }
 
@@ -46,9 +55,10 @@ export async function logEvent(
   detail: string,
 ): Promise<void> {
   try {
-    await supabase.from("admin_logs").insert({ event, detail })
-  } catch {
-    /* logging must never block the caller */
+    const { error } = await supabase.from("admin_logs").insert({ event, detail })
+    if (error) console.error(`admin_logs insert failed (${event}):`, error, { detail })
+  } catch (err) {
+    console.error(`logEvent threw (${event}):`, err, { detail })
   }
 }
 
