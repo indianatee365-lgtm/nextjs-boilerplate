@@ -32,19 +32,23 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     // Log every failure; SMS at most once per hour (prevents flood when secret is wrong).
     // Real Stripe deliveries always include a stripe-signature header, so a missing header
-    // means this wasn't Stripe (e.g. our own uptime healthcheck) - log it but don't page.
-    try {
-      const sigClient = await createServiceClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count: recentSig } = await (sigClient as any).from("admin_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("event", "webhook-signature-FAILED")
-        .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
-      await logEvent(sigClient, "webhook-signature-FAILED", `err=${String(err).slice(0, 200)} hadSigHeader=${Boolean(sig)}`)
-      if (!recentSig && sig) {
-        await notifyOwner(`ALERT Stripe webhook signature verification FAILED. Check STRIPE_WEBHOOK_SECRET in Vercel. Events will not retry until fixed.`)
-      }
-    } catch { /* never let logging crash the webhook */ }
+    // means this wasn't Stripe (e.g. our own uptime healthcheck) - skip logging/paging
+    // entirely for those instead of just skipping the page, so admin_logs isn't flooded
+    // with an expected, harmless probe every 15 minutes.
+    if (sig) {
+      try {
+        const sigClient = await createServiceClient()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count: recentSig } = await (sigClient as any).from("admin_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("event", "webhook-signature-FAILED")
+          .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+        await logEvent(sigClient, "webhook-signature-FAILED", `err=${String(err).slice(0, 200)} hadSigHeader=true`)
+        if (!recentSig) {
+          await notifyOwner(`ALERT Stripe webhook signature verification FAILED. Check STRIPE_WEBHOOK_SECRET in Vercel. Events will not retry until fixed.`)
+        }
+      } catch { /* never let logging crash the webhook */ }
+    }
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
