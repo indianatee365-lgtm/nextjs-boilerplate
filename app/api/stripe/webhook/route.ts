@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
@@ -394,13 +394,59 @@ export async function POST(request: NextRequest) {
         `pi=${pi.id} to=${recipientEmail ?? "?"} from=${senderName ?? "?"} amount=$${amount} err=${errMsg}`,
         `ALERT Gift card purchase FAILED, ${senderName ?? "?"} tried $${amount} for ${recipientEmail ?? "?"}. Reason: ${errMsg}`)
     } else {
-      // Booking: keep existing cancel behavior + log a trail
-      await supabase
+      // Booking: cancel the held slot, then tell the customer their slot was
+      // released (not just log a trail - previously this branch notified
+      // no one, customer or owner, so a failed booking payment silently
+      // vanished the reservation).
+      const { data: cancelledBooking } = await supabase
         .from("bookings")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .eq("stripe_payment_intent_id", pi.id)
         .eq("status", "pending")
-      await logEvent(supabase, "booking-payment-failed", `pi=${pi.id} amount=$${amount} err=${errMsg}`)
+        .select(`
+          id, user_id, starts_at, ends_at,
+          bays(name),
+          profiles!user_id(first_name, phone, sms_consent)
+        `)
+        .maybeSingle()
+
+      await logFailure(supabase, "booking-payment-FAILED",
+        `pi=${pi.id} booking=${cancelledBooking?.id ?? "?"} amount=$${amount} err=${errMsg}`,
+        `ALERT Booking payment FAILED, pi=${pi.id} $${amount}. Reason: ${errMsg}. Slot released automatically.`)
+
+      if (cancelledBooking) {
+        const bookingProfile = cancelledBooking.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
+        const bay = cancelledBooking.bays as { name: string } | null
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(cancelledBooking.user_id)
+
+        if (bay && bookingProfile?.phone && bookingProfile.sms_consent) {
+          try {
+            await sendBookingPaymentFailedSms({
+              to: bookingProfile.phone,
+              firstName: bookingProfile.first_name,
+              bayName: bay.name,
+              startsAt: new Date(cancelledBooking.starts_at),
+            })
+          } catch (err) {
+            await logFailure(supabase, "booking-payment-failed-sms-FAILED",
+              `booking=${cancelledBooking.id} to=${bookingProfile.phone} err=${String(err).slice(0, 200)}`)
+          }
+        }
+
+        if (bay && authUser?.email && bookingProfile) {
+          try {
+            await sendBookingPaymentFailedEmail({
+              to: authUser.email,
+              firstName: bookingProfile.first_name,
+              bayName: bay.name,
+              startsAt: new Date(cancelledBooking.starts_at),
+            })
+          } catch (err) {
+            await logFailure(supabase, "booking-payment-failed-email-FAILED",
+              `booking=${cancelledBooking.id} to=${authUser.email} err=${String(err).slice(0, 200)}`)
+          }
+        }
+      }
     }
   }
 

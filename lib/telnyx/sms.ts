@@ -130,3 +130,30 @@ export async function sendPaymentRetrySms({
     "payment-retry"
   )
 }
+
+export async function sendBookingPaymentFailedSms({
+  to,
+  firstName,
+  bayName,
+  startsAt,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  startsAt: Date
+}) {
+  const timeStr = startsAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+
+  await sendSms(
+    to,
+    `Hi ${firstName}, your Tee365 payment for ${bayName} on ${timeStr} didn't go through, so that time slot has been released. No charge was made.\nWant to rebook? tee365.org/book\nQuestions? info@tee365.org\nReply STOP to opt out.`,
+    "booking-payment-failed"
+  )
+}
