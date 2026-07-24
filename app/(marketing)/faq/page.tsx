@@ -111,6 +111,14 @@ export default function FAQPage() {
       },
       {
         "@type": "Question",
+        name: "Can I play my own music or videos? ",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Absolutely — play whatever you'd like through your own device. Just keep the volume considerate of other guests in nearby bays.",
+        },
+      },
+      {
+        "@type": "Question",
         name: "How many players are allowed in each bay per booking? ",
         acceptedAnswer: {
           "@type": "Answer",
@@ -214,6 +222,7 @@ export default function FAQPage() {
             { q: "Is it as good as Trackman?", a: "It's the same class of technology, built specifically for an indoor bay. Trackman and other radar-based systems were designed for outdoor range use and can be more sensitive to bay depth indoors. The Uneekor XR reads the ball and club directly from overhead at impact, so you get comparable data (club speed, spin, path, launch angle, and more) without needing the extra room a radar signal wants." },
             { q: "Is there an age requirement?", a: "Minors are always welcome when accompanied by a parent or guardian, any age. To book or visit unaccompanied, you must be 18 or older, or 16 or older if you're a member, or part of our high school partner program." },
             { q: "Can I bring my pet?", a: "Service animals are always welcome. We're not able to allow other pets or animals in the facility." },
+            { q: "Can I play my own music or videos?", a: "Absolutely — play whatever you'd like through your own device. Just keep the volume considerate of other guests in nearby bays." },
             { q: "How many players are allowed in each bay per booking?", a: "4 players per bay is the recommended maximum." },
             { q: "How long should I book a bay for?", a: "2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip: if you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half." },
             { q: "What happens if I have trouble with my bay?", a: "There is a basic troubleshooting guide in each bay, and if all else fails, call the number listed and we’ll work to solve your issue." },
