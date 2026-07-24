@@ -635,3 +635,70 @@ export async function sendBookingPaymentFailedEmail({
     kind: "booking-payment-failed",
   })
 }
+
+export async function sendAccountWelcomeEmail({
+  to, firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Welcome to Tee365, ${firstName}!</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your account is set up and ready to go. Book a bay whenever you'd like, browse memberships for a discount on every session, or just look around.</p>
+<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/book" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Book a bay</a>
+</td></tr></table>
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">Questions? Just reply to this email.</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "Welcome to Tee365 — your account is ready",
+    html,
+    kind: "account-welcome",
+  })
+}
+
+export async function sendMembershipWelcomeEmail({
+  to, firstName, planName,
+}: {
+  to: string
+  firstName: string
+  planName: string
+}) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Welcome to Tee365, ${firstName}!</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your <strong style="color:#fff;">${planName}</strong> membership is active. Your member discount and booking perks apply automatically starting now.</p>
+<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/book" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Book a bay</a>
+</td></tr></table>
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">Manage your membership anytime from your account page. Questions? Just reply to this email.</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: `Welcome to Tee365 — your ${planName} membership is active`,
+    html,
+    kind: "membership-welcome",
+  })
+}

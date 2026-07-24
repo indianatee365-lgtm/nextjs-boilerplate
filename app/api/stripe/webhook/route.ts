@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail } from "@/lib/resend/email"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
@@ -203,9 +203,15 @@ export async function POST(request: NextRequest) {
               await sendFounderConfirmationEmail({ to: userEmail, firstName, founderNumber: insertData.founder_number as number })
             } else if (plan_slug === "eagle") {
               await sendEagleConfirmationEmail({ to: userEmail, firstName })
+            } else {
+              // Any other plan (Birdie, or a future tier) - generic welcome
+              // instead of silently sending nothing. sendResendEmail logs
+              // its own email-sent/email-send-FAILED, so no manual log
+              // needed here (the old manual log below used to fire even
+              // when this branch had nothing to send at all - removed).
+              const planName = plan_slug ? plan_slug.charAt(0).toUpperCase() + plan_slug.slice(1) : "Tee365"
+              await sendMembershipWelcomeEmail({ to: userEmail, firstName, planName })
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any).from("admin_logs").insert({ event: "email-sent", detail: `user=${user_id} to=${userEmail} plan=${plan_slug}` })
           } catch (emailErr) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase as any).from("admin_logs").insert({ event: "email-send-FAILED", detail: `user=${user_id} plan=${plan_slug} err=${String(emailErr).slice(0, 300)}` })

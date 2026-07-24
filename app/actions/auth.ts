@@ -5,7 +5,7 @@ import { redirect } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { z } from "zod"
 import { randomBytes } from "crypto"
-import { sendParentalConsentRequestEmail } from "@/lib/resend/email"
+import { sendParentalConsentRequestEmail, sendAccountWelcomeEmail } from "@/lib/resend/email"
 import { headers } from "next/headers"
 import { authRatelimit } from "@/lib/ratelimit"
 
@@ -118,6 +118,10 @@ export async function signup(
     revalidatePath("/", "layout")
     redirect("/account/awaiting-consent")
   }
+
+  try {
+    await sendAccountWelcomeEmail({ to: email, firstName })
+  } catch { /* non-fatal */ }
 
   revalidatePath("/", "layout")
   const returnUrl = formData.get("returnUrl") as string | null
