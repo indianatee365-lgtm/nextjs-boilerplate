@@ -98,7 +98,15 @@ export default function FAQPage() {
         name: "Is there an age requirement? ",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Minimum age for public booking is 18. Exceptions will be made for members and high school partners.",
+          text: "Minors are always welcome when accompanied by a parent or guardian, any age. To book or visit unaccompanied, you must be 18 or older, or 16 or older if you're a member, or part of our high school partner program.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Can I bring my pet? ",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Service animals are always welcome. We're not able to allow other pets or animals in the facility.",
         },
       },
       {
@@ -204,7 +212,8 @@ export default function FAQPage() {
             { q: "Does Tee365 offer rental clubs?", a: "We at Tee365 want to make golf as accessible as possible. While we do not aim to offer rental clubs, we look to offer a small selection of clubs for use by those that do not have clubs of their own, or do not have clubs with them." },
             { q: "What launch monitor technology does Tee365 use?", a: "Every bay runs on the Uneekor XR, an overhead camera-based launch monitor and swing analysis system. It tracks 19 data points per swing, club speed, face angle, path, spin, carry, and more, with no stickers or marked balls required. Full breakdown on our Technology page." },
             { q: "Is it as good as Trackman?", a: "It's the same class of technology, built specifically for an indoor bay. Trackman and other radar-based systems were designed for outdoor range use and can be more sensitive to bay depth indoors. The Uneekor XR reads the ball and club directly from overhead at impact, so you get comparable data (club speed, spin, path, launch angle, and more) without needing the extra room a radar signal wants." },
-            { q: "Is there an age requirement?", a: "Minimum age for public booking is 18. Exceptions will be made for members and high school partners." },
+            { q: "Is there an age requirement?", a: "Minors are always welcome when accompanied by a parent or guardian, any age. To book or visit unaccompanied, you must be 18 or older, or 16 or older if you're a member, or part of our high school partner program." },
+            { q: "Can I bring my pet?", a: "Service animals are always welcome. We're not able to allow other pets or animals in the facility." },
             { q: "How many players are allowed in each bay per booking?", a: "4 players per bay is the recommended maximum." },
             { q: "How long should I book a bay for?", a: "2 players can comfortably play nine holes per hour. Want to play 18 holes with 2 players? Book 2 hours. 18 holes with 4 players? Book 4 hours. Pro tip: if you want to increase your efficiency, book 2 bays for 2 hours and your amount of time waiting on your playing partners gets cut in half." },
             { q: "What happens if I have trouble with my bay?", a: "There is a basic troubleshooting guide in each bay, and if all else fails, call the number listed and we’ll work to solve your issue." },
