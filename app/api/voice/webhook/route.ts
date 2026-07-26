@@ -182,13 +182,15 @@ async function handleTransferToHuman(
   call: Record<string, unknown> | undefined
 ): Promise<string> {
   const reason = args.reason?.trim() || "needs help"
-  const callerName = await lookupCallerName(callerPhone)
+  const selfReportedName = args.caller_name?.trim()
+  const profileName = await lookupCallerName(callerPhone)
+  const displayName = selfReportedName || profileName || "unknown caller"
   const supabase = await createServiceClient()
-  const who = callerName ? `${callerName} (${callerPhone})` : callerPhone
+  const who = `${displayName} (${callerPhone})`
 
   await Promise.allSettled([
-    notifyOwner(`Tee365 call transfer: connecting ${who} to you now. Reason: ${reason}. If your phone doesn't ring in the next minute, call them back - the transfer may have failed silently.`),
-    logEvent(supabase, "call-transfer-initiated", `caller=${callerPhone} name=${callerName ?? "unknown"} reason=${reason}`),
+    notifyOwner(`Tee365 call transfer: ${who} - ${reason}. Connecting to you now. If your phone doesn't ring in the next minute, call them back - the transfer may have failed silently.`),
+    logEvent(supabase, "call-transfer-initiated", `caller=${callerPhone} name=${displayName} (self-reported=${selfReportedName ?? "none"}, profile=${profileName ?? "none"}) reason=${reason}`),
   ])
 
   const controlUrl = (call?.monitor as Record<string, unknown> | undefined)?.controlUrl as string | undefined
