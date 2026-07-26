@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendInfoSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
+import { notifyOwner, logEvent } from "@/lib/observability/notify"
 
 const OWNER_PHONE = "+15749990622"
 
@@ -168,6 +169,60 @@ async function handleCaptureEventLead(args: Record<string, string>, callerPhone:
   return "Got it. I have sent your information to Jerrod and I will transfer you to him now."
 }
 
+// transferCall used to be Vapi's native predefined tool type, which dials the
+// destination entirely inside Vapi/Telnyx with zero visibility to us. On
+// 2026-07-26 a transfer silently failed - Telnyx accepted the transfer
+// command but never placed the second call leg, so the owner's phone never
+// rang and nobody found out. This custom function tool alerts the owner
+// immediately, before attempting the live transfer, so a failure on Telnyx's
+// side is no longer silent.
+async function handleTransferToHuman(
+  args: Record<string, string>,
+  callerPhone: string,
+  call: Record<string, unknown> | undefined
+): Promise<string> {
+  const reason = args.reason?.trim() || "needs help"
+  const callerName = await lookupCallerName(callerPhone)
+  const supabase = await createServiceClient()
+  const who = callerName ? `${callerName} (${callerPhone})` : callerPhone
+
+  await Promise.allSettled([
+    notifyOwner(`Tee365 call transfer: connecting ${who} to you now. Reason: ${reason}. If your phone doesn't ring in the next minute, call them back - the transfer may have failed silently.`),
+    logEvent(supabase, "call-transfer-initiated", `caller=${callerPhone} name=${callerName ?? "unknown"} reason=${reason}`),
+  ])
+
+  const controlUrl = (call?.monitor as Record<string, unknown> | undefined)?.controlUrl as string | undefined
+  if (!controlUrl) {
+    console.error("[transfer_to_human] no monitor.controlUrl on call object", { callId: call?.id })
+    await logEvent(supabase, "call-transfer-control-FAILED", `no controlUrl, caller=${callerPhone}`)
+    return "I'm having trouble connecting you right now. I've sent your number to our team and they'll call you back shortly."
+  }
+
+  try {
+    const res = await fetch(controlUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "transfer",
+        destination: { type: "number", number: OWNER_PHONE },
+        content: "Please hold while I connect you with someone who can help.",
+      }),
+    })
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "")
+      console.error("[transfer_to_human] control API call failed", { status: res.status, bodyText })
+      await logEvent(supabase, "call-transfer-control-FAILED", `status=${res.status} body=${bodyText.slice(0, 200)} caller=${callerPhone}`)
+      return "I'm having trouble connecting you right now. I've sent your number to our team and they'll call you back shortly."
+    }
+  } catch (err) {
+    console.error("[transfer_to_human] control API threw", err)
+    await logEvent(supabase, "call-transfer-control-FAILED", `${String(err).slice(0, 200)} caller=${callerPhone}`)
+    return "I'm having trouble connecting you right now. I've sent your number to our team and they'll call you back shortly."
+  }
+
+  return "Please hold while I connect you with someone who can help."
+}
+
 async function lookupCallerName(phone: string): Promise<string | null> {
   if (!phone || phone === "unknown") return null
   const supabase = await createServiceClient()
@@ -305,6 +360,8 @@ export async function POST(request: NextRequest) {
         result = await handleSendInfoSms(callerPhone)
       } else if (name === "capture_event_lead") {
         result = await handleCaptureEventLead(args, callerPhone)
+      } else if (name === "transfer_to_human") {
+        result = await handleTransferToHuman(args, callerPhone, msg.call)
       }
 
       results.push({ toolCallId: toolCall.id, result })
