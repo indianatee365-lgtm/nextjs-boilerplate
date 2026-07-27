@@ -156,6 +156,29 @@ export async function POST(request: NextRequest) {
       await (supabase as any).from("admin_logs").insert({ event: "membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"} pi=${_pi.id}` })
       await supabase.from("profiles").update({ stripe_customer_id }).eq("id", user_id)
 
+      // Founders' 2-hour signup bonus is redeemed at Friends & Founders Day
+      // (2026-08-29). signup_bonus_hours above is just a display promise on
+      // the membership row - this is what actually makes it spendable via
+      // the hour_credits ledger createBooking() checks. Expires end of day
+      // Founders Day, America/Indiana/Indianapolis (EDT, UTC-4 in August).
+      if (plan_slug === "founder") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: creditErr } = await (supabase as any).from("hour_credits").insert({
+          user_id,
+          hours: 2,
+          hours_remaining: 2,
+          reason: "Founders Day 2026",
+          expires_at: new Date("2026-08-30T03:59:59Z").toISOString(),
+          active: true,
+          created_by: user_id,
+          redeemed_at: now.toISOString(),
+        })
+        if (creditErr) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from("admin_logs").insert({ event: "founders-day-credit-FAILED", detail: `user=${user_id} err=${JSON.stringify(creditErr).slice(0, 200)}` })
+        }
+      }
+
       const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
 
       await Promise.allSettled([
