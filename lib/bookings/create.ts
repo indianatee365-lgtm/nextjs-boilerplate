@@ -6,6 +6,7 @@ import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
+import { isFoundersDaySession, hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -27,8 +28,9 @@ export interface CreateBookingInput {
   disclosureIds?: string[]
   applyHourCredits?: boolean
   // "web" bookings go through the site's session-authenticated flow; "phone"
-  // bookings are created by the voice agent on the caller's behalf. Both are
-  // gated by the same pre-launch admin-only check below.
+  // bookings are created by the voice agent on the caller's behalf. Both go
+  // through the same pre-launch gate below (admin, or a founder's day-of
+  // exception), so it can't be bypassed by adding a new channel later.
   source?: "web" | "phone"
 }
 
@@ -64,14 +66,22 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     source = "web",
   } = input
 
-  // Booking window gate: admin only until September 2026
+  // Booking window gate: admin only pre-launch, with one carve-out - a
+  // founder can reserve specifically their Friends & Founders Day (8/29)
+  // slot starting 8/18, using the real hour_credits their membership grants.
   const { data: callerProfile } = await serviceClient
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .single()
-  if ((callerProfile as { role: string } | null)?.role !== "admin") {
-    return { ok: false, status: 403, error: "Bookings not yet available" }
+  const isAdmin = (callerProfile as { role: string } | null)?.role === "admin"
+
+  if (!isAdmin) {
+    const eligibleForFoundersDay =
+      isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
+    if (!eligibleForFoundersDay) {
+      return { ok: false, status: 403, error: "Bookings not yet available" }
+    }
   }
 
   if (!bayId || !startsAt || !durationMinutes) {

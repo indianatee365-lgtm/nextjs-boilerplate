@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
+import { hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -13,14 +14,20 @@ export default async function BookPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login") // LAUNCH: remove this line to open tee sheet to public
 
-  // Admin gate: bookings not open to public until September 2026
+  // Admin gate: bookings not open to public until launch, with one
+  // carve-out - a founder with an active Founders Day credit can get
+  // through starting 8/18 to book their Friends & Founders Day (8/29)
+  // slot. The backend (lib/bookings/create.ts) enforces the actual date
+  // restriction; this just decides whether to show the booking UI at all.
   const { data: profile } = await serviceClient
     .from("profiles")
     .select("role, first_name, last_name, is_minor, parental_consent_verified")
     .eq("id", user.id)
     .single()
 
-  if ((profile as { role: string } | null)?.role !== "admin") {
+  const isAdmin = (profile as { role: string } | null)?.role === "admin"
+
+  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id))) {
     return (
       <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
@@ -40,7 +47,7 @@ export default async function BookPage() {
 
   let membershipSlug: string | null = null
   let advanceDays = 7
-  let userName = p ? `${p.first_name} ${p.last_name}` : ""
+  const userName = p ? `${p.first_name} ${p.last_name}` : ""
 
   {
     const { data: membership } = await supabase

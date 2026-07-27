@@ -348,6 +348,10 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
     startsAt: startDate.toISOString(),
     durationMinutes: duration,
     source: "phone",
+    // Matches the website's own default (hour credits auto-applied unless
+    // the customer opts out) - without this, a founder's free Founders Day
+    // hours wouldn't actually reduce what they're charged.
+    applyHourCredits: true,
   })
 
   if (!result.ok) {
