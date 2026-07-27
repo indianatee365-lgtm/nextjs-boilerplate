@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/membership-audit",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/founders-day-notice",
+      "schedule": "0 13 * * *"
     }
   ]
 }

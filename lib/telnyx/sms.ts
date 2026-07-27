@@ -113,6 +113,22 @@ export async function sendBookingLinkSms({
   await sendSms(to, message, "booking-link")
 }
 
+export async function sendFoundersDayBookingOpenSms({
+  to,
+  firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const message = [
+    "Hi " + firstName + "! Founder's Club is now officially closed - thank you for believing in us from the start. 🙌",
+    "Your 2 free hours for Friends & Founders Day (Aug 29) are ready, and your booking window is open now.",
+    "Reserve at tee365.org/book or call 574-999-0622. See you there!",
+  ].join("\n")
+
+  await sendSms(to, message, "founders-day-booking-open")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
