@@ -80,6 +80,39 @@ export async function sendBookingConfirmation({
   await sendSms(to, message, "booking-confirmation")
 }
 
+export async function sendBookingLinkSms({
+  to,
+  firstName,
+  bayName,
+  startsAt,
+  link,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  startsAt: Date
+  link: string
+}) {
+  const startStr = startsAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+
+  const message = [
+    "Hi " + firstName + "! Here's your Tee365 reservation for " + bayName + ":",
+    "🕒 " + startStr,
+    "Tap to finish and confirm (held for 15 minutes):",
+    link,
+    "Questions? info@tee365.org",
+  ].join("\n")
+
+  await sendSms(to, message, "booking-link")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
