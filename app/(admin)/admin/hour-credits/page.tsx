@@ -13,11 +13,23 @@ export default async function AdminHourCreditsPage() {
   const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).single()
   if ((profile as { role: string } | null)?.role !== "admin") redirect("/account")
 
-  const { data: credits } = await serviceClient
-    .from("hour_credits")
-    .select("id, code, hours, hours_remaining, reason, expires_at, active, redeemed_at, created_at, profiles!hour_credits_user_id_fkey(first_name, last_name)")
-    .order("created_at", { ascending: false })
-    .limit(200)
+  const [{ data: credits }, { data: uses }] = await Promise.all([
+    serviceClient
+      .from("hour_credits")
+      .select("id, code, hours, hours_remaining, reason, expires_at, active, redeemed_at, created_at, profiles!hour_credits_user_id_fkey(first_name, last_name)")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    serviceClient
+      .from("hour_credit_uses")
+      .select("id, hours_used, created_at, profiles(first_name, last_name), bookings(starts_at, bays(name))")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ])
+
+  const activeCredits = (credits ?? []).filter((c) => c.active)
+  const totalIssuedHours = activeCredits.reduce((sum, c) => sum + Number(c.hours), 0)
+  const totalRedeemedHours = activeCredits.reduce((sum, c) => sum + (Number(c.hours) - Number(c.hours_remaining)), 0)
+  const totalOutstandingHours = activeCredits.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -27,6 +39,25 @@ export default async function AdminHourCreditsPage() {
           Give away free playing time. Codes can be handed out at raffles and sponsor events;
           hours apply automatically at checkout and reduce billable time, not dollars.
         </p>
+      </div>
+
+      {/* Liability summary */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+          <p className="text-xs text-neutral-500">Active credits issued</p>
+          <p className="mt-1 text-2xl font-bold text-white">{activeCredits.length}</p>
+          <p className="text-xs text-neutral-500 mt-0.5">{totalIssuedHours} hours total</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+          <p className="text-xs text-neutral-500">Redeemed</p>
+          <p className="mt-1 text-2xl font-bold text-white">{totalRedeemedHours}h</p>
+          <p className="text-xs text-neutral-500 mt-0.5">of {totalIssuedHours}h issued</p>
+        </div>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-4">
+          <p className="text-xs text-neutral-500">Outstanding liability</p>
+          <p className="mt-1 text-2xl font-bold text-red-400">{totalOutstandingHours}h</p>
+          <p className="text-xs text-neutral-500 mt-0.5">unredeemed hours</p>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -130,6 +161,42 @@ export default async function AdminHourCreditsPage() {
         </div>
       ) : (
         <p className="text-sm text-neutral-500">No hour credits yet. Generate codes above to get started.</p>
+      )}
+
+      <h2 className="mt-10 mb-3 text-sm font-semibold text-white">Recent redemptions</h2>
+      {uses && uses.length > 0 ? (
+        <div className="rounded-xl border border-white/10 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
+                <th className="px-4 py-3">Who</th>
+                <th className="px-4 py-3">Hours used</th>
+                <th className="px-4 py-3">Booking</th>
+                <th className="px-4 py-3">Redeemed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uses.map((u) => {
+                const holder = u.profiles as { first_name: string; last_name: string } | null
+                const booking = u.bookings as { starts_at: string; bays: { name: string } | null } | null
+                return (
+                  <tr key={u.id} className="border-b border-white/5 text-neutral-300">
+                    <td className="px-4 py-3 text-white">{holder ? `${holder.first_name} ${holder.last_name}` : "Unknown"}</td>
+                    <td className="px-4 py-3">{Number(u.hours_used)}h</td>
+                    <td className="px-4 py-3 text-neutral-400 text-xs">
+                      {booking ? `${booking.bays?.name ?? "Bay"} - ${new Date(booking.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-400 text-xs">
+                      {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500">No redemptions yet.</p>
       )}
     </main>
   )

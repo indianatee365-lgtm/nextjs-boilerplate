@@ -157,10 +157,12 @@ export async function POST(request: NextRequest) {
       await supabase.from("profiles").update({ stripe_customer_id }).eq("id", user_id)
 
       // Founders' 2-hour signup bonus is redeemed at Friends & Founders Day
-      // (2026-08-29). signup_bonus_hours above is just a display promise on
-      // the membership row - this is what actually makes it spendable via
-      // the hour_credits ledger createBooking() checks. Expires end of day
-      // Founders Day, America/Indiana/Indianapolis (EDT, UTC-4 in August).
+      // (2026-08-29) or, if a founder can't get a slot that day, any later
+      // date once general public booking opens - deliberately no expiry so
+      // capacity or a scheduling conflict on 8/29 doesn't just forfeit the
+      // benefit. signup_bonus_hours above is just a display promise on the
+      // membership row - this is what actually makes it spendable via the
+      // hour_credits ledger createBooking() checks.
       if (plan_slug === "founder") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: creditErr } = await (supabase as any).from("hour_credits").insert({
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
           hours: 2,
           hours_remaining: 2,
           reason: "Founders Day 2026",
-          expires_at: new Date("2026-08-30T03:59:59Z").toISOString(),
+          expires_at: null,
           active: true,
           created_by: user_id,
           redeemed_at: now.toISOString(),
