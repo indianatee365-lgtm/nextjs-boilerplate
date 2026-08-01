@@ -3,6 +3,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
+import { isFoundersDaySession, hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
 
 const OWNER_PHONE = "+15749990622"
 
@@ -237,7 +238,7 @@ function validDuration(raw: string): number | null {
   return n
 }
 
-async function handleCheckAvailability(args: Record<string, string>): Promise<string> {
+async function handleCheckAvailability(args: Record<string, string>, callerPhone: string): Promise<string> {
   const startDate = parseSlotDate(args.date, args.start_time)
   const duration = validDuration(args.duration_minutes)
   if (!startDate || !duration) {
@@ -246,6 +247,36 @@ async function handleCheckAvailability(args: Record<string, string>): Promise<st
   const endDate = new Date(startDate.getTime() + duration * 60000)
 
   const supabase = await createServiceClient()
+
+  // Same pre-launch gate as actual booking creation (lib/bookings/create.ts).
+  // Without this, the agent checks real bay/booking conflicts, finds none
+  // (because nothing can be booked yet), and confidently tells a real caller
+  // everything is "open" - which is exactly what happened on a real call
+  // 2026-08-01, weeks before the real public opening.
+  let isAdmin = false
+  let callerId: string | null = null
+  if (callerPhone && callerPhone !== "unknown") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .eq("phone", normalizePhone(callerPhone))
+      .single()
+    if (profile) {
+      callerId = profile.id
+      isAdmin = profile.role === "admin"
+    }
+  }
+
+  if (!isAdmin) {
+    let eligible = false
+    if (callerId && isFoundersDaySession(startDate)) {
+      eligible = await hasFoundersDayCredit(supabase, callerId)
+    }
+    if (!eligible) {
+      return "Bookings open in September 2026 - I can't check real-time availability yet. I can text you the website, or take your info so our team can follow up."
+    }
+  }
+
   const { data: bays } = await supabase.from("bays").select("id, number, name").eq("active", true).order("number")
   if (!bays || bays.length === 0) {
     return "I'm not able to check availability right now. Let me transfer you to someone who can help."
@@ -518,7 +549,7 @@ export async function POST(request: NextRequest) {
       } else if (name === "transfer_to_human") {
         result = await handleTransferToHuman(args, callerPhone, msg.call)
       } else if (name === "check_availability") {
-        result = await handleCheckAvailability(args)
+        result = await handleCheckAvailability(args, callerPhone)
       } else if (name === "create_phone_booking") {
         result = await handleCreatePhoneBooking(args, callerPhone)
       }
