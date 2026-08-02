@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { sendReply, markRead } from "./actions"
+import { sendReply } from "./actions"
 
 export const metadata = { title: "SMS Inbox | Tee365 Admin" }
 
@@ -29,7 +29,20 @@ export default async function AdminSmsPage({
   const { phone: selectedPhone } = await searchParams
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: messages } = await (serviceClient as any)
+  const db = serviceClient as any
+
+  // Viewing a conversation counts as reading it. Done as a plain update here
+  // (not the markRead server action) because Server Actions call revalidatePath,
+  // which Next.js disallows calling during a page's own render.
+  if (selectedPhone) {
+    await db
+      .from("sms_messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("phone_number", selectedPhone)
+      .is("read_at", null)
+  }
+
+  const { data: messages } = await db
     .from("sms_messages")
     .select("id, phone_number, direction, body, read_at, created_at")
     .order("created_at", { ascending: false })
@@ -52,10 +65,6 @@ export default async function AdminSmsPage({
   const thread = selectedPhone
     ? rows.filter((r) => r.phone_number === selectedPhone).slice().reverse()
     : []
-
-  if (selectedPhone) {
-    await markRead(selectedPhone)
-  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">

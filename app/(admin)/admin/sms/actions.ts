@@ -40,14 +40,3 @@ export async function sendReply(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/sms")
 }
-
-export async function markRead(phone: string): Promise<void> {
-  const { serviceClient } = await requireAdmin()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (serviceClient as any)
-    .from("sms_messages")
-    .update({ read_at: new Date().toISOString() })
-    .eq("phone_number", phone)
-    .is("read_at", null)
-  revalidatePath("/admin/sms")
-}
