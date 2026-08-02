@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { sendReply } from "./actions"
@@ -68,7 +69,15 @@ export default async function AdminSmsPage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-semibold text-white">SMS Inbox</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-white">SMS Inbox</h1>
+        <Link
+          href="/admin/sms/new"
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white"
+        >
+          New message
+        </Link>
+      </div>
       <p className="mt-1 text-sm text-neutral-400">
         Texts sent to the Tee365 number. Replies go out from that same number.
       </p>

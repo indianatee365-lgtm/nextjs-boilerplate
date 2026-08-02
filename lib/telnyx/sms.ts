@@ -48,6 +48,12 @@ export async function sendAdminReplySms(to: string, body: string) {
   await sendSms(to, body, "admin-reply")
 }
 
+// Free-form send for the admin's "new message" compose box - individual or
+// as part of a group broadcast.
+export async function sendBroadcastSms(to: string, body: string) {
+  await sendSms(to, body, "admin-broadcast")
+}
+
 export async function sendInboundSmsAutoAck(to: string) {
   const message = [
     "Thanks for texting Tee365! We've got your message and will respond shortly.",
