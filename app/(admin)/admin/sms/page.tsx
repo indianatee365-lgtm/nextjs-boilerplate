@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { sendReply } from "./actions"
 import { SubmitButton } from "./SubmitButton"
+import RealtimeRefresher from "./RealtimeRefresher"
 
 export const metadata = { title: "SMS Inbox | Tee365 Admin" }
 
@@ -70,6 +71,7 @@ export default async function AdminSmsPage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
+      <RealtimeRefresher />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-white">SMS Inbox</h1>
         <Link
