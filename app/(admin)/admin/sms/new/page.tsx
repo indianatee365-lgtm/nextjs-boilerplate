@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { randomUUID } from "crypto"
 import { sendIndividualMessage, sendGroupMessage } from "../actions"
+import { SubmitButton } from "../SubmitButton"
 import { GROUP_LABELS, getGroupRecipients, isSmsGroup, type SmsGroup } from "@/lib/admin/sms-groups"
 
 export const metadata = { title: "New Message | Tee365 Admin" }
@@ -76,7 +77,7 @@ export default async function NewSmsMessagePage({
               className="input mt-1 w-full resize-none"
             />
           </div>
-          <button type="submit" className="btn-primary">Send</button>
+          <SubmitButton className="btn-primary">Send</SubmitButton>
         </form>
       )}
 
@@ -146,9 +147,9 @@ export default async function NewSmsMessagePage({
                 <input type="hidden" name="group" value={group} />
                 <input type="hidden" name="body" value={body} />
                 <input type="hidden" name="nonce" value={nonce} />
-                <button type="submit" className="btn-primary">
+                <SubmitButton className="btn-primary" pendingText="Sending...">
                   Send to {recipients.length} {recipients.length === 1 ? "person" : "people"} now
-                </button>
+                </SubmitButton>
               </form>
             )}
           </div>

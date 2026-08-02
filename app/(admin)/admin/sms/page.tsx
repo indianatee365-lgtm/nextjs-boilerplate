@@ -2,6 +2,7 @@ import Link from "next/link"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { sendReply } from "./actions"
+import { SubmitButton } from "./SubmitButton"
 
 export const metadata = { title: "SMS Inbox | Tee365 Admin" }
 
@@ -131,7 +132,7 @@ export default async function AdminSmsPage({
                   placeholder="Type a reply..."
                   className="input flex-1 resize-none"
                 />
-                <button type="submit" className="btn-primary self-end">Send</button>
+                <SubmitButton className="btn-primary self-end">Send</SubmitButton>
               </form>
             </>
           )}

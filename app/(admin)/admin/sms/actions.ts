@@ -16,6 +16,24 @@ function normalizePhone(raw: string): string {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Guards against duplicate sends from a slow or double-tapped submit button
+// (seen on Android: the tap felt like it did nothing, so it got tapped
+// again) - if the exact same message already went out to this number in the
+// last 10 seconds, treat this submission as a repeat and skip sending again.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function wasJustSent(db: any, phone: string, body: string): Promise<boolean> {
+  const since = new Date(Date.now() - 10_000).toISOString()
+  const { data } = await db
+    .from("sms_messages")
+    .select("id")
+    .eq("phone_number", phone)
+    .eq("direction", "outbound")
+    .eq("body", body)
+    .gte("created_at", since)
+    .limit(1)
+  return (data?.length ?? 0) > 0
+}
+
 async function requireAdmin() {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
@@ -35,6 +53,11 @@ export async function sendReply(formData: FormData): Promise<void> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = serviceClient as any
+
+  if (await wasJustSent(db, phone, body)) {
+    revalidatePath("/admin/sms")
+    return
+  }
 
   await sendAdminReplySms(phone, body)
   await db.from("sms_messages").insert({
@@ -62,6 +85,11 @@ export async function sendIndividualMessage(formData: FormData): Promise<void> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = serviceClient as any
+
+  if (await wasJustSent(db, phone, body)) {
+    revalidatePath("/admin/sms")
+    redirect(`/admin/sms?phone=${encodeURIComponent(phone)}`)
+  }
 
   await sendAdminReplySms(phone, body)
   await db.from("sms_messages").insert({
