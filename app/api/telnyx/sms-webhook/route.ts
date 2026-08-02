@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
+  // Checked before inserting this message, so it reflects whether this phone
+  // has ever texted (or been texted) before now - used to only auto-ack the
+  // start of a conversation, not every message in one already underway.
+  const { count: priorMessageCount } = await db
+    .from("sms_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_number", phone)
+  const isNewConversation = (priorMessageCount ?? 0) === 0
+
   const { error: insertErr } = await db.from("sms_messages").insert({
     phone_number: phone,
     direction: "inbound",
@@ -132,22 +141,28 @@ export async function POST(request: NextRequest) {
   }
 
   // Alert fires with the actual message content, not just "someone texted" -
-  // the point is Jerrod knows whether this needs an urgent callback or can
-  // wait until he's next on the dashboard.
+  // the link jumps straight into that conversation instead of making Jerrod
+  // hunt for it in the inbox list.
+  const conversationUrl = `https://tee365.org/admin/sms?phone=${encodeURIComponent(phone)}`
   await Promise.allSettled([
-    notifyOwner(`Tee365 SMS from ${phone}: "${text.slice(0, 300)}". Reply from the admin dashboard.`),
+    notifyOwner(`Tee365 SMS from ${phone}: "${text.slice(0, 300)}"\n${conversationUrl}`),
     logEvent(supabase, "inbound-sms-received", `from=${phone} text=${text.slice(0, 100)}`),
   ])
 
-  try {
-    await sendInboundSmsAutoAck(phone)
-    await db.from("sms_messages").insert({
-      phone_number: phone,
-      direction: "outbound",
-      body: "[auto-ack] Thanks for texting Tee365! We've got your message and will respond shortly. For an immediate answer, call this same number to reach our virtual assistant, or email info@tee365.org.",
-    })
-  } catch (err) {
-    await logFailure(supabase, "inbound-sms-autoack-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+  // Only auto-ack the start of a brand new conversation - if this phone has
+  // texted before (or already gotten a reply), a repeat "we got your text,
+  // will respond shortly" reads as spam rather than a helpful first reply.
+  if (isNewConversation) {
+    try {
+      await sendInboundSmsAutoAck(phone)
+      await db.from("sms_messages").insert({
+        phone_number: phone,
+        direction: "outbound",
+        body: "[auto-ack] Thanks for texting Tee365! We've got your message and will respond shortly. For an immediate answer, call this same number to reach our virtual assistant, or email info@tee365.org.",
+      })
+    } catch (err) {
+      await logFailure(supabase, "inbound-sms-autoack-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+    }
   }
 
   return NextResponse.json({ ok: true })
