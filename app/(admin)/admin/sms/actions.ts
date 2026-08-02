@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { after } from "next/server"
 import { sendAdminReplySms, sendBroadcastSms } from "@/lib/telnyx/sms"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { getGroupRecipients, isSmsGroup } from "@/lib/admin/sms-groups"
@@ -66,11 +67,15 @@ export async function sendReply(formData: FormData): Promise<void> {
     body,
   })
   // Replying counts as having seen the conversation - clear any unread flag.
-  await db
-    .from("sms_messages")
-    .update({ read_at: new Date().toISOString() })
-    .eq("phone_number", phone)
-    .is("read_at", null)
+  // Deferred: doesn't need to block the response, just needs to land before
+  // the admin's next page view, which a single update always beats easily.
+  after(() =>
+    db
+      .from("sms_messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("phone_number", phone)
+      .is("read_at", null)
+  )
 
   revalidatePath("/admin/sms")
 }
@@ -149,7 +154,9 @@ export async function sendGroupMessage(formData: FormData): Promise<void> {
     await sleep(200)
   }
 
-  await logEvent(serviceClient, "sms-broadcast-sent", `campaign=${campaign} group=${group} sent=${sent} failed=${failed} total=${recipients.length}`)
+  after(() =>
+    logEvent(serviceClient, "sms-broadcast-sent", `campaign=${campaign} group=${group} sent=${sent} failed=${failed} total=${recipients.length}`)
+  )
 
   revalidatePath("/admin/sms")
   redirect("/admin/sms")

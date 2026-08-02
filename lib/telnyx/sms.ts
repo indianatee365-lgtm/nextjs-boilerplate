@@ -1,3 +1,4 @@
+import { after } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { logEvent } from "@/lib/observability/notify"
 
@@ -64,7 +65,9 @@ async function sendSms(to: string, body: string, kind: string) {
     throw new Error("Telnyx SMS failed: " + JSON.stringify(err))
   }
 
-  await logEvent(supabase, "sms-sent", `kind=${kind} to=${to}`)
+  // Deferred: this is pure observability, doesn't need to hold up the
+  // response the admin is waiting on.
+  after(() => logEvent(supabase, "sms-sent", `kind=${kind} to=${to}`))
 }
 
 // Free-form send for the admin SMS inbox reply box - unlike every other
