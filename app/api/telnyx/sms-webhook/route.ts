@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { verifyTelnyxSignature } from "@/lib/telnyx/verify-webhook"
-import { sendInboundSmsAutoAck } from "@/lib/telnyx/sms"
+import { sendInboundSmsAutoAck, sendOptOutConfirmation, sendOptInConfirmation, sendHelpSms } from "@/lib/telnyx/sms"
 import { notifyOwner, logEvent, logFailure } from "@/lib/observability/notify"
 
 function normalizePhone(raw: string): string {
@@ -10,6 +10,13 @@ function normalizePhone(raw: string): string {
   if (digits.length === 11 && digits.startsWith("1")) return "+" + digits
   return raw.startsWith("+") ? raw : "+" + raw
 }
+
+// CTIA standard opt-out/opt-in/help keywords, matched against the whole
+// trimmed message (not a substring) so a real sentence that happens to
+// contain "stop" doesn't trigger this.
+const STOP_KEYWORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"])
+const START_KEYWORDS = new Set(["START", "UNSTOP", "YES"])
+const HELP_KEYWORDS = new Set(["HELP", "INFO"])
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
@@ -52,6 +59,59 @@ export async function POST(request: NextRequest) {
   })
   if (insertErr) {
     console.error("[telnyx/sms-webhook] failed to log inbound message", insertErr)
+  }
+
+  const keyword = text.trim().toUpperCase()
+
+  // STOP/START/HELP are routine, expected interactions - logged for the
+  // dashboard but not worth an owner SMS alert the way a real question is.
+  if (STOP_KEYWORDS.has(keyword)) {
+    await db.from("sms_opt_outs").upsert({ phone_number: phone })
+    await db.from("profiles").update({ sms_consent: false }).eq("phone", phone)
+    await logEvent(supabase, "sms-opt-out", `from=${phone}`)
+    try {
+      await sendOptOutConfirmation(phone)
+      await db.from("sms_messages").insert({
+        phone_number: phone,
+        direction: "outbound",
+        body: "[opt-out] You've been unsubscribed from Tee365 texts and won't receive further messages. Reply START to resubscribe.",
+      })
+    } catch (err) {
+      await logFailure(supabase, "sms-opt-out-confirm-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
+  if (START_KEYWORDS.has(keyword)) {
+    await db.from("sms_opt_outs").delete().eq("phone_number", phone)
+    await db.from("profiles").update({ sms_consent: true }).eq("phone", phone)
+    await logEvent(supabase, "sms-opt-in", `from=${phone}`)
+    try {
+      await sendOptInConfirmation(phone)
+      await db.from("sms_messages").insert({
+        phone_number: phone,
+        direction: "outbound",
+        body: "[opt-in] You're resubscribed to Tee365 texts. Reply STOP anytime to opt out again.",
+      })
+    } catch (err) {
+      await logFailure(supabase, "sms-opt-in-confirm-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
+  if (HELP_KEYWORDS.has(keyword)) {
+    await logEvent(supabase, "sms-help-requested", `from=${phone}`)
+    try {
+      await sendHelpSms(phone)
+      await db.from("sms_messages").insert({
+        phone_number: phone,
+        direction: "outbound",
+        body: "[help] Tee365: tee365.org | info@tee365.org | (574) 444-9365. Reply STOP to opt out, START to resubscribe.",
+      })
+    } catch (err) {
+      await logFailure(supabase, "sms-help-send-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+    }
+    return NextResponse.json({ ok: true })
   }
 
   // Alert fires with the actual message content, not just "someone texted" -

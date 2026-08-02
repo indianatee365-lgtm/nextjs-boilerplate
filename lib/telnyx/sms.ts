@@ -8,11 +8,37 @@ function normalizePhone(phone: string): string {
   return phone.startsWith("+") ? phone : "+" + phone
 }
 
+// Kinds that must always go through regardless of opt-out status: the
+// STOP/START/HELP confirmations ARE the compliance response, a live admin
+// reply is a direct 1:1 reply (not a marketing blast), and the inbound
+// auto-ack is a direct reply to whatever the person just texted in.
+const OPT_OUT_EXEMPT_KINDS = new Set([
+  "admin-reply",
+  "inbound-auto-ack",
+  "opt-out-confirm",
+  "opt-in-confirm",
+  "help-info",
+])
+
 // Every SMS template funnels through here, so every send - success or
 // failure - gets one admin_logs row without relying on each call site to
 // remember to log it. `kind` identifies which template sent it.
 async function sendSms(to: string, body: string, kind: string) {
   const supabase = await createServiceClient()
+
+  if (!OPT_OUT_EXEMPT_KINDS.has(kind)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: optOut } = await (supabase as any)
+      .from("sms_opt_outs")
+      .select("phone_number")
+      .eq("phone_number", normalizePhone(to))
+      .maybeSingle()
+    if (optOut) {
+      await logEvent(supabase, "sms-send-skipped-opted-out", `kind=${kind} to=${to}`)
+      return
+    }
+  }
+
   let res: Response
   try {
     res = await fetch("https://api.telnyx.com/v2/messages", {
@@ -61,6 +87,26 @@ export async function sendInboundSmsAutoAck(to: string) {
   ].join(" ")
 
   await sendSms(to, message, "inbound-auto-ack")
+}
+
+export async function sendOptOutConfirmation(to: string) {
+  await sendSms(
+    to,
+    "You've been unsubscribed from Tee365 texts and won't receive further messages. Reply START to resubscribe.",
+    "opt-out-confirm"
+  )
+}
+
+export async function sendOptInConfirmation(to: string) {
+  await sendSms(to, "You're resubscribed to Tee365 texts. Reply STOP anytime to opt out again.", "opt-in-confirm")
+}
+
+export async function sendHelpSms(to: string) {
+  await sendSms(
+    to,
+    "Tee365: tee365.org | info@tee365.org | (574) 444-9365\nReply STOP to opt out, START to resubscribe. Msg & data rates may apply.",
+    "help-info"
+  )
 }
 
 export async function sendBookingConfirmation({
