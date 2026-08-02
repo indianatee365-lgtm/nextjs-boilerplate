@@ -41,6 +41,22 @@ async function sendSms(to: string, body: string, kind: string) {
   await logEvent(supabase, "sms-sent", `kind=${kind} to=${to}`)
 }
 
+// Free-form send for the admin SMS inbox reply box - unlike every other
+// export here, the body isn't a fixed template, it's whatever the admin
+// typed.
+export async function sendAdminReplySms(to: string, body: string) {
+  await sendSms(to, body, "admin-reply")
+}
+
+export async function sendInboundSmsAutoAck(to: string) {
+  const message = [
+    "Thanks for texting Tee365! We've got your message and will respond shortly.",
+    "For an immediate answer, call this same number to reach our virtual assistant, or email info@tee365.org.",
+  ].join(" ")
+
+  await sendSms(to, message, "inbound-auto-ack")
+}
+
 export async function sendBookingConfirmation({
   to,
   firstName,

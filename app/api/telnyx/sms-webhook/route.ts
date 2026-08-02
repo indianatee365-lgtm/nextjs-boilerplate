@@ -1,0 +1,77 @@
+import { NextRequest, NextResponse } from "next/server"
+import { createServiceClient } from "@/lib/supabase/server"
+import { verifyTelnyxSignature } from "@/lib/telnyx/verify-webhook"
+import { sendInboundSmsAutoAck } from "@/lib/telnyx/sms"
+import { notifyOwner, logEvent, logFailure } from "@/lib/observability/notify"
+
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "")
+  if (digits.length === 10) return "+1" + digits
+  if (digits.length === 11 && digits.startsWith("1")) return "+" + digits
+  return raw.startsWith("+") ? raw : "+" + raw
+}
+
+export async function POST(request: NextRequest) {
+  const rawBody = await request.text()
+  const signature = request.headers.get("telnyx-signature-ed25519")
+  const timestamp = request.headers.get("telnyx-timestamp")
+
+  if (!verifyTelnyxSignature(rawBody, signature, timestamp)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
+
+  const event = JSON.parse(rawBody)
+  const eventType = event?.data?.event_type
+
+  // This webhook URL receives every messaging event on the profile (delivery
+  // receipts, message.sent, etc.), not just inbound texts - only act on
+  // message.received, acknowledge everything else without doing anything.
+  if (eventType !== "message.received") {
+    return NextResponse.json({ ok: true })
+  }
+
+  const payload = event.data.payload
+  const fromNumber = payload?.from?.phone_number as string | undefined
+  const text = payload?.text as string | undefined
+  const telnyxMessageId = payload?.id as string | undefined
+
+  if (!fromNumber || !text) {
+    return NextResponse.json({ ok: true })
+  }
+
+  const phone = normalizePhone(fromNumber)
+  const supabase = await createServiceClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  const { error: insertErr } = await db.from("sms_messages").insert({
+    phone_number: phone,
+    direction: "inbound",
+    body: text,
+    telnyx_message_id: telnyxMessageId ?? null,
+  })
+  if (insertErr) {
+    console.error("[telnyx/sms-webhook] failed to log inbound message", insertErr)
+  }
+
+  // Alert fires with the actual message content, not just "someone texted" -
+  // the point is Jerrod knows whether this needs an urgent callback or can
+  // wait until he's next on the dashboard.
+  await Promise.allSettled([
+    notifyOwner(`Tee365 SMS from ${phone}: "${text.slice(0, 300)}". Reply from the admin dashboard.`),
+    logEvent(supabase, "inbound-sms-received", `from=${phone} text=${text.slice(0, 100)}`),
+  ])
+
+  try {
+    await sendInboundSmsAutoAck(phone)
+    await db.from("sms_messages").insert({
+      phone_number: phone,
+      direction: "outbound",
+      body: "[auto-ack] Thanks for texting Tee365! We've got your message and will respond shortly. For an immediate answer, call this same number to reach our virtual assistant, or email info@tee365.org.",
+    })
+  } catch (err) {
+    await logFailure(supabase, "inbound-sms-autoack-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+  }
+
+  return NextResponse.json({ ok: true })
+}
