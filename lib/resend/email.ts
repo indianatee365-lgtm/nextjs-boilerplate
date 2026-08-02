@@ -702,3 +702,41 @@ export async function sendMembershipWelcomeEmail({
     kind: "membership-welcome",
   })
 }
+
+export async function sendSmsOptOutConfirmationEmail({
+  to, firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">You're unsubscribed from texts</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">We got your STOP text. You won't receive any more texts from Tee365, including booking confirmations, reminders, and access codes. This email confirms it, and won't happen again unless you text START.</p>
+<div style="background:#1a1400;border:1px solid #3a2f00;border-radius:8px;padding:16px;margin:24px 0;">
+<p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#facc15;">If you have an upcoming booking</p>
+<p style="margin:0;color:#fde68a;font-size:13px;line-height:1.6;">Your access code will no longer be texted to you before your session. Find it anytime on your account page instead.</p>
+</div>
+<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/account" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">View your account</a>
+</td></tr></table>
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">This doesn't affect email, and you can text START to tee365's number any time to resubscribe.</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "You're unsubscribed from Tee365 texts",
+    html,
+    kind: "sms-opt-out-confirmation",
+  })
+}

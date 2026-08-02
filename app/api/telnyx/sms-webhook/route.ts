@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { verifyTelnyxSignature } from "@/lib/telnyx/verify-webhook"
 import { sendInboundSmsAutoAck, sendOptOutConfirmation, sendOptInConfirmation, sendHelpSms } from "@/lib/telnyx/sms"
+import { sendSmsOptOutConfirmationEmail } from "@/lib/resend/email"
 import { notifyOwner, logEvent, logFailure } from "@/lib/observability/notify"
 
 function normalizePhone(raw: string): string {
@@ -67,7 +68,14 @@ export async function POST(request: NextRequest) {
   // dashboard but not worth an owner SMS alert the way a real question is.
   if (STOP_KEYWORDS.has(keyword)) {
     await db.from("sms_opt_outs").upsert({ phone_number: phone })
-    await db.from("profiles").update({ sms_consent: false }).eq("phone", phone)
+    // .select() here so we get email/first_name back from the same round
+    // trip, instead of a separate lookup, to email them that access codes
+    // and booking texts will stop and where to find them instead.
+    const { data: updatedProfiles } = await db
+      .from("profiles")
+      .update({ sms_consent: false })
+      .eq("phone", phone)
+      .select("email, first_name")
     await logEvent(supabase, "sms-opt-out", `from=${phone}`)
     try {
       await sendOptOutConfirmation(phone)
@@ -78,6 +86,15 @@ export async function POST(request: NextRequest) {
       })
     } catch (err) {
       await logFailure(supabase, "sms-opt-out-confirm-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
+    }
+
+    const optedOutProfile = updatedProfiles?.[0] as { email: string | null; first_name: string | null } | undefined
+    if (optedOutProfile?.email) {
+      try {
+        await sendSmsOptOutConfirmationEmail({ to: optedOutProfile.email, firstName: optedOutProfile.first_name ?? "there" })
+      } catch (err) {
+        await logFailure(supabase, "sms-opt-out-email-FAILED", `to=${optedOutProfile.email} err=${String(err).slice(0, 200)}`)
+      }
     }
     return NextResponse.json({ ok: true })
   }
