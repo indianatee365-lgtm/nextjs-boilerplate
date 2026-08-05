@@ -11,7 +11,13 @@ export default function HeroFull() {
           height="1080"
           loading="eager"
         />
-        <div className="absolute inset-0 bg-black/55" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 28%, rgba(0,0,0,0.15) 58%, rgba(0,0,0,0) 75%)",
+          }}
+        />
         <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent" />
       </div>
 
