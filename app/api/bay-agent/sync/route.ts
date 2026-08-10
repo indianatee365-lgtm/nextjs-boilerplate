@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, ends_at, extend_token, profiles!user_id(first_name)")
+    .select("id, ends_at, extend_token, bay_powered_on_at, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now.toISOString())
@@ -127,12 +127,32 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle()
 
+  // Close out the audit trail (bay_powered_on_at/bay_powered_off_at, pre-existing
+  // columns on bookings that predate this feature but were never wired up) for
+  // any of this bay's bookings that ended since the last poll. Self-healing by
+  // design, same as everything else here - no in-memory "was this booking active
+  // last time" state to get out of sync.
+  await serviceClient
+    .from("bookings")
+    .update({ bay_powered_off_at: now.toISOString() })
+    .eq("bay_id", bayId)
+    .not("bay_powered_on_at", "is", null)
+    .is("bay_powered_off_at", null)
+    .lte("ends_at", now.toISOString())
+
   if (!booking) {
     return NextResponse.json({
       desiredState: "available",
       booking: null,
       serverTime: now.toISOString(),
     })
+  }
+
+  if (!booking.bay_powered_on_at) {
+    await serviceClient
+      .from("bookings")
+      .update({ bay_powered_on_at: now.toISOString() })
+      .eq("id", booking.id)
   }
 
   const endsAt = new Date(booking.ends_at)
