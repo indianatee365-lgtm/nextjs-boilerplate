@@ -6,7 +6,7 @@ import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
-import { isFoundersDaySession, hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
+import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isActiveFounder } from "@/lib/bookings/launch-gate"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -29,8 +29,9 @@ export interface CreateBookingInput {
   applyHourCredits?: boolean
   // "web" bookings go through the site's session-authenticated flow; "phone"
   // bookings are created by the voice agent on the caller's behalf. Both go
-  // through the same pre-launch gate below (admin, or a founder's day-of
-  // exception), so it can't be bypassed by adding a new channel later.
+  // through the same pre-launch gate below (admin, a founder's day-of
+  // exception, or general founder early access), so it can't be bypassed by
+  // adding a new channel later.
   source?: "web" | "phone"
 }
 
@@ -66,9 +67,12 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     source = "web",
   } = input
 
-  // Booking window gate: admin only pre-launch, with one carve-out - a
+  // Booking window gate: admin only pre-launch, with two carve-outs - (1) a
   // founder can reserve specifically their Friends & Founders Day (8/29)
-  // slot starting 8/18, using the real hour_credits their membership grants.
+  // slot starting 8/18, using the real hour_credits their membership grants,
+  // and (2) starting 8/19 00:01 EDT (Founder's Club sales close), any active
+  // founder can book any session from 8/30 onward, ahead of the 9/1 public
+  // launch.
   const { data: callerProfile } = await serviceClient
     .from("profiles")
     .select("role")
@@ -79,7 +83,9 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   if (!isAdmin) {
     const eligibleForFoundersDay =
       isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
-    if (!eligibleForFoundersDay) {
+    const eligibleForEarlyAccess =
+      isEarlyAccessEligibleSession(startsAt) && (await isActiveFounder(serviceClient, userId))
+    if (!eligibleForFoundersDay && !eligibleForEarlyAccess) {
       return { ok: false, status: 403, error: "Bookings not yet available" }
     }
   }
