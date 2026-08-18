@@ -10,10 +10,16 @@ const FOUNDERS_DAY_BOOKING_OPENS = new Date("2026-08-18T04:00:00Z")
 
 // Founder's Club sales close 8/19 00:01 EDT. From that moment, any active
 // founder (not just those with a Founders Day hour credit) can book any
-// bay/date starting 8/30 - the day after Friends & Founders Day - ahead of
-// the 9/1 general public launch.
+// bay/date starting 8/30 - the day Tee365 opens to the public (the day
+// after Friends & Founders Day) - an 11-day head start on the public.
 export const FOUNDERS_CLUB_DEADLINE = new Date("2026-08-19T04:01:00Z") // 00:01 ET Aug 19
-const EARLY_ACCESS_MIN_SESSION_START = new Date("2026-08-30T04:00:00Z")
+const EARLIEST_BOOKABLE_SESSION_START = new Date("2026-08-30T04:00:00Z") // midnight ET Aug 30, public opening day
+
+// Birdie/Eagle memberships go on sale 8/23 (Sunday) - also the day the
+// general public's own 7-day advance booking window opens, ahead of the
+// 8/30 public opening.
+export const BIRDIE_EAGLE_LAUNCH = new Date("2026-08-23T04:00:00Z") // midnight ET Aug 23
+export const PUBLIC_BOOKING_OPENS = new Date("2026-08-23T04:00:00Z") // midnight ET Aug 23
 
 export function isFoundersDaySession(startsAt: string | Date): boolean {
   const d = new Date(startsAt)
@@ -48,7 +54,7 @@ export async function hasFoundersDayCredit(serviceClient: SupabaseClient, userId
 export function isEarlyAccessEligibleSession(startsAt: string | Date): boolean {
   const d = new Date(startsAt)
   return Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
-    && d.getTime() >= EARLY_ACCESS_MIN_SESSION_START.getTime()
+    && d.getTime() >= EARLIEST_BOOKABLE_SESSION_START.getTime()
 }
 
 export async function isActiveFounder(serviceClient: SupabaseClient, userId: string): Promise<boolean> {
@@ -62,4 +68,14 @@ export async function isActiveFounder(serviceClient: SupabaseClient, userId: str
     .maybeSingle()
 
   return !!data
+}
+
+// General public booking window: anyone can book any session starting 8/30
+// or later, once booking opens 8/23 - a 7-day advance window ahead of the
+// 8/30 public opening day. No membership/credit check - this is the
+// catch-all path everyone eventually falls into.
+export function isPublicBookingOpen(startsAt: string | Date): boolean {
+  const d = new Date(startsAt)
+  return Date.now() >= PUBLIC_BOOKING_OPENS.getTime()
+    && d.getTime() >= EARLIEST_BOOKABLE_SESSION_START.getTime()
 }

@@ -1,6 +1,18 @@
 import { createServiceClient } from "@/lib/supabase/server"
-import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { FOUNDERS_CLUB_DEADLINE, BIRDIE_EAGLE_LAUNCH } from "@/lib/bookings/launch-gate"
 import { CountdownClock } from "@/app/components/ui/CountdownClock"
+
+function Bar({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="flex items-center justify-center gap-2 w-full text-center text-xs sm:text-sm font-semibold text-black hover:brightness-95 transition py-2 px-4"
+      style={{ backgroundColor: "var(--brand)" }}
+    >
+      {children}
+    </a>
+  )
+}
 
 export default async function AnnouncementBar() {
   const supabase = await createServiceClient()
@@ -17,25 +29,32 @@ export default async function AnnouncementBar() {
     .in("status", ["active", "past_due"])
 
   const sold = founderCount ?? 0
-  const closed = new Date() > FOUNDERS_CLUB_DEADLINE || sold >= 100
+  const foundersOpen = new Date() <= FOUNDERS_CLUB_DEADLINE && sold < 100
 
-  if (closed) return null
+  if (foundersOpen) {
+    const remaining = 100 - sold
+    const prefix = sold >= 80
+      ? `Only ${remaining} of 100 Founder's Club spots left`
+      : `Founder's Club: Lock in lifetime pricing`
 
-  const remaining = 100 - sold
-  const showCount = sold >= 80
-  const prefix = showCount
-    ? `Only ${remaining} of 100 Founder's Club spots left`
-    : `Founder's Club: Lock in lifetime pricing`
+    return (
+      <Bar href="/founders">
+        <span>{prefix} · Closes in</span>
+        <CountdownClock deadline={FOUNDERS_CLUB_DEADLINE.toISOString()} className="tabular-nums" />
+        <span aria-hidden="true">→</span>
+      </Bar>
+    )
+  }
 
-  return (
-    <a
-      href="/founders"
-      className="flex items-center justify-center gap-2 w-full text-center text-xs sm:text-sm font-semibold text-black hover:brightness-95 transition py-2 px-4"
-      style={{ backgroundColor: "var(--brand)" }}
-    >
-      <span>{prefix} · Closes in</span>
-      <CountdownClock deadline={FOUNDERS_CLUB_DEADLINE.toISOString()} className="tabular-nums" />
-      <span aria-hidden="true">→</span>
-    </a>
-  )
+  if (new Date() < BIRDIE_EAGLE_LAUNCH) {
+    return (
+      <Bar href="/join">
+        <span>Birdie &amp; Eagle memberships open in</span>
+        <CountdownClock deadline={BIRDIE_EAGLE_LAUNCH.toISOString()} className="tabular-nums" />
+        <span aria-hidden="true">→</span>
+      </Bar>
+    )
+  }
+
+  return null
 }

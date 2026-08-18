@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "./JoinClient"
-import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { FOUNDERS_CLUB_DEADLINE, BIRDIE_EAGLE_LAUNCH } from "@/lib/bookings/launch-gate"
 import { CountdownClock } from "@/app/components/ui/CountdownClock"
 
 export const metadata: Metadata = {
@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://tee365.org/join" },
 }
 
-const BIRDIE_EAGLE_LAUNCH = new Date("2026-08-25T04:00:00Z") // midnight ET Aug 25
 const birdieEagleLive = new Date() >= BIRDIE_EAGLE_LAUNCH
 
 const CHECK = (
