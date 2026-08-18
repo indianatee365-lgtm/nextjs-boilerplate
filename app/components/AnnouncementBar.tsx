@@ -1,4 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server"
+import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { CountdownClock } from "@/app/components/ui/CountdownClock"
 
 export default async function AnnouncementBar() {
   const supabase = await createServiceClient()
@@ -15,23 +17,25 @@ export default async function AnnouncementBar() {
     .in("status", ["active", "past_due"])
 
   const sold = founderCount ?? 0
-  const closed = new Date() > new Date("2026-08-18T23:59:59-04:00") || sold >= 100
+  const closed = new Date() > FOUNDERS_CLUB_DEADLINE || sold >= 100
 
   if (closed) return null
 
   const remaining = 100 - sold
   const showCount = sold >= 80
-  const message = showCount
-    ? `Only ${remaining} of 100 Founder's Club spots left · Closes Aug 18 →`
-    : `Founder's Club: Lock in lifetime pricing · Closes Aug 18 →`
+  const prefix = showCount
+    ? `Only ${remaining} of 100 Founder's Club spots left`
+    : `Founder's Club: Lock in lifetime pricing`
 
   return (
     <a
       href="/founders"
-      className="block w-full text-center text-xs sm:text-sm font-semibold text-black hover:brightness-95 transition py-2 px-4"
+      className="flex items-center justify-center gap-2 w-full text-center text-xs sm:text-sm font-semibold text-black hover:brightness-95 transition py-2 px-4"
       style={{ backgroundColor: "var(--brand)" }}
     >
-      {message}
+      <span>{prefix} · Closes in</span>
+      <CountdownClock deadline={FOUNDERS_CLUB_DEADLINE.toISOString()} className="tabular-nums" />
+      <span aria-hidden="true">→</span>
     </a>
   )
 }
