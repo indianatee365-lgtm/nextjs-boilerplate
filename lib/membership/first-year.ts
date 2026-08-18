@@ -18,3 +18,9 @@ export function isInFirstYear(membership: {
   oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
   return new Date() < oneYearLater
 }
+
+export const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  founder: "Founder's Club",
+  eagle: "Eagle",
+  birdie: "Birdie",
+}

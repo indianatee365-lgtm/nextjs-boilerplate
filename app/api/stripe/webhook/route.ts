@@ -6,6 +6,7 @@ import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmatio
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
+import { PLAN_DISPLAY_NAMES } from "@/lib/membership/first-year"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
 function generateGiftCardCode(): string {
@@ -583,11 +584,6 @@ export async function POST(request: NextRequest) {
   }
 
   // Subscription status changes (renewals, cancellations, recoveries)
-  const PLAN_DISPLAY_NAMES: Record<string, string> = {
-    founder: "Founder's Club",
-    eagle: "Eagle",
-    birdie: "Birdie",
-  }
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
     const newStatus = sub.status === "active" ? "active"
