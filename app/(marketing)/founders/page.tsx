@@ -1,17 +1,18 @@
 import type { Metadata } from "next"
 import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "../join/JoinClient"
+import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
 
 export const metadata: Metadata = {
   title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-  description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+  description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 19, 2026. 30% off year one, 20% off forever.",
   alternates: {
     canonical: "https://tee365.org/founders",
   },
   openGraph: {
     type: "website",
     title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 19, 2026. 30% off year one, 20% off forever.",
     url: "https://tee365.org/founders",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 19, 2026. 30% off year one, 20% off forever.",
     images: ["https://tee365.org/hero.jpg"],
   },
   robots: { index: true, follow: true },
@@ -48,7 +49,7 @@ export default async function FoundersPage() {
     .in("status", ["active", "past_due"])
 
   const spotsRemaining = 100 - (founderCount ?? 0)
-  const founderClosed = new Date() > new Date("2026-08-18") || spotsRemaining <= 0
+  const founderClosed = new Date() > FOUNDERS_CLUB_DEADLINE || spotsRemaining <= 0
 
   return (
     <main className="min-h-screen">
@@ -64,13 +65,13 @@ export default async function FoundersPage() {
           </h1>
           <p className="text-xl text-neutral-300 max-w-2xl mx-auto mb-4">
             Before the doors open, there&apos;s a window for the people who believe first.
-            One hundred spots. Permanent benefits. Closes August 18, 2026.
+            One hundred spots. Permanent benefits. Closes August 19, 2026.
           </p>
           {!founderClosed && (
             <p className="text-sm text-brand font-semibold">
               {spotsRemaining <= 20
-                ? `Only ${spotsRemaining} spots remaining · Closes August 18, 2026`
-                : `Enrollment open · Closes August 18, 2026`}
+                ? `Only ${spotsRemaining} spots remaining · Closes August 19, 2026`
+                : `Enrollment open · Closes August 19, 2026`}
             </p>
           )}
         </div>
@@ -189,7 +190,7 @@ export default async function FoundersPage() {
         {/* Bottom CTA */}
         {!founderClosed && (
           <div className="text-center">
-            <p className="text-neutral-400 mb-2 text-sm">{spotsRemaining <= 20 ? `Only ${spotsRemaining} of 100 spots left. Closes August 18, 2026.` : "Lock in lifetime pricing. Closes August 18, 2026."}</p>
+            <p className="text-neutral-400 mb-2 text-sm">{spotsRemaining <= 20 ? `Only ${spotsRemaining} of 100 spots left. Closes August 19, 2026.` : "Lock in lifetime pricing. Closes August 19, 2026."}</p>
             <JoinButton
               planSlug="founder"
               label="Claim Your Spot"

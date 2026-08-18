@@ -12,7 +12,7 @@ const FOUNDERS_DAY_BOOKING_OPENS = new Date("2026-08-18T04:00:00Z")
 // founder (not just those with a Founders Day hour credit) can book any
 // bay/date starting 8/30 - the day after Friends & Founders Day - ahead of
 // the 9/1 general public launch.
-const FOUNDERS_EARLY_ACCESS_OPENS = new Date("2026-08-19T04:01:00Z")
+export const FOUNDERS_CLUB_DEADLINE = new Date("2026-08-19T04:01:00Z") // 00:01 ET Aug 19
 const EARLY_ACCESS_MIN_SESSION_START = new Date("2026-08-30T04:00:00Z")
 
 export function isFoundersDaySession(startsAt: string | Date): boolean {
@@ -47,7 +47,7 @@ export async function hasFoundersDayCredit(serviceClient: SupabaseClient, userId
 // check, not a redeemable-credit check.
 export function isEarlyAccessEligibleSession(startsAt: string | Date): boolean {
   const d = new Date(startsAt)
-  return Date.now() >= FOUNDERS_EARLY_ACCESS_OPENS.getTime()
+  return Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
     && d.getTime() >= EARLY_ACCESS_MIN_SESSION_START.getTime()
 }
 

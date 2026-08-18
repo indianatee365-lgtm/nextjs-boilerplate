@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "./JoinClient"
+import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
 
 export const metadata: Metadata = {
   title: "Membership | Tee365",
@@ -39,7 +40,7 @@ export default async function JoinPage() {
     .in("status", ["active", "past_due"])
 
   const spotsRemaining = 100 - (founderCount ?? 0)
-  const founderClosed = new Date() > new Date("2026-08-18") || spotsRemaining <= 0
+  const founderClosed = new Date() > FOUNDERS_CLUB_DEADLINE || spotsRemaining <= 0
 
   const birdie = plans?.find(p => p.slug === "birdie")
   const eagle = plans?.find(p => p.slug === "eagle")
@@ -181,7 +182,7 @@ export default async function JoinPage() {
                 <p className="text-sm text-white/80 mt-1 font-medium">+ $199 one-time joining fee</p>
               </div>
               <p className="text-xs text-white/60 mb-6">
-                {founderClosed ? "Enrollment is permanently closed" : "Closes Aug 18, 2026 or when full"}
+                {founderClosed ? "Enrollment is permanently closed" : "Closes Aug 19, 2026 or when full"}
               </p>
 
               <ul className="space-y-2.5 mb-8">

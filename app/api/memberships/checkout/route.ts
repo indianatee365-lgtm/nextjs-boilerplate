@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
+import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (planSlug === "founder" && new Date() > new Date("2026-08-18")) {
+    if (planSlug === "founder" && new Date() > FOUNDERS_CLUB_DEADLINE) {
       return NextResponse.json({ error: "Founder's Club enrollment has closed" }, { status: 409 })
     }
 
