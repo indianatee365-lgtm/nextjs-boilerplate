@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
-import { removePaymentMethod } from "./payment-actions"
+import { removePaymentMethod, setDefaultPaymentMethod } from "./payment-actions"
 import { CreditCard, Plus, Trash2 } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -14,6 +14,7 @@ interface SavedCard {
   last4: string
   expMonth: number
   expYear: number
+  isDefault: boolean
 }
 
 function AddCardForm({ onSuccess }: { onSuccess: () => void }) {
@@ -61,6 +62,7 @@ export default function PaymentMethodsSection({ cards }: { cards: SavedCard[] })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [removing, setRemoving] = useState<string | null>(null)
+  const [settingDefault, setSettingDefault] = useState<string | null>(null)
 
   async function handleAddCard() {
     const res = await fetch("/api/auth/setup-intent", { method: "POST" })
@@ -80,6 +82,14 @@ export default function PaymentMethodsSection({ cards }: { cards: SavedCard[] })
     startTransition(async () => {
       await removePaymentMethod(paymentMethodId)
       setRemoving(null)
+    })
+  }
+
+  function handleSetDefault(paymentMethodId: string) {
+    setSettingDefault(paymentMethodId)
+    startTransition(async () => {
+      await setDefaultPaymentMethod(paymentMethodId)
+      setSettingDefault(null)
     })
   }
 
@@ -108,22 +118,40 @@ export default function PaymentMethodsSection({ cards }: { cards: SavedCard[] })
             <div className="flex items-center gap-3">
               <CreditCard size={16} className="text-neutral-400" />
               <div>
-                <p className="text-sm text-white">
-                  {brandLabel(card.brand)} •••• {card.last4}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-white">
+                    {brandLabel(card.brand)} •••• {card.last4}
+                  </p>
+                  {card.isDefault && (
+                    <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                      Default
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-neutral-500">
                   Expires {card.expMonth}/{card.expYear}
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => handleRemove(card.id)}
-              disabled={removing === card.id || isPending}
-              className="text-neutral-500 hover:text-red-400 transition-colors"
-              aria-label="Remove card"
-            >
-              <Trash2 size={15} />
-            </button>
+            <div className="flex items-center gap-3">
+              {!card.isDefault && (
+                <button
+                  onClick={() => handleSetDefault(card.id)}
+                  disabled={settingDefault === card.id || isPending}
+                  className="text-xs text-brand hover:underline disabled:opacity-50"
+                >
+                  {settingDefault === card.id ? "Setting…" : "Set as default"}
+                </button>
+              )}
+              <button
+                onClick={() => handleRemove(card.id)}
+                disabled={removing === card.id || isPending}
+                className="text-neutral-500 hover:text-red-400 transition-colors"
+                aria-label="Remove card"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
         ))}
       </div>

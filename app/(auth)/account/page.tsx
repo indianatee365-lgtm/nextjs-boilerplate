@@ -62,17 +62,29 @@ export default async function AccountPage({
   const availableCreditHours = creditRows.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
   const nextCreditExpiry = creditRows.find((c) => c.expires_at)?.expires_at ?? null
 
-  // Fetch saved payment methods from Stripe
+  // Fetch saved payment methods from Stripe, and which one is the default
+  // (used for subscription renewals) so the account page can show it and
+  // let the customer explicitly change it - not left to only the
+  // setup_intent.succeeded webhook, which depends on that event being
+  // enabled on the Stripe webhook endpoint.
   const stripeCustomerId = (profile as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null
+  let defaultPaymentMethodId: string | null = null
   const savedCards = stripeCustomerId
-    ? await getStripe().customers.listPaymentMethods(stripeCustomerId, { type: "card" })
-        .then((r) => r.data.map((pm) => ({
-          id: pm.id,
-          brand: pm.card?.brand ?? "card",
-          last4: pm.card?.last4 ?? "????",
-          expMonth: pm.card?.exp_month ?? 0,
-          expYear: pm.card?.exp_year ?? 0,
-        })))
+    ? await Promise.all([
+        getStripe().customers.listPaymentMethods(stripeCustomerId, { type: "card" }),
+        getStripe().customers.retrieve(stripeCustomerId),
+      ])
+        .then(([methods, customer]) => {
+          defaultPaymentMethodId = ("deleted" in customer ? null : customer.invoice_settings?.default_payment_method) as string | null
+          return methods.data.map((pm) => ({
+            id: pm.id,
+            brand: pm.card?.brand ?? "card",
+            last4: pm.card?.last4 ?? "????",
+            expMonth: pm.card?.exp_month ?? 0,
+            expYear: pm.card?.exp_year ?? 0,
+            isDefault: pm.id === defaultPaymentMethodId,
+          }))
+        })
         .catch(() => [])
     : []
 

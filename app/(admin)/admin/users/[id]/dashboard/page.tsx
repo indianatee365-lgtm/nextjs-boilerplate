@@ -49,12 +49,19 @@ export default async function AdminUserDashboardPage({
 
   const stripeCustomerId = (profile as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null
   const savedCards = stripeCustomerId
-    ? await getStripe().customers.listPaymentMethods(stripeCustomerId, { type: "card" })
-        .then((r) => r.data.map((pm) => ({
-          id: pm.id, brand: pm.card?.brand ?? "card",
-          last4: pm.card?.last4 ?? "????",
-          expMonth: pm.card?.exp_month ?? 0, expYear: pm.card?.exp_year ?? 0,
-        })))
+    ? await Promise.all([
+        getStripe().customers.listPaymentMethods(stripeCustomerId, { type: "card" }),
+        getStripe().customers.retrieve(stripeCustomerId),
+      ])
+        .then(([methods, customer]) => {
+          const defaultId = ("deleted" in customer ? null : customer.invoice_settings?.default_payment_method) as string | null
+          return methods.data.map((pm) => ({
+            id: pm.id, brand: pm.card?.brand ?? "card",
+            last4: pm.card?.last4 ?? "????",
+            expMonth: pm.card?.exp_month ?? 0, expYear: pm.card?.exp_year ?? 0,
+            isDefault: pm.id === defaultId,
+          }))
+        })
         .catch(() => [])
     : []
 
