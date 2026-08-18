@@ -169,29 +169,6 @@ export function calculateBookingPrice({
 }
 
 /**
- * Returns the max days in advance a user can book based on their membership.
- */
-export function getAdvanceBookingDays(membershipSlug: string | null): number {
-  switch (membershipSlug) {
-    case "founders": return 21
-    case "eagle":
-    case "birdie":   return 14
-    default:         return 7
-  }
-}
-
-/**
- * Returns the furthest date a user can book.
- */
-export function getMaxBookingDate(membershipSlug: string | null): Date {
-  const days = getAdvanceBookingDays(membershipSlug)
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  date.setHours(23, 59, 59, 999)
-  return date
-}
-
-/**
  * Generate all 30-min slots for a given date.
  * Returns slots as { startsAt, endsAt, label } for UI display.
  * Labels are formatted in the business timezone so they match what customers see locally.

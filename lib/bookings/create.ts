@@ -6,7 +6,7 @@ import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
-import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isActiveFounder, isPublicBookingOpen } from "@/lib/bookings/launch-gate"
+import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen } from "@/lib/bookings/launch-gate"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -67,13 +67,6 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     source = "web",
   } = input
 
-  // Booking window gate: admin only pre-launch, with three carve-outs -
-  // (1) a founder can reserve specifically their Friends & Founders Day
-  // (8/29) slot starting 8/18, using the real hour_credits their membership
-  // grants, (2) starting 8/19 00:01 EDT (Founder's Club sales close), any
-  // active founder can book any session from 8/30 onward (the 8/30 public
-  // opening day), and (3) starting 8/23 (7 days ahead of the 8/30 opening),
-  // anyone can book any session from 8/30 onward.
   const { data: callerProfile } = await serviceClient
     .from("profiles")
     .select("role")
@@ -81,11 +74,32 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     .single()
   const isAdmin = (callerProfile as { role: string } | null)?.role === "admin"
 
+  // Fetch the caller's active membership once - reused below for the
+  // founder early-access gate, the tier-based advance-booking cap, and
+  // pricing further down. advance_booking_days comes straight from
+  // membership_plans (birdie 10 / eagle 14 / founder 21), not a hardcoded
+  // copy, so a plan change only ever needs a DB update.
+  const { data: membership } = await serviceClient
+    .from("memberships")
+    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .single()
+  const membershipPlan = membership?.membership_plans as
+    { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
+
+  // Booking window gate: admin only pre-launch, with three carve-outs -
+  // (1) a founder can reserve specifically their Friends & Founders Day
+  // (8/29) slot starting 8/18, using the real hour_credits their membership
+  // grants, (2) starting 8/19 00:01 EDT (Founder's Club sales close), any
+  // active founder can book any session from 8/30 onward (the 8/30 public
+  // opening day), and (3) starting 8/23 (7 days ahead of the 8/30 opening),
+  // anyone can book any session from 8/30 onward.
   if (!isAdmin) {
     const eligibleForFoundersDay =
       isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
     const eligibleForEarlyAccess =
-      isEarlyAccessEligibleSession(startsAt) && (await isActiveFounder(serviceClient, userId))
+      isEarlyAccessEligibleSession(startsAt) && membershipPlan?.slug === "founder"
     const eligibleForPublicOpening = isPublicBookingOpen(startsAt)
     if (!eligibleForFoundersDay && !eligibleForEarlyAccess && !eligibleForPublicOpening) {
       return { ok: false, status: 403, error: "Bookings not yet available" }
@@ -105,6 +119,19 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     return { ok: false, status: 400, error: "Booking start time must be in the future" }
   }
   const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000)
+
+  // Tier-based advance-booking cap: how far ahead THIS user is allowed to
+  // book, independent of the launch-gate eligibility above. Non-members get
+  // the same 7-day default as the general public early-access window.
+  if (!isAdmin) {
+    const advanceBookingDays = membershipPlan?.advance_booking_days ?? 7
+    const maxBookableDate = new Date()
+    maxBookableDate.setDate(maxBookableDate.getDate() + advanceBookingDays)
+    maxBookableDate.setHours(23, 59, 59, 999)
+    if (startDate > maxBookableDate) {
+      return { ok: false, status: 403, error: `Bookings can only be made up to ${advanceBookingDays} days in advance` }
+    }
+  }
 
   // Check bay exists
   const { data: bay } = await serviceClient
@@ -155,26 +182,17 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   const key = `${context.seasonType}|${context.dayType}|${context.timeType}`
   const pricePerHour = rulesMap[key] ?? 0
 
-  // Get user's active membership
-  const { data: membership } = await serviceClient
-    .from("memberships")
-    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount)")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .single()
-
   let membershipDiscountPercent = 0
   let membershipId: string | null = null
 
   if (membership) {
     membershipId = membership.id
-    const plan = membership.membership_plans as { slug: string; discount_percent: number; first_year_discount: number | null } | null
-    if (plan) {
+    if (membershipPlan) {
       const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null })
       membershipDiscountPercent =
-        isFirstYear && plan.first_year_discount != null
-          ? plan.first_year_discount
-          : plan.discount_percent
+        isFirstYear && membershipPlan.first_year_discount != null
+          ? membershipPlan.first_year_discount
+          : membershipPlan.discount_percent
     }
   }
 
