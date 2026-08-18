@@ -87,7 +87,7 @@ export default function PaymentMethodsSection({ cards }: { cards: SavedCard[] })
     brand.charAt(0).toUpperCase() + brand.slice(1)
 
   return (
-    <div className="mt-8">
+    <div className="mt-8" id="payment-method">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-white">Payment method</h2>
         {!showAddForm && (
