@@ -3,6 +3,25 @@ import { createServiceClient } from "@/lib/supabase/server"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
 
+// Looks up a customer's display name for owner-facing SMS alerts, so
+// Jerrod gets a readable name on his phone instead of a raw UUID he can't
+// act on without pulling up the admin panel. Falls back to the id itself
+// on any lookup failure or missing profile - degrades gracefully rather
+// than losing the alert.
+export async function getCustomerName(supabase: SupabaseClient, userId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle()
+    const name = [data?.first_name, data?.last_name].filter(Boolean).join(" ")
+    return name || userId
+  } catch {
+    return userId
+  }
+}
+
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""
