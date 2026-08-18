@@ -251,6 +251,22 @@ export async function sendPaymentRetrySms({
   )
 }
 
+export async function sendSubscriptionPastDueSms({
+  to,
+  firstName,
+  planDisplayName,
+}: {
+  to: string
+  firstName: string
+  planDisplayName: string
+}) {
+  await sendSms(
+    to,
+    `Hi ${firstName}, your Tee365 ${planDisplayName} membership renewal payment didn't go through. Stripe will keep retrying automatically, but please update your card to avoid any interruption: tee365.org/account\nQuestions? info@tee365.org\nReply STOP to opt out.`,
+    "subscription-past-due"
+  )
+}
+
 export async function sendBookingPaymentFailedSms({
   to,
   firstName,

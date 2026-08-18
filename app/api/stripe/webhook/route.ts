@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
@@ -583,6 +583,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Subscription status changes (renewals, cancellations, recoveries)
+  const PLAN_DISPLAY_NAMES: Record<string, string> = {
+    founder: "Founder's Club",
+    eagle: "Eagle",
+    birdie: "Birdie",
+  }
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
     const newStatus = sub.status === "active" ? "active"
@@ -625,6 +630,35 @@ export async function POST(request: NextRequest) {
     if (newStatus === "past_due" && prevStatus !== "past_due") {
       const custName = await getCustomerName(supabase, userId)
       await notifyOwner(`ALERT Subscription PAST DUE, ${planType} ${custName}. Card declined on renewal. Stripe is dunning.`)
+
+      if (userId !== "unknown") {
+        const { data: pastDueProfile } = await supabase
+          .from("profiles")
+          .select("first_name, phone, sms_consent")
+          .eq("id", userId)
+          .maybeSingle()
+        const pdProfile = pastDueProfile as { first_name: string; phone: string | null; sms_consent: boolean } | null
+        const planDisplayName = PLAN_DISPLAY_NAMES[planType] ?? planType
+
+        if (pdProfile?.phone && pdProfile.sms_consent) {
+          try {
+            await sendSubscriptionPastDueSms({ to: pdProfile.phone, firstName: pdProfile.first_name, planDisplayName })
+          } catch (err) {
+            await logFailure(supabase, "subscription-past-due-sms-FAILED",
+              `user=${userId} to=${pdProfile.phone} err=${String(err).slice(0, 200)}`)
+          }
+        }
+
+        const { data: { user: pastDueAuthUser } } = await supabase.auth.admin.getUserById(userId)
+        if (pastDueAuthUser?.email && pdProfile) {
+          try {
+            await sendSubscriptionPastDueEmail({ to: pastDueAuthUser.email, firstName: pdProfile.first_name, planDisplayName })
+          } catch (err) {
+            await logFailure(supabase, "subscription-past-due-email-FAILED",
+              `user=${userId} to=${pastDueAuthUser.email} err=${String(err).slice(0, 200)}`)
+          }
+        }
+      }
     } else if (newStatus === "cancelled" && prevStatus !== "cancelled") {
       const custName = await getCustomerName(supabase, userId)
       await notifyOwner(`ALERT Subscription CANCELLED, ${planType} ${custName}.`)
@@ -657,6 +691,34 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           console.error("Gift card email failed (webhook)", err)
         }
+      }
+    }
+  }
+
+  // A customer confirmed adding a new card (account page "Add a card" flow,
+  // or any future setup-intent entry point). Stripe attaches the payment
+  // method to the customer automatically on confirmation, but never makes
+  // it the customer's default for subscription renewals unless told to -
+  // without this, a member fixing a declined card here would still have
+  // Stripe's dunning retry hit the OLD card.
+  if (event.type === "setup_intent.succeeded") {
+    const setupIntent = event.data.object as Stripe.SetupIntent
+    const customerId = typeof setupIntent.customer === "string" ? setupIntent.customer : setupIntent.customer?.id
+    const paymentMethodId = typeof setupIntent.payment_method === "string" ? setupIntent.payment_method : setupIntent.payment_method?.id
+
+    if (customerId && paymentMethodId) {
+      try {
+        await getStripe().customers.update(customerId, {
+          invoice_settings: { default_payment_method: paymentMethodId },
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from("admin_logs").insert({
+          event: "default-payment-method-updated",
+          detail: `customer=${customerId} pm=${paymentMethodId} setup_intent=${setupIntent.id}`,
+        })
+      } catch (err) {
+        await logFailure(supabase, "default-payment-method-update-FAILED",
+          `customer=${customerId} pm=${paymentMethodId} err=${String(err).slice(0, 200)}`)
       }
     }
   }
