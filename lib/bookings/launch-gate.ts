@@ -31,9 +31,14 @@ export function isFoundersDaySession(startsAt: string | Date): boolean {
 // ahead of general public opening, using the real hour_credits row the
 // Stripe webhook (or the one-time backfill) issued them - tagged
 // "Founders Day 2026" so this doesn't accidentally unlock early access for
-// someone holding an unrelated hour credit (a raffle prize, etc).
+// someone holding an unrelated hour credit (a raffle prize, etc). The
+// hour_credits row itself is never touched by billing status changes
+// (granted once at signup, no expiry by design), so this also requires the
+// membership to be currently active - a past_due or cancelled founder
+// keeps the credit row in the DB but can't redeem it until they're current.
 export async function hasFoundersDayCredit(serviceClient: SupabaseClient, userId: string): Promise<boolean> {
   if (Date.now() < FOUNDERS_DAY_BOOKING_OPENS.getTime()) return false
+  if (!(await isActiveFounder(serviceClient, userId))) return false
 
   const { data } = await serviceClient
     .from("hour_credits")
