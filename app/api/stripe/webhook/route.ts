@@ -5,7 +5,7 @@ import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFail
 import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
-import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
 function generateGiftCardCode(): string {
@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
       if (memInsertErr) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from("admin_logs").insert({ event: "membership-insert-FAILED", detail: `user=${user_id} plan=${plan_slug} pi=${_pi.id} err=${JSON.stringify(memInsertErr).slice(0, 200)}` })
-        await notifyOwner(`ALERT Membership DB insert FAILED, user=${user_id} plan=${plan_slug} pi=${_pi.id}. Customer paid. Fix immediately.`)
+        const custName = await getCustomerName(supabase, user_id)
+        await notifyOwner(`ALERT Membership DB insert FAILED, ${custName} plan=${plan_slug} pi=${_pi.id}. Customer paid. Fix immediately.`)
         return NextResponse.json({ received: true })
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -206,7 +207,8 @@ export async function POST(request: NextRequest) {
           } catch (subErr) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase as any).from("admin_logs").insert({ event: "subscription-create-FAILED", detail: `user=${user_id} plan=${plan_slug} cust=${stripe_customer_id} err=${String(subErr).slice(0, 300)}` })
-            await notifyOwner(`ALERT Sub create FAILED, ${plan_slug} user=${user_id}. NO recurring billing set up. Fix in Stripe manually.`)
+            const custName = await getCustomerName(supabase, user_id)
+            await notifyOwner(`ALERT Sub create FAILED, ${plan_slug} ${custName}. NO recurring billing set up. Fix in Stripe manually.`)
           }
         })() : Promise.resolve(),
 
@@ -221,7 +223,8 @@ export async function POST(request: NextRequest) {
             if (!userEmail) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await (supabase as any).from("admin_logs").insert({ event: "email-skipped-no-address", detail: `user=${user_id} plan=${plan_slug}` })
-              await notifyOwner(`ALERT Welcome email SKIPPED, no email on file. user=${user_id} plan=${plan_slug}`)
+              const custName = await getCustomerName(supabase, user_id)
+              await notifyOwner(`ALERT Welcome email SKIPPED, no email on file. ${custName} plan=${plan_slug}`)
               return
             }
             if (plan_slug === "founder") {
@@ -240,11 +243,15 @@ export async function POST(request: NextRequest) {
           } catch (emailErr) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase as any).from("admin_logs").insert({ event: "email-send-FAILED", detail: `user=${user_id} plan=${plan_slug} err=${String(emailErr).slice(0, 300)}` })
-            await notifyOwner(`ALERT Welcome email FAILED, ${plan_slug} user=${user_id}. Send manually.`)
+            const custName = await getCustomerName(supabase, user_id)
+            await notifyOwner(`ALERT Welcome email FAILED, ${plan_slug} ${custName}. Send manually.`)
           }
         })(),
 
-        notifyOwner(`New ${plan_slug} membership${founderTag}, user=${user_id}`),
+        (async () => {
+          const custName = await getCustomerName(supabase, user_id)
+          await notifyOwner(`New ${plan_slug} membership${founderTag}, ${custName}`)
+        })(),
       ])
 
       return NextResponse.json({ received: true })
@@ -416,9 +423,10 @@ export async function POST(request: NextRequest) {
 
     if (piType === "membership") {
       const { user_id, plan_slug } = pi.metadata
+      const custName = user_id ? await getCustomerName(supabase, user_id) : "unknown customer"
       await logFailure(supabase, "membership-payment-FAILED",
         `pi=${pi.id} user=${user_id} plan=${plan_slug} amount=$${amount} err=${errMsg}`,
-        `ALERT Membership purchase FAILED, ${plan_slug ?? "?"} attempt by user=${user_id ?? "?"} $${amount}. Reason: ${errMsg}. Consider reaching out.`)
+        `ALERT Membership purchase FAILED, ${plan_slug ?? "?"} attempt by ${custName} $${amount}. Reason: ${errMsg}. Consider reaching out.`)
     } else if (piType === "gift_card") {
       const { recipientEmail, senderName } = pi.metadata
       await logFailure(supabase, "gift-card-payment-FAILED",
@@ -441,12 +449,14 @@ export async function POST(request: NextRequest) {
         `)
         .maybeSingle()
 
+      const failedBookingProfile = cancelledBooking?.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
+      const bookingCustName = failedBookingProfile?.first_name ?? (cancelledBooking ? `user=${cancelledBooking.user_id}` : "unknown customer")
       await logFailure(supabase, "booking-payment-FAILED",
         `pi=${pi.id} booking=${cancelledBooking?.id ?? "?"} amount=$${amount} err=${errMsg}`,
-        `ALERT Booking payment FAILED, pi=${pi.id} $${amount}. Reason: ${errMsg}. Slot released automatically.`)
+        `ALERT Booking payment FAILED, ${bookingCustName} $${amount}. Reason: ${errMsg}. Slot released automatically.`)
 
       if (cancelledBooking) {
-        const bookingProfile = cancelledBooking.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
+        const bookingProfile = failedBookingProfile
         const bay = cancelledBooking.bays as { name: string } | null
         const { data: { user: authUser } } = await supabase.auth.admin.getUserById(cancelledBooking.user_id)
 
@@ -613,11 +623,14 @@ export async function POST(request: NextRequest) {
 
     // Alert ONLY when transitioning into a problem state (avoid repeat-alerts on every Stripe update)
     if (newStatus === "past_due" && prevStatus !== "past_due") {
-      await notifyOwner(`ALERT Subscription PAST DUE, ${planType} user=${userId}. Card declined on renewal. Stripe is dunning.`)
+      const custName = await getCustomerName(supabase, userId)
+      await notifyOwner(`ALERT Subscription PAST DUE, ${planType} ${custName}. Card declined on renewal. Stripe is dunning.`)
     } else if (newStatus === "cancelled" && prevStatus !== "cancelled") {
-      await notifyOwner(`ALERT Subscription CANCELLED, ${planType} user=${userId}.`)
+      const custName = await getCustomerName(supabase, userId)
+      await notifyOwner(`ALERT Subscription CANCELLED, ${planType} ${custName}.`)
     } else if (newStatus === "active" && prevStatus === "past_due") {
-      await notifyOwner(`Sub RECOVERED, ${planType} user=${userId} back to active.`)
+      const custName = await getCustomerName(supabase, userId)
+      await notifyOwner(`Sub RECOVERED, ${planType} ${custName} back to active.`)
     }
   }
 

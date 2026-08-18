@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { notifyOwner } from "@/lib/observability/notify"
+import { notifyOwner, getCustomerName } from "@/lib/observability/notify"
 import { revalidatePath } from "next/cache"
 import Stripe from "stripe"
 import { sendCancellationConfirmation, sendReactivationConfirmation } from "@/lib/resend/email"
@@ -40,14 +40,14 @@ export async function cancelMembership(): Promise<{ error?: string; ok?: boolean
 
   if (m.cancellation_requested_at) return { error: "Cancellation already requested" }
   if (!m.stripe_subscription_id) {
-    await notifyOwner(`ALERT Cancel attempt FAILED, user=${user.id} has no subscription linked. Manual fix needed.`)
+    await notifyOwner(`ALERT Cancel attempt FAILED, ${await getCustomerName(serviceClient, user.id)} has no subscription linked. Manual fix needed.`)
     return { error: "Subscription not found. Please contact support." }
   }
 
   try {
     await getStripe().subscriptions.update(m.stripe_subscription_id, { cancel_at_period_end: true })
   } catch (err) {
-    await notifyOwner(`ALERT Stripe cancel FAILED, user=${user.id} sub=${m.stripe_subscription_id} err=${String(err).slice(0, 200)}`)
+    await notifyOwner(`ALERT Stripe cancel FAILED, ${await getCustomerName(serviceClient, user.id)} sub=${m.stripe_subscription_id} err=${String(err).slice(0, 200)}`)
     return { error: "Could not cancel. Please contact support." }
   }
 
@@ -79,7 +79,10 @@ export async function cancelMembership(): Promise<{ error?: string; ok?: boolean
         })
       }
     })(),
-    notifyOwner(`Cancellation requested, ${planName} user=${user.id}. Active until ${endDate}.`),
+    (async () => {
+      const custName = await getCustomerName(serviceClient, user.id)
+      await notifyOwner(`Cancellation requested, ${planName} ${custName}. Active until ${endDate}.`)
+    })(),
   ])
 
   revalidatePath("/account")
@@ -118,7 +121,7 @@ export async function reactivateMembership(): Promise<{ error?: string; ok?: boo
   try {
     await getStripe().subscriptions.update(m.stripe_subscription_id, { cancel_at_period_end: false })
   } catch (err) {
-    await notifyOwner(`ALERT Stripe reactivate FAILED, user=${user.id} sub=${m.stripe_subscription_id} err=${String(err).slice(0, 200)}`)
+    await notifyOwner(`ALERT Stripe reactivate FAILED, ${await getCustomerName(serviceClient, user.id)} sub=${m.stripe_subscription_id} err=${String(err).slice(0, 200)}`)
     return { error: "Could not reactivate. Please contact support." }
   }
 
@@ -147,7 +150,10 @@ export async function reactivateMembership(): Promise<{ error?: string; ok?: boo
         })
       }
     })(),
-    notifyOwner(`Reactivated, ${planName} user=${user.id}. Cancellation cancelled.`),
+    (async () => {
+      const custName = await getCustomerName(serviceClient, user.id)
+      await notifyOwner(`Reactivated, ${planName} ${custName}. Cancellation cancelled.`)
+    })(),
   ])
 
   revalidatePath("/account")
