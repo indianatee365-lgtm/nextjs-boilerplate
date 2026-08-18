@@ -31,6 +31,13 @@ export interface AccessControlResult {
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const
 
+// The door unlocks this many minutes before the booked start time, matching
+// when the access-code SMS goes out (see the "starts within 15 min" checks
+// in the Stripe webhook, the free-booking path, and the reminders cron) -
+// customers should be walking in and playing at their start time, not
+// standing outside until the second it hits.
+const DOOR_OPENS_EARLY_MINUTES = 15
+
 // Business timezone, matching the rest of the booking system.
 function localTimeParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -73,14 +80,24 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
 
   const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
 
-  // A single weekday populated with this exact booking's window - grants
-  // access for that one occurrence, not every week, as long as the User is
-  // deleted promptly after the booking ends (see revokeBayAccess).
-  const start = localTimeParts(grant.startsAt)
+  // Populated with this exact booking's window (door-open time through
+  // session end) - grants access for that one occurrence, not every week,
+  // as long as the User is deleted promptly after the booking ends (see
+  // revokeBayAccess). Door opens DOOR_OPENS_EARLY_MINUTES before the booked
+  // start; for a late booking that pushes the open time into the previous
+  // local day (or a session that itself runs past local midnight), the
+  // window is split across the two weekdays it actually touches - a single
+  // weekday's start/end pair can't represent a span that crosses midnight.
+  const doorOpensAt = new Date(grant.startsAt.getTime() - DOOR_OPENS_EARLY_MINUTES * 60 * 1000)
+  const start = localTimeParts(doorOpensAt)
   const end = localTimeParts(grant.endsAt)
   const weekSchedule: Record<string, Array<{ start_time: string; end_time: string }>> = {}
-  for (const day of WEEKDAYS) {
-    weekSchedule[day] = day === start.weekday ? [{ start_time: start.time, end_time: end.time }] : []
+  for (const day of WEEKDAYS) weekSchedule[day] = []
+  if (start.weekday === end.weekday) {
+    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: end.time }]
+  } else {
+    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: "23:59:59" }]
+    weekSchedule[end.weekday] = [{ start_time: "00:00:00", end_time: end.time }]
   }
 
   const schedule = await unifiCall<{ id: string }>(apiUrl, headers, "/access_policies/schedules", "POST", {
