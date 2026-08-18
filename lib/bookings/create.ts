@@ -92,9 +92,10 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // (1) a founder can reserve specifically their Friends & Founders Day
   // (8/29) slot starting 8/18, using the real hour_credits their membership
   // grants, (2) starting 8/19 00:01 EDT (Founder's Club sales close), any
-  // active founder can book any session from 8/30 onward (the 8/30 public
-  // opening day), and (3) starting 8/23 (7 days ahead of the 8/30 opening),
-  // anyone can book any session from 8/30 onward.
+  // active founder can book any session from 8/29 onward (Founders Day
+  // itself, including ordinary paid time beyond any free-hour credit), and
+  // (3) starting 8/23 (7 days ahead of the 8/30 public opening), anyone can
+  // book any session from 8/30 onward.
   if (!isAdmin) {
     const eligibleForFoundersDay =
       isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
