@@ -37,8 +37,9 @@ export default async function AccountPage({
         .from("memberships")
         .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
         .eq("user_id", user.id)
-        .eq("status", "active")
-        .single(),
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       serviceClient
         .from("bookings")
         .select("id, starts_at, ends_at, status, total, access_code, bays(name)")
@@ -79,6 +80,7 @@ export default async function AccountPage({
     name: string; display_name: string | null; slug: string; discount_percent: number; first_year_discount: number | null
     advance_booking_days: number; max_active_reservations: number
   } | null
+  const membershipStatus = membership?.status as string | undefined
   const founderNumber = membership?.founder_number as number | null | undefined
   const bonusHours = membership?.signup_bonus_hours as number | null | undefined
   const bonusExpires = membership?.signup_bonus_expires_at as string | null | undefined
@@ -115,7 +117,11 @@ export default async function AccountPage({
 
       {/* Membership badge */}
       {plan ? (
-        <div className="mt-6 rounded-xl border border-brand/30 bg-brand/10 px-4 py-4">
+        <div className={`mt-6 rounded-xl border px-4 py-4 ${
+          membershipStatus === "past_due" ? "border-red-500/40 bg-red-500/10"
+          : membershipStatus === "cancelled" ? "border-white/10 bg-white/5"
+          : "border-brand/30 bg-brand/10"
+        }`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-white">{plan.display_name ?? plan.name}</p>
@@ -124,10 +130,31 @@ export default async function AccountPage({
                 {isFirstYear && plan.first_year_discount && " (first year rate)"}
               </p>
             </div>
-            <span className="rounded-full bg-brand/20 px-3 py-1 text-xs font-semibold text-brand uppercase tracking-wider">
-              Active
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+              membershipStatus === "past_due" ? "bg-red-500/20 text-red-400"
+              : membershipStatus === "cancelled" ? "bg-white/10 text-neutral-400"
+              : "bg-brand/20 text-brand"
+            }`}>
+              {membershipStatus === "past_due" ? "Past due" : membershipStatus === "cancelled" ? "Cancelled" : "Active"}
             </span>
           </div>
+
+          {membershipStatus === "past_due" && (
+            <p className="mt-3 text-xs text-red-300">
+              Your last renewal payment didn&apos;t go through. Stripe is automatically retrying over the next
+              several days — <a href="#payment-method" className="text-brand hover:underline">update your payment
+              method below</a> to make sure the next attempt succeeds. Your membership benefits may pause if
+              retries keep failing.
+            </p>
+          )}
+          {membershipStatus === "cancelled" && (
+            <p className="mt-3 text-xs text-neutral-400">
+              This membership is cancelled.
+              {founderNumber ? " Your founder number and Founders Wall listing are permanent." : ""}{" "}
+              <Link href="/join" className="text-brand hover:underline">Rejoin →</Link>
+            </p>
+          )}
+
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-lg bg-black/20 px-3 py-2">
               <p className="text-neutral-500">Advance booking</p>
@@ -150,22 +177,24 @@ export default async function AccountPage({
               </div>
             )}
           </div>
-          {membership?.current_period_end && !(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && (
+          {membershipStatus === "active" && membership?.current_period_end && !(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && (
             <p className="mt-3 text-xs text-neutral-500">
               Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
           )}
-          <CancelMembershipSection
-            planType={plan.slug}
-            planName={plan.display_name ?? plan.name}
-            isFounder={plan.slug === "founder"}
-            founderNumber={founderNumber ?? null}
-            pendingCancelEndDate={
-              (membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && membership?.current_period_end
-                ? new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
-                : null
-            }
-          />
+          {membershipStatus !== "cancelled" && (
+            <CancelMembershipSection
+              planType={plan.slug}
+              planName={plan.display_name ?? plan.name}
+              isFounder={plan.slug === "founder"}
+              founderNumber={founderNumber ?? null}
+              pendingCancelEndDate={
+                (membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && membership?.current_period_end
+                  ? new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
+                  : null
+              }
+            />
+          )}
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
