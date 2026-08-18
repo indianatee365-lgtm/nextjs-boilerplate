@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "./JoinClient"
 import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { CountdownClock } from "@/app/components/ui/CountdownClock"
 
 export const metadata: Metadata = {
   title: "Membership | Tee365",
@@ -181,9 +182,15 @@ export default async function JoinPage() {
                 </div>
                 <p className="text-sm text-white/80 mt-1 font-medium">+ $199 one-time joining fee</p>
               </div>
-              <p className="text-xs text-white/60 mb-6">
+              <p className="text-xs text-white/60 mb-2">
                 {founderClosed ? "Enrollment is permanently closed" : "Closes Aug 19, 2026 or when full"}
               </p>
+              {!founderClosed && (
+                <CountdownClock
+                  deadline={FOUNDERS_CLUB_DEADLINE.toISOString()}
+                  className="mb-6 text-sm font-bold tabular-nums text-white"
+                />
+              )}
 
               <ul className="space-y-2.5 mb-8">
                 {[

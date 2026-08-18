@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { createServiceClient } from "@/lib/supabase/server"
 import { JoinButton } from "../join/JoinClient"
 import { FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { CountdownClock } from "@/app/components/ui/CountdownClock"
 
 export const metadata: Metadata = {
   title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
@@ -68,11 +69,17 @@ export default async function FoundersPage() {
             One hundred spots. Permanent benefits. Closes August 19, 2026.
           </p>
           {!founderClosed && (
-            <p className="text-sm text-brand font-semibold">
-              {spotsRemaining <= 20
-                ? `Only ${spotsRemaining} spots remaining · Closes August 19, 2026`
-                : `Enrollment open · Closes August 19, 2026`}
-            </p>
+            <>
+              <p className="text-sm text-brand font-semibold">
+                {spotsRemaining <= 20
+                  ? `Only ${spotsRemaining} spots remaining · Closes August 19, 2026`
+                  : `Enrollment open · Closes August 19, 2026`}
+              </p>
+              <CountdownClock
+                deadline={FOUNDERS_CLUB_DEADLINE.toISOString()}
+                className="mt-2 text-lg font-bold tabular-nums text-white"
+              />
+            </>
           )}
         </div>
       </div>
