@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic"
 
 const FILTERS = [
   { key: "all", label: "All events" },
+  { key: "communications", label: "Communications (sent emails/SMS)" },
   { key: "failures", label: "Failures only" },
-  { key: "alerts", label: "Alerts (sent SMS)" },
+  { key: "alerts", label: "Alerts (owner SMS)" },
   { key: "membership", label: "Membership" },
   { key: "booking", label: "Booking" },
   { key: "gift-card", label: "Gift card" },
@@ -34,6 +35,7 @@ export default async function AdminLogsPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (serviceClient as any).from("admin_logs").select("event, detail, created_at").order("created_at", { ascending: false }).limit(200)
   if (filter === "failures") query = query.ilike("event", "%FAILED%")
+  else if (filter === "communications") query = query.in("event", ["sms-sent", "email-sent"])
   else if (filter === "alerts") query = query.ilike("detail", "%ALERT%")
   else if (filter === "membership") query = query.ilike("event", "%membership%")
   else if (filter === "booking") query = query.ilike("event", "%booking%")

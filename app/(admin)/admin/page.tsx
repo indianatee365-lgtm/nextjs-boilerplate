@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, DollarSign, TrendingUp, Phone } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle } from "lucide-react"
 import { computeRevenue } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Admin | Tee365" }
@@ -23,14 +23,17 @@ export default async function AdminPage() {
   const etOffset = new Date().getTime() - nowET.getTime()
   const todayUTC = new Date(today.getTime() + etOffset)
   const tomorrowUTC = new Date(tomorrow.getTime() + etOffset)
+  const nowMs = new Date().getTime()
+  const twentyFourHoursAgo = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(nowMs - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   const [
     { count: todayCount },
     { count: pendingCount },
     { count: founderCount },
     { count: allMembersCount },
-    { count: logsCount24h },
     { count: failureCount24h },
+    { count: commsCount24h },
     { count: cancellations30d },
     { data: giftCardBalances },
     { data: recentBookings },
@@ -46,12 +49,12 @@ export default async function AdminPage() {
       .in("status", ["active", "past_due"]),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
-      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      .gte("created_at", twentyFourHoursAgo).ilike("event", "%FAILED%"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
-      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).ilike("event", "%FAILED%"),
+      .gte("created_at", twentyFourHoursAgo).in("event", ["sms-sent", "email-sent"]),
     serviceClient.from("bookings").select("id", { count: "exact", head: true })
-      .eq("status", "cancelled").gte("cancelled_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+      .eq("status", "cancelled").gte("cancelled_at", thirtyDaysAgo),
     serviceClient.from("gift_cards").select("balance, active"),
     serviceClient.from("bookings")
       .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
@@ -78,10 +81,10 @@ export default async function AdminPage() {
         <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
         <StatCard icon={<XCircle size={18} />} label="Cancellations (30d)" value={String(cancellations30d ?? 0)} href="/admin/cancellations" />
         <StatCard
-          icon={<Clock size={18} />}
-          label={(failureCount24h ?? 0) > 0 ? "Failures (24h) - CHECK" : "System health (24h)"}
-          value={`${failureCount24h ?? 0} / ${logsCount24h ?? 0}`}
-          href={(failureCount24h ?? 0) > 0 ? "/admin/logs?filter=failures" : "/admin/logs?filter=all"}
+          icon={<MessageSquare size={18} />}
+          label="Communications (24h)"
+          value={String(commsCount24h ?? 0)}
+          href="/admin/logs?filter=communications"
         />
       </div>
 
@@ -124,11 +127,21 @@ export default async function AdminPage() {
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
           { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },
           { href: "/admin/phone", icon: <Phone size={16} />, label: "Phone Agent" },
+          {
+            href: (failureCount24h ?? 0) > 0 ? "/admin/logs?filter=failures" : "/admin/logs?filter=all",
+            icon: <AlertTriangle size={16} />,
+            label: (failureCount24h ?? 0) > 0 ? `Failures (24h) - ${failureCount24h} CHECK` : "System health (24h)",
+            alert: (failureCount24h ?? 0) > 0,
+          },
         ].map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-neutral-300 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white"
+            className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${
+              item.alert
+                ? "border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                : "border-white/10 bg-white/5 text-neutral-300 hover:border-brand/40 hover:bg-brand/10 hover:text-white"
+            }`}
           >
             {item.icon}
             {item.label}
