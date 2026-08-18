@@ -96,7 +96,7 @@ export default async function JoinPage() {
               />
             ) : (
               <div className="rounded-xl border border-white/10 bg-white/5 py-3 text-center text-sm font-semibold text-neutral-500">
-                Available August 25
+                Available August 23
               </div>
             )}
           </div>
@@ -143,7 +143,7 @@ export default async function JoinPage() {
               />
             ) : (
               <div className="rounded-xl border border-brand/30 bg-brand/5 py-3 text-center text-sm font-semibold text-neutral-400">
-                Available August 25
+                Available August 23
               </div>
             )}
           </div>
