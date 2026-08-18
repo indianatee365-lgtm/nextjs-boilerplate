@@ -1,9 +1,14 @@
-// Unifi Access integration — issues time-bound visitor PINs for bay bookings.
+// Unifi Access integration — issues time-bound door PINs for bay bookings via
+// the User API (not Visitor). Visitor PINs never actually unlock the door
+// until someone manually clicks "Mark as Arrived" in the UniFi admin console -
+// there's no API for that (confirmed against live hardware and the official
+// docs, which say "Status change is not supported" for visitors). Users
+// activate immediately with no human in the loop, gated instead by a
+// per-booking Access Policy + Schedule scoped to a single weekday/time window -
+// the same mechanism the owner's own permanent door PIN uses.
+//
 // When UNIFI_ACCESS_API_URL is not set (e.g. during bench test phase), falls back to
 // a locally-generated random PIN so the rest of the booking flow is unaffected.
-//
-// LAUNCH: set UNIFI_ACCESS_API_URL, UNIFI_ACCESS_TOKEN, UNIFI_DOOR_ID in Vercel env
-// after bench test passes. See tee365-vestibule-shopping.md for full API spec.
 
 import { randomInt } from "crypto"
 
@@ -19,7 +24,41 @@ export interface AccessControlGrant {
 
 export interface AccessControlResult {
   pinCode: string
-  visitorId: string | null   // null when Unifi not configured; save to bookings.unifi_visitor_id
+  userId: string | null           // null when Unifi not configured; save to bookings.unifi_visitor_id
+  accessPolicyId: string | null   // save to bookings.unifi_access_policy_id
+  scheduleId: string | null       // save to bookings.unifi_schedule_id
+}
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const
+
+// Business timezone, matching the rest of the booking system.
+function localTimeParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Indiana/Indianapolis",
+    weekday: "long",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
+  const weekday = get("weekday").toLowerCase()
+  const hour = get("hour").padStart(2, "0")
+  const rawHour = hour === "24" ? "00" : hour
+  const minute = get("minute").padStart(2, "0")
+  const second = get("second").padStart(2, "0")
+  return { weekday, time: `${rawHour}:${minute}:${second}` }
+}
+
+async function unifiCall<T>(apiUrl: string, headers: HeadersInit, path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${apiUrl}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+  })
+  const json = (await res.json()) as { code?: string; msg?: string; data?: T }
+  if (!res.ok || json.code?.toUpperCase() !== "SUCCESS") {
+    throw new Error(`Unifi ${method} ${path} ${res.status} ${json.code ?? ""}: ${json.msg ?? JSON.stringify(json)}`)
+  }
+  return json.data as T
 }
 
 export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessControlResult> {
@@ -29,65 +68,60 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
 
   if (!apiUrl || !apiToken || !doorId) {
     // Bench test / pre-hardware fallback: random PIN, no controller call
-    return { pinCode: String(randomInt(100000, 1000000)), visitorId: null }
+    return { pinCode: String(randomInt(100000, 1000000)), userId: null, accessPolicyId: null, scheduleId: null }
   }
 
   const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
 
-  // 1. Create the visitor, scoped to this door for the booking window.
-  const visitorRes = await fetch(`${apiUrl}/visitors`, {
-    method:  "POST",
-    headers,
-    body: JSON.stringify({
-      first_name:   grant.firstName || "Customer",
-      last_name:    grant.lastName  || `Bay ${grant.bayName}`,
-      start_time:   Math.floor(grant.startsAt.getTime() / 1000),
-      end_time:     Math.floor(grant.endsAt.getTime() / 1000),
-      visit_reason: "Others",
-      mobile_phone: grant.phone,
-      remarks:      `Booking ${grant.bookingId} - ${grant.bayName}`,
-      resources:    [{ id: doorId, type: "door" }],
-    }),
+  // A single weekday populated with this exact booking's window - grants
+  // access for that one occurrence, not every week, as long as the User is
+  // deleted promptly after the booking ends (see revokeBayAccess).
+  const start = localTimeParts(grant.startsAt)
+  const end = localTimeParts(grant.endsAt)
+  const weekSchedule: Record<string, Array<{ start_time: string; end_time: string }>> = {}
+  for (const day of WEEKDAYS) {
+    weekSchedule[day] = day === start.weekday ? [{ start_time: start.time, end_time: end.time }] : []
+  }
+
+  const schedule = await unifiCall<{ id: string }>(apiUrl, headers, "/access_policies/schedules", "POST", {
+    name: `booking-${grant.bookingId}`,
+    week_schedule: weekSchedule,
   })
-  const visitorJson = await visitorRes.json() as { code?: string; msg?: string; data?: { id: string } }
-  if (!visitorRes.ok || visitorJson.code?.toUpperCase() !== "SUCCESS") {
-    throw new Error(`Unifi create visitor ${visitorRes.status} ${visitorJson.code ?? ""}: ${visitorJson.msg ?? JSON.stringify(visitorJson)}`)
-  }
-  const visitorId = visitorJson.data!.id
 
-  // 2. Generate a PIN code. Visitor creation never returns one — it's a separate credential
-  // that has to be minted and then attached (UniFi Access API #6.1 + #4.9).
-  const pinRes = await fetch(`${apiUrl}/credentials/pin_codes`, { method: "POST", headers, body: "" })
-  const pinJson = await pinRes.json() as { code?: string; msg?: string; data?: string }
-  if (!pinRes.ok || pinJson.code?.toUpperCase() !== "SUCCESS" || !pinJson.data) {
-    throw new Error(`Unifi generate PIN ${pinRes.status} ${pinJson.code ?? ""}: ${pinJson.msg ?? JSON.stringify(pinJson)}`)
-  }
-  const pinCode = pinJson.data
-
-  // 3. Assign the PIN to the visitor so it actually unlocks the door.
-  const assignRes = await fetch(`${apiUrl}/visitors/${visitorId}/pin_codes`, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify({ pin_code: pinCode }),
+  const policy = await unifiCall<{ id: string }>(apiUrl, headers, "/access_policies", "POST", {
+    name: `booking-${grant.bookingId}`,
+    resource: [{ id: doorId, type: "door" }],
+    schedule_id: schedule.id,
   })
-  const assignJson = await assignRes.json() as { code?: string; msg?: string }
-  if (!assignRes.ok || assignJson.code?.toUpperCase() !== "SUCCESS") {
-    throw new Error(`Unifi assign PIN ${assignRes.status} ${assignJson.code ?? ""}: ${assignJson.msg ?? JSON.stringify(assignJson)}`)
-  }
 
-  return { pinCode, visitorId }
+  const user = await unifiCall<{ id: string }>(apiUrl, headers, "/users", "POST", {
+    first_name: grant.firstName || "Customer",
+    last_name:  grant.lastName  || `Bay ${grant.bayName}`,
+  })
+
+  const pinCode = await unifiCall<string>(apiUrl, headers, "/credentials/pin_codes", "POST", "")
+
+  await unifiCall(apiUrl, headers, `/users/${user.id}/pin_codes`, "PUT", { pin_code: pinCode })
+  await unifiCall(apiUrl, headers, `/users/${user.id}/access_policies`, "PUT", { access_policy_ids: [policy.id] })
+
+  return { pinCode, userId: user.id, accessPolicyId: policy.id, scheduleId: schedule.id }
 }
 
-export async function revokeBayAccess(visitorId: string): Promise<void> {
+export async function revokeBayAccess(userId: string, accessPolicyId: string | null, scheduleId: string | null): Promise<void> {
   const apiUrl   = process.env.UNIFI_ACCESS_API_URL
   const apiToken = process.env.UNIFI_ACCESS_TOKEN
-  if (!apiUrl || !apiToken || !visitorId) return
+  if (!apiUrl || !apiToken || !userId) return
 
-  const res = await fetch(`${apiUrl}/visitors/${visitorId}`, {
-    method:  "DELETE",
-    headers: { Authorization: `Bearer ${apiToken}` },
-  })
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`Unifi DELETE ${res.status}`)
+  const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
+
+  // Users must be deactivated before they can be deleted.
+  await unifiCall(apiUrl, headers, `/users/${userId}`, "PUT", { status: "DEACTIVATED" })
+  await unifiCall(apiUrl, headers, `/users/${userId}`, "DELETE")
+
+  if (accessPolicyId) {
+    await unifiCall(apiUrl, headers, `/access_policies/${accessPolicyId}`, "DELETE")
+  }
+  if (scheduleId) {
+    await unifiCall(apiUrl, headers, `/access_policies/schedules/${scheduleId}`, "DELETE")
   }
 }

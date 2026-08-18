@@ -387,7 +387,7 @@ export async function POST(request: NextRequest) {
     const minutesUntilStart = (new Date(booking.starts_at).getTime() - Date.now()) / 60000
     if (minutesUntilStart <= 15 && profile?.phone && profile.sms_consent && bay) {
       try {
-        const { pinCode, visitorId } = await grantBayAccess({
+        const { pinCode, userId, accessPolicyId, scheduleId } = await grantBayAccess({
           bookingId: booking.id,
           firstName: profile.first_name,
           lastName:  profile.last_name ?? undefined,
@@ -404,9 +404,14 @@ export async function POST(request: NextRequest) {
           accessCode: pinCode,
           startsAt: new Date(booking.starts_at),
         })
-        void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await supabase.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
+        await supabase.from("bookings").update({
+          reminder_sent_at: new Date().toISOString(),
+          access_sent_at: new Date().toISOString(),
+          unifi_visitor_id: userId,
+          unifi_access_policy_id: accessPolicyId,
+          unifi_schedule_id: scheduleId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any).eq("id", booking.id)
         await logEvent(supabase, "access-code-sent-immediate", `booking=${booking.id} to=${profile.phone} starts_in_min=${minutesUntilStart.toFixed(1)}`)
       } catch (err) {
         await logFailure(supabase, "access-code-IMMEDIATE-FAILED",

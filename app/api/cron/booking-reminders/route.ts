@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const { pinCode, visitorId } = await grantBayAccess({
+      const { pinCode, userId, accessPolicyId, scheduleId } = await grantBayAccess({
         bookingId: booking.id,
         firstName: profile.first_name,
         phone:     profile.phone,
@@ -60,12 +60,17 @@ export async function GET(request: NextRequest) {
         startsAt:  new Date(booking.starts_at),
         endsAt:    new Date(booking.ends_at),
       })
-      void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
 
       // Persist the access code
-      await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
         .from("bookings")
-        .update({ access_code: pinCode })
+        .update({
+          access_code: pinCode,
+          unifi_visitor_id: userId,
+          unifi_access_policy_id: accessPolicyId,
+          unifi_schedule_id: scheduleId,
+        })
         .eq("id", booking.id)
 
       // SMS the customer

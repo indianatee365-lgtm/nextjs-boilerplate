@@ -398,7 +398,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     const minsUntil = (startDate.getTime() - Date.now()) / 60000
     if (minsUntil <= 15 && p?.phone && p.sms_consent) {
       try {
-        const { pinCode, visitorId } = await grantBayAccess({
+        const { pinCode, userId, accessPolicyId, scheduleId } = await grantBayAccess({
           bookingId: booking.id,
           firstName: p.first_name ?? "Customer",
           lastName:  p.last_name  ?? undefined,
@@ -409,9 +409,14 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         })
         await serviceClient.from("bookings").update({ access_code: pinCode }).eq("id", booking.id)
         await sendAccessCodeReminder({ to: p.phone, firstName: p.first_name, bayName: bay.name, accessCode: pinCode, startsAt: startDate })
-        void visitorId  // TODO: save to bookings.unifi_visitor_id after DB migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await serviceClient.from("bookings").update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() } as any).eq("id", booking.id)
+        await serviceClient.from("bookings").update({
+          reminder_sent_at: new Date().toISOString(),
+          access_sent_at: new Date().toISOString(),
+          unifi_visitor_id: userId,
+          unifi_access_policy_id: accessPolicyId,
+          unifi_schedule_id: scheduleId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any).eq("id", booking.id)
         await logEvent(serviceClient, "access-code-sent-immediate", `booking=${booking.id} to=${p.phone} starts_in_min=${minsUntil.toFixed(1)} path=free source=${source}`)
       } catch (e) {
         await logFailure(serviceClient, "access-code-IMMEDIATE-FAILED",
