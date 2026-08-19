@@ -124,6 +124,18 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   return { pinCode, userId: user.id, accessPolicyId: policy.id, scheduleId: schedule.id }
 }
 
+// TODO(bay-power-tie-in): still has no real caller. week_schedule is keyed
+// by weekday, not a specific date, so an ungranted-but-never-revoked User
+// stays valid and recurs weekly at the same day/time indefinitely - a real
+// cleanup gap, but not an urgent one (it doesn't let anyone in early or
+// affect an in-progress session). Deliberately deferred to design alongside
+// the upcoming bay power on/off integration rather than shipping a second,
+// possibly-inconsistent definition of "booking is over" - door-credential
+// revocation is safe to run a few minutes early (worst case: an early-exit
+// customer can't re-enter), but cutting power mid-session is not, so the
+// two should share one "is this booking actually over" check (respecting
+// the 15-min overstay grace period and any reschedule) rather than each
+// growing their own.
 export async function revokeBayAccess(userId: string, accessPolicyId: string | null, scheduleId: string | null): Promise<void> {
   const apiUrl   = process.env.UNIFI_ACCESS_API_URL
   const apiToken = process.env.UNIFI_ACCESS_TOKEN
