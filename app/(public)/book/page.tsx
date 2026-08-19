@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
+import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -14,11 +14,6 @@ export default async function BookPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login") // LAUNCH: remove this line to open tee sheet to public
 
-  // Admin gate: bookings not open to public until launch, with one
-  // carve-out - a founder with an active Founders Day credit can get
-  // through starting 8/18 to book their Friends & Founders Day (8/29)
-  // slot. The backend (lib/bookings/create.ts) enforces the actual date
-  // restriction; this just decides whether to show the booking UI at all.
   const { data: profile } = await serviceClient
     .from("profiles")
     .select("role, first_name, last_name, is_minor, parental_consent_verified")
@@ -27,7 +22,39 @@ export default async function BookPage() {
 
   const isAdmin = (profile as { role: string } | null)?.role === "admin"
 
-  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id))) {
+  // Membership fetched up front (not just after the gate) because the gate
+  // itself now needs to know the plan slug - see below.
+  let membershipSlug: string | null = null
+  let advanceDays = 7
+
+  {
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("id, started_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single()
+
+    membershipSlug = (membership?.membership_plans as { slug: string } | null)?.slug ?? null
+    advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
+  }
+
+  // Admin gate: bookings not open to public until launch, with two
+  // carve-outs - (1) a founder with an active Founders Day credit can get
+  // through starting 8/18 to book their Friends & Founders Day (8/29) slot,
+  // even after that credit is fully redeemed (hasFoundersDayCredit alone
+  // would go back to false once hours_remaining hits 0, wrongly locking a
+  // founder back out), and (2) starting 8/19 00:01 EDT (FOUNDERS_CLUB_DEADLINE),
+  // any active founder can get through to book anything from 8/29 onward.
+  // The backend (lib/bookings/create.ts) enforces the actual date
+  // restriction per-session; this just decides whether to show the booking
+  // UI at all, and has to mirror both of create.ts's founder carve-outs or
+  // a founder who already used their free hours gets wrongly stuck on the
+  // "Coming Soon" screen the moment early access opens.
+  const isEarlyAccessOpen = Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
+  const isFounderPlan = membershipSlug === "founder"
+
+  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan)) {
     return (
       <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
@@ -45,21 +72,7 @@ export default async function BookPage() {
     redirect("/account/awaiting-consent")
   }
 
-  let membershipSlug: string | null = null
-  let advanceDays = 7
   const userName = p ? `${p.first_name} ${p.last_name}` : ""
-
-  {
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("id, started_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single()
-
-    membershipSlug = (membership?.membership_plans as { slug: string } | null)?.slug ?? null
-    advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
-  }
 
   const nowIso = new Date().toISOString()
   const [{ data: bays }, { data: disclosures }, { data: hourCredits }] = await Promise.all([
