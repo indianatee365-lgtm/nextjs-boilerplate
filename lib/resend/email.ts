@@ -775,3 +775,66 @@ export async function sendSmsOptOutConfirmationEmail({
     kind: "sms-opt-out-confirmation",
   })
 }
+
+
+// Reusable branded template for one-off messages to founders (or anyone) -
+// pass paragraphs as plain strings and this handles the HTML wrapper,
+// matching the look of every other Tee365 email. Signed "jerrod" (lowercase,
+// matching the informal from-name Jerrod wants for personal notes - not
+// "Jerrod | Tee365") rather than each caller re-writing the boilerplate.
+export async function sendFounderMessage({
+  to,
+  firstName,
+  subject,
+  heading,
+  paragraphs,
+  ctaText,
+  ctaUrl,
+}: {
+  to: string
+  firstName: string
+  subject: string
+  heading: string
+  paragraphs: string[]
+  ctaText?: string
+  ctaUrl?: string
+}) {
+  const bodyParagraphs = [
+    `Hi ${firstName},`,
+    ...paragraphs,
+  ]
+    .map((p) => `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">${p}</p>`)
+    .join("\n")
+
+  const cta = ctaText && ctaUrl
+    ? `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="${ctaUrl}" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">${ctaText}</a>
+</td></tr></table>`
+    : ""
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">${heading}</h1>
+${bodyParagraphs}
+${cta}
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">Questions or ran into an issue? Just reply to this email.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a><br>Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545</p>
+</td></tr></table></td></tr></table></body></html>`
+
+  await sendResendEmail({
+    to,
+    from: "jerrod <jerrod@tee365.org>",
+    subject,
+    html,
+    kind: "founder-message",
+  })
+}
