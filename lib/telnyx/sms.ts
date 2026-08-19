@@ -184,20 +184,16 @@ export async function sendBookingLinkSms({
   await sendSms(to, message, "booking-link")
 }
 
-export async function sendFoundersDayBookingOpenSms({
+export async function sendFoundersDayPersonalNotice({
   to,
   firstName,
 }: {
   to: string
   firstName: string
 }) {
-  const message = [
-    "Hi " + firstName + "! Founder's Club is now officially closed - thank you for believing in us from the start. 🙌",
-    "Your 2 free hours for Friends & Founders Day (Aug 29) are ready, and your booking window is open now.",
-    "Reserve at tee365.org/book or call 574-999-0622. See you there!",
-  ].join("\n")
+  const message = `Hi ${firstName}, thank you for backing Tee365 from day one. Founders & Friends Day is Saturday, Aug 29, and it's yours. I'll be onsite most of the day, come say hi. Grab your free 2 hours anytime at tee365.org/book, they don't expire so no rush. Anything not working right when you're here, tell us, that's exactly what this day is for.\n- jerrod`
 
-  await sendSms(to, message, "founders-day-booking-open")
+  await sendSms(to, message, "founders-day-personal-notice")
 }
 
 export async function sendAccessCodeReminder({

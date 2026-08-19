@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/founders-day-notice",
-      "schedule": "0 13 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
