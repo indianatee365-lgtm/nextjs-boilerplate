@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/founders-day-notice",
       "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/booking-reminders",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
