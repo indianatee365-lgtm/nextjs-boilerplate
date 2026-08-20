@@ -21,9 +21,10 @@ export async function GET(request: NextRequest) {
   const stripe = getStripe()
   const drifts: string[] = []
 
-  const { data: memberships } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: memberships } = await (supabase as any)
     .from("memberships")
-    .select("id, user_id, plan_type, status, stripe_customer_id, stripe_subscription_id, current_period_end")
+    .select("id, user_id, plan_type, status, stripe_customer_id, stripe_subscription_id, current_period_end, comped")
     .in("status", ["active", "past_due"])
 
   const all = (memberships ?? []) as Array<{
@@ -34,11 +35,15 @@ export async function GET(request: NextRequest) {
     stripe_customer_id: string | null
     stripe_subscription_id: string | null
     current_period_end: string | null
+    comped: boolean
   }>
 
   for (const m of all) {
     if (!m.stripe_subscription_id) {
-      drifts.push(`user=${m.user_id} ${m.plan_type} NO_SUB_LINKED`)
+      // Comped memberships (e.g. a founder added manually, no Stripe
+      // subscription by design) are expected to have no subscription -
+      // not a drift, so skip silently rather than alerting on it forever.
+      if (!m.comped) drifts.push(`user=${m.user_id} ${m.plan_type} NO_SUB_LINKED`)
       continue
     }
 
