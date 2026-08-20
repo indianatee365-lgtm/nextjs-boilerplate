@@ -149,9 +149,14 @@ export default async function AdminPage() {
         ))}
       </div>
 
-      {/* Today's bookings */}
+      {/* Upcoming bookings - despite the query being date-sorted from today
+          forward with no upper bound, NOT scoped to just today (e.g. a
+          Founders Day booking for 8/29 shows up here right alongside
+          today's bookings) - a real "Date" column below is the fix, not a
+          rename alone, since a bare time like "7:30 PM" reads as today's
+          time no matter what day it's actually for. */}
       <div className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold text-white">Today&apos;s bookings</h2>
+        <h2 className="mb-3 text-lg font-semibold text-white">Upcoming bookings</h2>
         {recentBookings && recentBookings.length > 0 ? (
           <div className="overflow-hidden rounded-xl border border-white/10">
             <table className="w-full text-sm">
@@ -159,6 +164,7 @@ export default async function AdminPage() {
                 <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Bay</th>
+                  <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Time</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Status</th>
@@ -168,12 +174,21 @@ export default async function AdminPage() {
                 {recentBookings.map((b) => {
                   const p = b.profiles as { first_name: string; last_name: string } | null
                   const bay = b.bays as { name: string } | null
+                  const startDate = new Date(b.starts_at)
+                  const startDayET = startDate.toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis" })
+                  const todayDayET = new Date().toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis" })
+                  const dateLabel = startDayET === todayDayET
+                    ? "Today"
+                    : startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })
                   return (
                     <tr key={b.id} className="border-b border-white/5 text-neutral-300">
                       <td className="px-4 py-3">{p ? `${p.first_name} ${p.last_name}` : "N/A"}</td>
                       <td className="px-4 py-3">{bay?.name}</td>
                       <td className="px-4 py-3">
-                        {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                        <span className={dateLabel === "Today" ? "text-white font-medium" : ""}>{dateLabel}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                         {" – "}
                         {new Date(b.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </td>
@@ -192,7 +207,7 @@ export default async function AdminPage() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-neutral-500">No bookings today.</p>
+          <p className="text-sm text-neutral-500">No upcoming bookings.</p>
         )}
       </div>
 
