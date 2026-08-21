@@ -64,6 +64,42 @@ export function isEarlyAccessEligibleSession(startsAt: string | Date): boolean {
     && d.getTime() >= FOUNDER_EARLIEST_BOOKABLE_START.getTime()
 }
 
+// The one shared code Jerrod hands out to non-founder guests for Friends &
+// Founders Day (8/29) - a $50 fixed-amount coupon (covers even the
+// priciest in-season weekend slot) capped to one use per account via
+// coupons.max_uses_per_user, with no total-use cap since it's meant to be
+// forwarded freely. Checking the literal string here is just the page-gate
+// admission check - the coupon's own active/expired/max-uses/already-used
+// rules are enforced for real at checkout the same way any other coupon is,
+// so a stale or tampered code can get someone PAST this gate but never
+// actually grants a discount or lets the booking through in create.ts.
+export const FRIENDS_DAY_COUPON_CODE = "FRIENDSDAY"
+
+// Mirrors hasFoundersDayCredit's shape, but for a coupon instead of an
+// hour_credits row - a friend isn't a founder and shouldn't be represented
+// as one, so this is deliberately a separate check rather than reusing or
+// generalizing the founder credit path.
+export async function hasUnusedFriendsDayCoupon(serviceClient: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: coupon } = await serviceClient
+    .from("coupons")
+    .select("id, max_uses, uses_count, expires_at, active")
+    .eq("code", FRIENDS_DAY_COUPON_CODE)
+    .eq("active", true)
+    .maybeSingle()
+
+  if (!coupon) return false
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return false
+  if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) return false
+
+  const { count } = await serviceClient
+    .from("coupon_uses")
+    .select("id", { count: "exact", head: true })
+    .eq("coupon_id", coupon.id)
+    .eq("user_id", userId)
+
+  return (count ?? 0) === 0
+}
+
 export async function isActiveFounder(serviceClient: SupabaseClient, userId: string): Promise<boolean> {
   const { data } = await serviceClient
     .from("memberships")

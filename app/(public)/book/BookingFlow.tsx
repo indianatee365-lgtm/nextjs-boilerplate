@@ -91,6 +91,7 @@ export default function BookingFlow({
   disclosures,
   isAuthenticated,
   availableCreditHours = 0,
+  prefillCouponCode,
 }: {
   bays: Bay[]
   advanceDays: number
@@ -99,6 +100,7 @@ export default function BookingFlow({
   disclosures: Disclosure[]
   isAuthenticated: boolean
   availableCreditHours?: number
+  prefillCouponCode?: string
 }) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("date")
@@ -106,7 +108,7 @@ export default function BookingFlow({
   const [selectedBay, setSelectedBay] = useState<Bay | null>(null)
   const [selectedStart, setSelectedStart] = useState<SlotData | null>(null)
   const [selectedDuration, setSelectedDuration] = useState(60)
-  const [couponCode, setCouponCode] = useState("")
+  const [couponCode, setCouponCode] = useState(prefillCouponCode ?? "")
   const [giftCardCode, setGiftCardCode] = useState("")
   const [useFreeHours, setUseFreeHours] = useState(true)
   const [availability, setAvailability] = useState<BayAvailability[]>([])

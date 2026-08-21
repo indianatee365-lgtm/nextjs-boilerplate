@@ -1,13 +1,18 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE } from "@/lib/bookings/launch-gate"
+import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
 }
 
-export default async function BookPage() {
+export default async function BookPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
+  const { code: guestCode } = await searchParams
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
@@ -39,22 +44,27 @@ export default async function BookPage() {
     advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
   }
 
-  // Admin gate: bookings not open to public until launch, with two
+  // Admin gate: bookings not open to public until launch, with three
   // carve-outs - (1) a founder with an active Founders Day credit can get
   // through starting 8/18 to book their Friends & Founders Day (8/29) slot,
   // even after that credit is fully redeemed (hasFoundersDayCredit alone
   // would go back to false once hours_remaining hits 0, wrongly locking a
-  // founder back out), and (2) starting 8/19 00:01 EDT (FOUNDERS_CLUB_DEADLINE),
-  // any active founder can get through to book anything from 8/29 onward.
+  // founder back out), (2) starting 8/19 00:01 EDT (FOUNDERS_CLUB_DEADLINE),
+  // any active founder can get through to book anything from 8/29 onward,
+  // and (3) a non-founder guest holding the shared Friends Day coupon link
+  // (?code=FRIENDSDAY) can get through too - checked here just to admit
+  // them to the page; the coupon's own validity/usage rules are enforced
+  // for real at checkout in create.ts, same as any other coupon.
   // The backend (lib/bookings/create.ts) enforces the actual date
   // restriction per-session; this just decides whether to show the booking
-  // UI at all, and has to mirror both of create.ts's founder carve-outs or
-  // a founder who already used their free hours gets wrongly stuck on the
-  // "Coming Soon" screen the moment early access opens.
+  // UI at all, and has to mirror all of create.ts's carve-outs or someone
+  // eligible gets wrongly stuck on the "Coming Soon" screen.
   const isEarlyAccessOpen = Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
   const isFounderPlan = membershipSlug === "founder"
+  const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
+    && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
 
-  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan)) {
+  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode) {
     return (
       <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
@@ -112,6 +122,7 @@ export default async function BookPage() {
         disclosures={disclosures ?? []}
         isAuthenticated={!!user}
         availableCreditHours={availableCreditHours}
+        prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
       />
     </main>
   )

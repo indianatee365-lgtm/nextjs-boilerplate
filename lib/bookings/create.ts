@@ -6,7 +6,7 @@ import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
-import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen } from "@/lib/bookings/launch-gate"
+import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -88,21 +88,28 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   const membershipPlan = membership?.membership_plans as
     { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
 
-  // Booking window gate: admin only pre-launch, with three carve-outs -
+  // Booking window gate: admin only pre-launch, with four carve-outs -
   // (1) a founder can reserve specifically their Friends & Founders Day
   // (8/29) slot starting 8/18, using the real hour_credits their membership
   // grants, (2) starting 8/19 00:01 EDT (Founder's Club sales close), any
   // active founder can book any session from 8/29 onward (Founders Day
-  // itself, including ordinary paid time beyond any free-hour credit), and
+  // itself, including ordinary paid time beyond any free-hour credit),
   // (3) starting 8/23 (7 days ahead of the 8/30 public opening), anyone can
-  // book any session from 8/30 onward.
+  // book any session from 8/30 onward, and (4) a non-founder guest applying
+  // the shared Friends Day coupon can book specifically on 8/29 - just the
+  // string match here; the coupon's real active/expired/already-used
+  // enforcement happens in the coupon-validation block below like any
+  // other coupon, so this carve-out alone can't grant a discount or let a
+  // stale/invalid code through checkout.
   if (!isAdmin) {
     const eligibleForFoundersDay =
       isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
     const eligibleForEarlyAccess =
       isEarlyAccessEligibleSession(startsAt) && membershipPlan?.slug === "founder"
     const eligibleForPublicOpening = isPublicBookingOpen(startsAt)
-    if (!eligibleForFoundersDay && !eligibleForEarlyAccess && !eligibleForPublicOpening) {
+    const eligibleAsFriendsDayGuest =
+      isFoundersDaySession(startsAt) && couponCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
+    if (!eligibleForFoundersDay && !eligibleForEarlyAccess && !eligibleForPublicOpening && !eligibleAsFriendsDayGuest) {
       return { ok: false, status: 403, error: "Bookings not yet available" }
     }
   }
