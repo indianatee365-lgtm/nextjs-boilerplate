@@ -60,9 +60,60 @@ export type Database = {
         }
         Relationships: []
       }
+      bay_agent_status: {
+        Row: {
+          agent_version: string | null
+          bay_id: string
+          enforcement_mode: string | null
+          kiosk_kills: Json | null
+          last_crash_restart_at: string | null
+          last_heartbeat_at: string | null
+          override_state: string | null
+          running_processes: Json | null
+          session_state: string | null
+          sim_running: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          agent_version?: string | null
+          bay_id: string
+          enforcement_mode?: string | null
+          kiosk_kills?: Json | null
+          last_crash_restart_at?: string | null
+          last_heartbeat_at?: string | null
+          override_state?: string | null
+          running_processes?: Json | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          agent_version?: string | null
+          bay_id?: string
+          enforcement_mode?: string | null
+          kiosk_kills?: Json | null
+          last_crash_restart_at?: string | null
+          last_heartbeat_at?: string | null
+          override_state?: string | null
+          running_processes?: Json | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bay_agent_status_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: true
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bays: {
         Row: {
           active: boolean
+          agent_token: string | null
           created_at: string
           id: string
           name: string
@@ -70,6 +121,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          agent_token?: string | null
           created_at?: string
           id?: string
           name: string
@@ -77,6 +129,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          agent_token?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -132,6 +185,7 @@ export type Database = {
       bookings: {
         Row: {
           access_code: string | null
+          access_code_issued_at: string | null
           access_sent_at: string | null
           bay_id: string
           bay_powered_off_at: string | null
@@ -146,6 +200,7 @@ export type Database = {
           discount_percent_applied: number | null
           duration_minutes: number
           ends_at: string
+          extend_token: string | null
           gift_card_applied: number
           gift_card_id: string | null
           id: string
@@ -160,6 +215,7 @@ export type Database = {
           refunded_at: string | null
           reminder_sent_at: string | null
           signup_bonus_applied: boolean | null
+          source: string
           starts_at: string
           status: string
           stripe_charge_id: string | null
@@ -167,10 +223,14 @@ export type Database = {
           subtotal: number
           tax: number
           total: number
+          unifi_access_policy_id: string | null
+          unifi_schedule_id: string | null
+          unifi_visitor_id: string | null
           user_id: string
         }
         Insert: {
           access_code?: string | null
+          access_code_issued_at?: string | null
           access_sent_at?: string | null
           bay_id: string
           bay_powered_off_at?: string | null
@@ -185,6 +245,7 @@ export type Database = {
           discount_percent_applied?: number | null
           duration_minutes: number
           ends_at: string
+          extend_token?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
@@ -199,6 +260,7 @@ export type Database = {
           refunded_at?: string | null
           reminder_sent_at?: string | null
           signup_bonus_applied?: boolean | null
+          source?: string
           starts_at: string
           status?: string
           stripe_charge_id?: string | null
@@ -206,10 +268,14 @@ export type Database = {
           subtotal: number
           tax?: number
           total: number
+          unifi_access_policy_id?: string | null
+          unifi_schedule_id?: string | null
+          unifi_visitor_id?: string | null
           user_id: string
         }
         Update: {
           access_code?: string | null
+          access_code_issued_at?: string | null
           access_sent_at?: string | null
           bay_id?: string
           bay_powered_off_at?: string | null
@@ -224,6 +290,7 @@ export type Database = {
           discount_percent_applied?: number | null
           duration_minutes?: number
           ends_at?: string
+          extend_token?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
@@ -238,6 +305,7 @@ export type Database = {
           refunded_at?: string | null
           reminder_sent_at?: string | null
           signup_bonus_applied?: boolean | null
+          source?: string
           starts_at?: string
           status?: string
           stripe_charge_id?: string | null
@@ -245,6 +313,9 @@ export type Database = {
           subtotal?: number
           tax?: number
           total?: number
+          unifi_access_policy_id?: string | null
+          unifi_schedule_id?: string | null
+          unifi_visitor_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -298,6 +369,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_logs: {
+        Row: {
+          caller_name: string | null
+          caller_phone: string | null
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          ended_reason: string | null
+          id: string
+          recording_url: string | null
+          started_at: string | null
+          summary: string | null
+          transcript: string | null
+          vapi_call_id: string | null
+        }
+        Insert: {
+          caller_name?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          recording_url?: string | null
+          started_at?: string | null
+          summary?: string | null
+          transcript?: string | null
+          vapi_call_id?: string | null
+        }
+        Update: {
+          caller_name?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          recording_url?: string | null
+          started_at?: string | null
+          summary?: string | null
+          transcript?: string | null
+          vapi_call_id?: string | null
+        }
+        Relationships: []
       }
       campaign_flags: {
         Row: {
@@ -898,6 +1014,7 @@ export type Database = {
           annual_start_date: string | null
           cancellation_requested_at: string | null
           cancelled_at: string | null
+          comped: boolean
           created_at: string
           current_period_end: string | null
           founder_number: number | null
@@ -926,6 +1043,7 @@ export type Database = {
           annual_start_date?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          comped?: boolean
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
@@ -954,6 +1072,7 @@ export type Database = {
           annual_start_date?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          comped?: boolean
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
@@ -1134,6 +1253,51 @@ export type Database = {
           is_on_season?: boolean
           name?: string
           start_month?: number
+        }
+        Relationships: []
+      }
+      sms_messages: {
+        Row: {
+          body: string
+          created_at: string
+          direction: string
+          id: string
+          phone_number: string
+          read_at: string | null
+          telnyx_message_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          direction: string
+          id?: string
+          phone_number: string
+          read_at?: string | null
+          telnyx_message_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          phone_number?: string
+          read_at?: string | null
+          telnyx_message_id?: string | null
+        }
+        Relationships: []
+      }
+      sms_opt_outs: {
+        Row: {
+          opted_out_at: string
+          phone_number: string
+        }
+        Insert: {
+          opted_out_at?: string
+          phone_number: string
+        }
+        Update: {
+          opted_out_at?: string
+          phone_number?: string
         }
         Relationships: []
       }
