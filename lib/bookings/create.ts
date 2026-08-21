@@ -101,14 +101,18 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // enforcement happens in the coupon-validation block below like any
   // other coupon, so this carve-out alone can't grant a discount or let a
   // stale/invalid code through checkout.
+  // Hoisted out of the gate block below since the tier-based advance-
+  // booking cap further down needs this too - a guest coupon holder is
+  // exempt from both checks for the same reason, not just the first one.
+  const eligibleAsFriendsDayGuest =
+    isFoundersDaySession(startsAt) && couponCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
+
   if (!isAdmin) {
     const eligibleForFoundersDay =
       isFoundersDaySession(startsAt) && (await hasFoundersDayCredit(serviceClient, userId))
     const eligibleForEarlyAccess =
       isEarlyAccessEligibleSession(startsAt) && membershipPlan?.slug === "founder"
     const eligibleForPublicOpening = isPublicBookingOpen(startsAt)
-    const eligibleAsFriendsDayGuest =
-      isFoundersDaySession(startsAt) && couponCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     if (!eligibleForFoundersDay && !eligibleForEarlyAccess && !eligibleForPublicOpening && !eligibleAsFriendsDayGuest) {
       return { ok: false, status: 403, error: "Bookings not yet available" }
     }
@@ -130,8 +134,13 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   // Tier-based advance-booking cap: how far ahead THIS user is allowed to
   // book, independent of the launch-gate eligibility above. Non-members get
-  // the same 7-day default as the general public early-access window.
-  if (!isAdmin) {
+  // the same 7-day default as the general public early-access window. A
+  // Friends Day guest is exempt the same way they're exempt from the gate
+  // above - this cap would otherwise silently block the one date the
+  // coupon exists for once 8/29 is more than a week out (caught by
+  // actually testing the flow with a disposable non-member account, not
+  // just the gate change in isolation).
+  if (!isAdmin && !eligibleAsFriendsDayGuest) {
     const advanceBookingDays = membershipPlan?.advance_booking_days ?? 7
     const maxBookableDate = new Date()
     maxBookableDate.setDate(maxBookableDate.getDate() + advanceBookingDays)
