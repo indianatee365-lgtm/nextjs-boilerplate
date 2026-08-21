@@ -2,6 +2,8 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+import { FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 
 function normalizeCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/(.{4})(?=.)/g, "$1-")
@@ -15,6 +17,18 @@ export async function redeemHourCreditCode(
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, message: "Please log in to redeem a code." }
+
+  // The Friends Day coupon isn't an hour_credits code - it's applied at
+  // checkout, not redeemed here. This is the one "enter a code" box a
+  // guest is ever shown, so recognize it before the hour-credit-specific
+  // normalization below (which inserts dashes every 4 chars for raffle-
+  // style codes) mangles it, and send them straight to a booking page
+  // that already has it applied - a real friend tried exactly this and
+  // got a confusing "not valid" for a code that actually is valid, just
+  // meant for a different box.
+  if (rawCode?.trim().toUpperCase() === FRIENDS_DAY_COUPON_CODE) {
+    redirect(`/book?code=${FRIENDS_DAY_COUPON_CODE}`)
+  }
 
   const code = normalizeCode(rawCode ?? "")
   if (!code) return { ok: false, message: "Please enter a code." }

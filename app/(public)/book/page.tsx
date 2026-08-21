@@ -17,7 +17,13 @@ export default async function BookPage({
   const serviceClient = await createServiceClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login") // LAUNCH: remove this line to open tee sheet to public
+  if (!user) {
+    // Preserve ?code=... through the login round-trip - losing it here
+    // sent a guest coupon holder to their plain /account page post-login
+    // with no way back to the gated link short of re-typing the URL.
+    const returnTo = "/book" + (guestCode ? `?code=${encodeURIComponent(guestCode)}` : "")
+    redirect(`/login?return=${encodeURIComponent(returnTo)}`) // LAUNCH: remove this line to open tee sheet to public
+  }
 
   const { data: profile } = await serviceClient
     .from("profiles")
