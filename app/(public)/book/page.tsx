@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
+import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -63,6 +63,16 @@ export default async function BookPage({
   const isFounderPlan = membershipSlug === "founder"
   const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
+
+  // The calendar's own clickable-date ceiling is today + advanceDays
+  // (BookingFlow.tsx), completely separate from the launch gate above - a
+  // guest's default 7-day cap falls one day short of 8/29 as we get closer
+  // to it, so getting through the gate above isn't enough on its own; the
+  // one date this whole feature exists for has to actually be selectable.
+  if (hasGuestCode) {
+    const daysUntilFoundersDay = Math.ceil((FOUNDERS_DAY_START.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+    advanceDays = Math.max(advanceDays, daysUntilFoundersDay)
+  }
 
   if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode) {
     return (

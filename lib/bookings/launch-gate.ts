@@ -4,7 +4,7 @@ type SupabaseClient = any
 // All boundaries in America/Indiana/Indianapolis (EDT, UTC-4 in August),
 // matching the convention already used for the Founders Day hour_credits
 // expires_at in the Stripe webhook.
-const FOUNDERS_DAY_START = new Date("2026-08-29T04:00:00Z")
+export const FOUNDERS_DAY_START = new Date("2026-08-29T04:00:00Z")
 const FOUNDERS_DAY_END = new Date("2026-08-30T03:59:59Z")
 const FOUNDERS_DAY_BOOKING_OPENS = new Date("2026-08-18T04:00:00Z")
 
