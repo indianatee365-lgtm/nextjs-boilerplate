@@ -63,6 +63,7 @@ export type Database = {
       bays: {
         Row: {
           active: boolean
+          agent_token: string | null
           created_at: string
           id: string
           name: string
@@ -70,6 +71,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          agent_token?: string | null
           created_at?: string
           id?: string
           name: string
@@ -77,12 +79,63 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          agent_token?: string | null
           created_at?: string
           id?: string
           name?: string
           number?: number
         }
         Relationships: []
+      }
+      bay_agent_status: {
+        Row: {
+          bay_id: string
+          last_heartbeat_at: string | null
+          agent_version: string | null
+          enforcement_mode: string | null
+          session_state: string | null
+          sim_running: boolean | null
+          running_processes: Json | null
+          last_crash_restart_at: string | null
+          kiosk_kills: Json
+          override_state: string | null
+          updated_at: string
+        }
+        Insert: {
+          bay_id: string
+          last_heartbeat_at?: string | null
+          agent_version?: string | null
+          enforcement_mode?: string | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          running_processes?: Json | null
+          last_crash_restart_at?: string | null
+          kiosk_kills?: Json
+          override_state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bay_id?: string
+          last_heartbeat_at?: string | null
+          agent_version?: string | null
+          enforcement_mode?: string | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          running_processes?: Json | null
+          last_crash_restart_at?: string | null
+          kiosk_kills?: Json
+          override_state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bay_agent_status_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: true
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blocked_times: {
         Row: {
@@ -146,6 +199,7 @@ export type Database = {
           discount_percent_applied: number | null
           duration_minutes: number
           ends_at: string
+          extend_token: string | null
           gift_card_applied: number
           gift_card_id: string | null
           id: string
@@ -185,6 +239,7 @@ export type Database = {
           discount_percent_applied?: number | null
           duration_minutes: number
           ends_at: string
+          extend_token?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
@@ -224,6 +279,7 @@ export type Database = {
           discount_percent_applied?: number | null
           duration_minutes?: number
           ends_at?: string
+          extend_token?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string

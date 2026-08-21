@@ -1,7 +1,21 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { setBayOverride } from "./actions"
+import BayStatusRefresher from "./BayStatusRefresher"
 
 export const metadata = { title: "Bays | Tee365 Admin" }
+
+const HEARTBEAT_STALE_AFTER_MS = 60 * 1000
+
+interface AgentStatus {
+  last_heartbeat_at: string | null
+  session_state: string | null
+  sim_running: boolean | null
+  last_crash_restart_at: string | null
+  kiosk_kills: { process: string; at: string }[] | null
+  override_state: "occupied" | "available" | "maintenance" | null
+  enforcement_mode: string | null
+}
 
 export default async function AdminBaysPage() {
   const supabase = await createClient()
@@ -14,8 +28,10 @@ export default async function AdminBaysPage() {
 
   const { data: bays } = await serviceClient
     .from("bays")
-    .select("id, number, name, active")
+    .select("id, number, name, active, bay_agent_status(last_heartbeat_at, session_state, sim_running, last_crash_restart_at, kiosk_kills, override_state, enforcement_mode)")
     .order("number")
+
+  const now = Date.now()
 
   const { data: blocked } = await serviceClient
     .from("blocked_times")
@@ -26,7 +42,82 @@ export default async function AdminBaysPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
+      <BayStatusRefresher />
       <h1 className="text-2xl font-semibold text-white mb-8">Bays &amp; Block Times</h1>
+
+      <section className="mb-10">
+        <h2 className="text-lg font-semibold text-white mb-3">Live Status</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(bays ?? []).map((bay) => {
+            const status = bay.bay_agent_status as unknown as AgentStatus | null
+            const online = Boolean(
+              status?.last_heartbeat_at &&
+              now - new Date(status.last_heartbeat_at).getTime() < HEARTBEAT_STALE_AFTER_MS
+            )
+            const override = status?.override_state ?? null
+            const effectiveState = override ?? status?.session_state ?? null
+            const simShouldRun = effectiveState === "occupied"
+            const simTrouble = online && simShouldRun && status?.sim_running === false
+            const recentKills = (status?.kiosk_kills ?? []).slice(-3).reverse()
+
+            return (
+              <div key={bay.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-white">{bay.name}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${online ? "bg-green-500/20 text-green-400" : "bg-neutral-500/20 text-neutral-400"}`}>
+                    {online ? "Agent online" : "Agent offline"}
+                  </span>
+                </div>
+
+                <p className="text-sm text-neutral-400">
+                  {override
+                    ? `Override: ${override}`
+                    : effectiveState
+                      ? `Booking state: ${effectiveState}`
+                      : "No status yet"}
+                  {status?.enforcement_mode && <span className="ml-2 text-xs text-neutral-600">({status.enforcement_mode})</span>}
+                </p>
+
+                {simTrouble && (
+                  <p className="text-sm font-medium text-red-400">
+                    Should be running during an active rental but isn&apos;t reporting as running.
+                  </p>
+                )}
+                {status?.last_crash_restart_at && (
+                  <p className="text-xs text-neutral-500">
+                    Last crash-restart: {new Date(status.last_crash_restart_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                  </p>
+                )}
+                {recentKills.length > 0 && (
+                  <p className="text-xs text-neutral-500">
+                    Recently blocked: {recentKills.map((k) => k.process).join(", ")}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <form action={async () => { "use server"; await setBayOverride(bay.id, "maintenance") }}>
+                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                      Maintenance mode
+                    </button>
+                  </form>
+                  <form action={async () => { "use server"; await setBayOverride(bay.id, "available") }}>
+                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                      Force available
+                    </button>
+                  </form>
+                  {override && (
+                    <form action={async () => { "use server"; await setBayOverride(bay.id, null) }}>
+                      <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                        Clear override
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-white mb-3">Bays</h2>

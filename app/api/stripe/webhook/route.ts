@@ -67,6 +67,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    if (_pi.metadata?.type === "extend") {
+      // Redundant backstop for finalizeExtend (app/(public)/extend/[bookingId]/actions.ts),
+      // which normally applies this immediately after the client sees payment
+      // succeed. Only covers the case where the customer's phone drops connection
+      // right after paying - idempotent, so it's a no-op if finalizeExtend already ran.
+      const { bookingId, newEndsAt } = _pi.metadata
+      await supabase.from("bookings").update({
+        ends_at: newEndsAt,
+      }).eq("id", bookingId).eq("status", "confirmed").lt("ends_at", newEndsAt)
+      return NextResponse.json({ received: true })
+    }
+
     if (_pi.metadata?.type === "gift_card") {
       const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
       const amount = parseInt(amountCents) / 100
