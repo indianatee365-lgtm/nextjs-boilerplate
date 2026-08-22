@@ -17,6 +17,16 @@ export const runtime = "nodejs"
 const EXTEND_PROMPT_WINDOW_MINUTES = 15
 const KIOSK_KILLS_LOG_LIMIT = 20
 
+// If the bay is cold (no booking currently running) and the next confirmed
+// booking starts within this many minutes, treat it as "occupied" early so
+// the sim chain is already launched and warmed up (UneekorLauncher connect +
+// GSPro/GSPconnect handshake, ~60-90s in practice) by the time the customer
+// actually walks up - not still cold-starting while they wait. Only kicks in
+// when nothing is currently running (checked first, below) - a booking that
+// starts right after another one on the same bay is already warm from the
+// prior session and doesn't need this.
+const PRE_WARM_MINUTES = 3
+
 interface SyncRequestBody {
   bayId?: string
   token?: string
@@ -116,7 +126,7 @@ export async function POST(request: NextRequest) {
 
   const now = new Date()
 
-  const { data: booking } = await serviceClient
+  const { data: activeBooking } = await serviceClient
     .from("bookings")
     .select("id, ends_at, extend_token, bay_powered_on_at, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
@@ -126,6 +136,28 @@ export async function POST(request: NextRequest) {
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  let booking = activeBooking
+
+  // Bay is cold (nothing currently running) - check for a pre-warm candidate
+  // before falling through to "available". Ordered ascending (soonest first)
+  // since only one can be within the window at a time for a single bay in
+  // normal scheduling, but soonest-first is the correct tiebreak if that
+  // invariant is ever violated.
+  if (!booking) {
+    const preWarmCutoff = new Date(now.getTime() + PRE_WARM_MINUTES * 60000)
+    const { data: upcomingBooking } = await serviceClient
+      .from("bookings")
+      .select("id, ends_at, extend_token, bay_powered_on_at, profiles!user_id(first_name)")
+      .eq("bay_id", bayId)
+      .eq("status", "confirmed")
+      .gt("starts_at", now.toISOString())
+      .lte("starts_at", preWarmCutoff.toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    booking = upcomingBooking
+  }
 
   // Close out the audit trail (bay_powered_on_at/bay_powered_off_at, pre-existing
   // columns on bookings that predate this feature but were never wired up) for
