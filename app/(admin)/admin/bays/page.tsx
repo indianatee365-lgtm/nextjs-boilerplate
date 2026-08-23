@@ -95,6 +95,11 @@ export default async function AdminBaysPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
+                  <form action={async () => { "use server"; await setBayOverride(bay.id, "occupied") }}>
+                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                      Turn on
+                    </button>
+                  </form>
                   <form action={async () => { "use server"; await setBayOverride(bay.id, "maintenance") }}>
                     <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
                       Maintenance mode
