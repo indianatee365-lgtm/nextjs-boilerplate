@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START, PUBLIC_BOOKING_OPENS } from "@/lib/bookings/launch-gate"
+import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START, PUBLIC_BOOKING_OPENS, PUBLIC_EARLIEST_BOOKABLE_START } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -77,6 +77,7 @@ export default async function BookPage({
   const isPublicOpen = Date.now() >= PUBLIC_BOOKING_OPENS.getTime()
   const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
+  const hasFounderDayCredit = await hasFoundersDayCredit(serviceClient, user.id)
 
   // The calendar's own clickable-date ceiling is today + advanceDays
   // (BookingFlow.tsx), completely separate from the launch gate above - a
@@ -88,7 +89,7 @@ export default async function BookPage({
     advanceDays = Math.max(advanceDays, daysUntilFoundersDay)
   }
 
-  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode && !isPublicOpen) {
+  if (!isAdmin && !hasFounderDayCredit && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode && !isPublicOpen) {
     return (
       <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
@@ -99,6 +100,23 @@ export default async function BookPage({
       </main>
     )
   }
+
+  // Calendar floor: which dates the calendar itself lets you click at all,
+  // mirroring create.ts's eligibility check exactly (isEarlyAccessEligibleSession
+  // /isPublicBookingOpen). Without this the calendar had a ceiling
+  // (advanceDays) but no floor, so a non-founder could select and pay for
+  // 8/24 and only get rejected at the very last step - found live 2026-08-24.
+  // Admin gets no floor (needs to test any date). Founder-tier access
+  // (active founder, a Founders Day credit holder, or the Friends Day
+  // guest code) floors at Founders Day itself (8/29). Everyone else who
+  // made it past the gate above only did so via isPublicOpen, so they floor
+  // at the real public opening (8/30).
+  const isFounderTierAccess = hasFounderDayCredit || (isEarlyAccessOpen && isFounderPlan) || hasGuestCode
+  const minBookableDate = isAdmin
+    ? null
+    : isFounderTierAccess
+      ? FOUNDERS_DAY_START
+      : PUBLIC_EARLIEST_BOOKABLE_START
 
   // Minor consent gate
   const p = profile as { role: string; first_name: string; last_name: string; is_minor: boolean; parental_consent_verified: boolean } | null
@@ -147,6 +165,7 @@ export default async function BookPage({
         isAuthenticated={!!user}
         availableCreditHours={availableCreditHours}
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
+        minBookableDate={minBookableDate ? minBookableDate.toISOString() : null}
       />
     </main>
   )

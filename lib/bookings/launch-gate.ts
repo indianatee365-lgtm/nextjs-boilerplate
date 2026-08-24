@@ -14,7 +14,15 @@ const FOUNDERS_DAY_BOOKING_OPENS = new Date("2026-08-18T04:00:00Z")
 // the 8/30 public opening day.
 export const FOUNDERS_CLUB_DEADLINE = new Date("2026-08-19T04:01:00Z") // 00:01 ET Aug 19
 const FOUNDER_EARLIEST_BOOKABLE_START = new Date("2026-08-29T04:00:00Z") // midnight ET Aug 29, Founders Day itself
-const PUBLIC_EARLIEST_BOOKABLE_START = new Date("2026-08-30T04:00:00Z") // midnight ET Aug 30, public opening day
+// Exported so the booking calendar (BookingFlow.tsx, via book/page.tsx) can
+// floor its own selectable dates at the same line create.ts already
+// enforces server-side - the calendar previously had no floor at all
+// (only a ceiling from advanceDays), so a non-founder could select and
+// attempt to pay for a session before 8/30 and only get rejected at
+// submission. Same value as FOUNDER_EARLIEST_BOOKABLE_START/
+// FOUNDERS_DAY_START (both Aug 29) for the founder-tier floor - no need to
+// export the founder constant separately, FOUNDERS_DAY_START already is.
+export const PUBLIC_EARLIEST_BOOKABLE_START = new Date("2026-08-30T04:00:00Z") // midnight ET Aug 30, public opening day
 
 // Birdie/Eagle memberships go on sale 8/23 (Sunday) - also the day the
 // general public's own 7-day advance booking window opens, ahead of the

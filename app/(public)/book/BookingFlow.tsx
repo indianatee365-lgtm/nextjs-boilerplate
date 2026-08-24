@@ -92,6 +92,7 @@ export default function BookingFlow({
   isAuthenticated,
   availableCreditHours = 0,
   prefillCouponCode,
+  minBookableDate,
 }: {
   bays: Bay[]
   advanceDays: number
@@ -101,6 +102,7 @@ export default function BookingFlow({
   isAuthenticated: boolean
   availableCreditHours?: number
   prefillCouponCode?: string
+  minBookableDate?: string | null
 }) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("date")
@@ -131,6 +133,16 @@ export default function BookingFlow({
   const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + advanceDays)
 
+  // Floor on top of the today/maxDate range - mirrors create.ts's own
+  // eligibility check (isEarlyAccessEligibleSession/isPublicBookingOpen) so
+  // the calendar can't offer a date the backend will reject anyway. null
+  // for admin (no floor). Compared at local midnight like today/maxDate,
+  // not the exact UTC instant, since a whole calendar day either is or
+  // isn't selectable here - the exact instant still gets enforced for real
+  // by create.ts at submission.
+  const minDate = minBookableDate ? new Date(minBookableDate) : null
+  if (minDate) minDate.setHours(0, 0, 0, 0)
+
   const loadAvailability = useCallback(async (date: Date) => {
     setLoadingSlots(true)
     try {
@@ -146,7 +158,16 @@ export default function BookingFlow({
   useEffect(() => {
     async function findNextAvailable() {
       const now = new Date()
-      for (let offset = 0; offset <= Math.min(advanceDays, 7); offset++) {
+      // Same floor as isDateSelectable - without this, a non-founder saw
+      // (and could one-click "Book now" on) a same-day slot months before
+      // they're actually eligible for it, since this search always started
+      // from "now" regardless of who's asking. Found live 2026-08-24.
+      const todayMidnight = new Date(now)
+      todayMidnight.setHours(0, 0, 0, 0)
+      const startOffset = minDate && minDate > todayMidnight
+        ? Math.round((minDate.getTime() - todayMidnight.getTime()) / 86400000)
+        : 0
+      for (let offset = startOffset; offset <= Math.min(advanceDays, startOffset + 7); offset++) {
         const d = new Date(now)
         d.setDate(d.getDate() + offset)
         if (offset > 0) d.setHours(0, 0, 0, 0)
@@ -179,7 +200,7 @@ export default function BookingFlow({
       setNextAvailable(null)
     }
     findNextAvailable()
-  }, [advanceDays])
+  }, [advanceDays, minBookableDate])
 
   useEffect(() => {
     if (selectedDate && step === "time") {
@@ -341,7 +362,7 @@ export default function BookingFlow({
     if (!date) return false
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
-    return d >= today && d <= maxDate
+    return d >= (minDate ?? today) && d <= maxDate
   }
 
   function formatNextAvailableDate(date: Date): string {
