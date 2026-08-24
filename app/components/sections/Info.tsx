@@ -1,33 +1,17 @@
-"use client"
-
-import { useState } from "react"
 import { Instagram, Facebook, Music2, MapPin } from "lucide-react"
+import { createServiceClient } from "@/lib/supabase/server"
+import WaitlistForm from "@/app/components/sections/WaitlistForm"
 
-export default function Info() {
-  const [firstName, setFirstName] = useState("")
-  const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+export default async function Info() {
+  const serviceClient = await createServiceClient()
+  const { data: plans } = await serviceClient
+    .from("membership_plans")
+    .select("slug, price_monthly, discount_percent, advance_booking_days, max_active_reservations")
+    .in("slug", ["birdie", "eagle"])
+    .eq("active", true)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setStatus("loading")
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, email }),
-      })
-      if (res.ok) {
-        setStatus("success")
-        setFirstName("")
-        setEmail("")
-      } else {
-        setStatus("error")
-      }
-    } catch {
-      setStatus("error")
-    }
-  }
+  const birdie = plans?.find((p) => p.slug === "birdie")
+  const eagle = plans?.find((p) => p.slug === "eagle")
 
   return (
     <section
@@ -58,20 +42,44 @@ export default function Info() {
 
         <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
           <div className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6">
-            <h3 className="text-lg font-semibold text-white">Founding Members</h3>
+            <h3 className="text-lg font-semibold text-white">Birdie &amp; Eagle Memberships</h3>
             <p className="mt-2 text-sm text-neutral-300">
-              100 spots. Now open. First year at 30% off, then 20% off for life.
+              On sale now. Discounted bay time, priority booking windows, no contract.
             </p>
 
-            <ul className="mt-4 space-y-2 text-sm text-neutral-200">
-              <li>
-                - Locked-in membership price for LIFE <br /> (Maintaining Active Membership
-                Required)
-              </li>
-              <li>- Extra discount for the first 12 months</li>
-              <li>- Early booking access</li>
-              <li>- Name on Founder&apos;s Wall</li>
-            </ul>
+            {(birdie || eagle) && (
+              <table className="mt-4 w-full text-sm text-neutral-200">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-neutral-500">
+                    <th className="py-1.5 font-semibold"></th>
+                    <th className="py-1.5 font-semibold text-white">Birdie</th>
+                    <th className="py-1.5 font-semibold text-white">Eagle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-white/10">
+                    <td className="py-1.5 text-neutral-400">Price</td>
+                    <td className="py-1.5">{birdie ? `$${Number(birdie.price_monthly).toFixed(0)}/mo` : "-"}</td>
+                    <td className="py-1.5">{eagle ? `$${Number(eagle.price_monthly).toFixed(0)}/mo` : "-"}</td>
+                  </tr>
+                  <tr className="border-t border-white/10">
+                    <td className="py-1.5 text-neutral-400">Bay discount</td>
+                    <td className="py-1.5">{birdie ? `${birdie.discount_percent}%` : "-"}</td>
+                    <td className="py-1.5">{eagle ? `${eagle.discount_percent}%` : "-"}</td>
+                  </tr>
+                  <tr className="border-t border-white/10">
+                    <td className="py-1.5 text-neutral-400">Advance booking</td>
+                    <td className="py-1.5">{birdie ? `${birdie.advance_booking_days} days` : "-"}</td>
+                    <td className="py-1.5">{eagle ? `${eagle.advance_booking_days} days` : "-"}</td>
+                  </tr>
+                  <tr className="border-t border-white/10">
+                    <td className="py-1.5 text-neutral-400">Active reservations</td>
+                    <td className="py-1.5">{birdie ? birdie.max_active_reservations : "-"}</td>
+                    <td className="py-1.5">{eagle ? eagle.max_active_reservations : "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
 
             <a
               href="/join"
@@ -91,43 +99,7 @@ export default function Info() {
               booking access.
             </p>
 
-            {status === "success" ? (
-              <p className="mt-4 text-sm text-green-400">You&apos;re in - look out for a welcome email shortly</p>
-            ) : (
-              <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label htmlFor="first-name" className="sr-only">Name</label>
-                  <input
-                    id="first-name"
-                    type="text"
-                    required
-                    placeholder="Name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
-                  />
-                  <label htmlFor="email-address" className="sr-only">Email address</label>
-                  <input
-                    id="email-address"
-                    type="email"
-                    required
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full flex-1 rounded-xl border-2 border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder-neutral-500 outline-none transition focus:border-white/30"
-                  />
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-neutral-300 transition hover:bg-white/20 disabled:opacity-50"
-                >
-                  {status === "loading" ? "Joining…" : "Join"}
-                </button>
-              </form>
-            )}
-
-            {status === "error" && (
-              <p className="mt-2 text-xs text-red-400">Something went wrong. Please try again.</p>
-            )}
+            <WaitlistForm />
 
             <div className="mt-5 border-t border-white/10 pt-4">
               <h3 className="mt-4 text-lg font-semibold text-white">
