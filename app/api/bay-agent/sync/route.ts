@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state")
+    .select("kiosk_kills, override_state, restart_requested_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -231,6 +231,7 @@ export async function POST(request: NextRequest) {
     whoIsUpUrl?: string
     rosterNames?: string[] | null
     currentHitter?: string | null
+    restartRequestedAt?: string | null
   } = {
     desiredState: "occupied",
     booking: { id: booking.id, customerFirstName: profile?.first_name ?? null, endsAt: booking.ends_at },
@@ -259,6 +260,12 @@ export async function POST(request: NextRequest) {
   if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
     response.showWhoIsUpPrompt = true
   }
+
+  // Admin dashboard's "Restart Simulator" button (see admin/bays/actions.ts's
+  // requestBayRestart) - companion.py compares this timestamp against the
+  // last one it already acted on, so it only fires once per admin click, not
+  // every poll while it's still the newest value.
+  response.restartRequestedAt = existingStatus?.restart_requested_at ?? null
 
   return NextResponse.json(response)
 }

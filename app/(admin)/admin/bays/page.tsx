@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { setBayOverride } from "./actions"
+import { setBayOverride, startTestBooking, extendActiveBooking, requestBayRestart } from "./actions"
 import BayStatusRefresher from "./BayStatusRefresher"
 
 export const metadata = { title: "Bays | Tee365 Admin" }
@@ -117,7 +117,39 @@ export default async function AdminBaysPage() {
                       </button>
                     </form>
                   )}
+                  <form action={async () => { "use server"; await extendActiveBooking(bay.id, 15) }}>
+                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                      Extend +15 min
+                    </button>
+                  </form>
+                  <form action={async () => { "use server"; await requestBayRestart(bay.id) }}>
+                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                      Restart simulator
+                    </button>
+                  </form>
                 </div>
+
+                <form action={startTestBooking} className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
+                  <input type="hidden" name="bayId" value={bay.id} />
+                  <select
+                    name="durationMinutes"
+                    defaultValue="15"
+                    className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-neutral-300"
+                  >
+                    <option value="15">15 min</option>
+                    <option value="30">30 min</option>
+                    <option value="60">1 hour</option>
+                  </select>
+                  <input
+                    type="email"
+                    name="customerEmail"
+                    placeholder="Customer email (blank = you)"
+                    className="w-48 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-neutral-300 placeholder:text-neutral-600"
+                  />
+                  <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
+                    Start test booking
+                  </button>
+                </form>
               </div>
             )
           })}
