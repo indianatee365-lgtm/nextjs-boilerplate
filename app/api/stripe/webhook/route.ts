@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail } from "@/lib/resend/email"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail, sendAccessCodeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
@@ -395,27 +395,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If booking starts within 15 minutes, send access code immediately (CRITICAL path)
+    // If booking starts within 15 minutes, generate + send the access code
+    // immediately (CRITICAL path). grantBayAccess() never actually uses
+    // `phone` internally - generation was only ever gated on sms_consent by
+    // accident in this caller, which meant a customer who declined texting
+    // got no door code through ANY channel. Generation now always runs for
+    // any confirmed booking with a bay; only the delivery channel depends on
+    // consent - SMS if they have a phone and consented, email otherwise.
     const minutesUntilStart = (new Date(booking.starts_at).getTime() - Date.now()) / 60000
-    if (minutesUntilStart <= 15 && profile?.phone && profile.sms_consent && bay) {
+    if (minutesUntilStart <= 15 && bay) {
+      const smsEligible = !!(profile?.phone && profile.sms_consent)
       try {
         const { pinCode, userId, accessPolicyId, scheduleId } = await grantBayAccess({
           bookingId: booking.id,
-          firstName: profile.first_name,
-          lastName:  profile.last_name ?? undefined,
-          phone:     profile.phone,
+          firstName: profile?.first_name ?? "Customer",
+          lastName:  profile?.last_name ?? undefined,
+          phone:     profile?.phone ?? "",
           bayName:   bay.name,
           startsAt:  new Date(booking.starts_at),
           endsAt:    new Date(booking.ends_at),
         })
         await supabase.from("bookings").update({ access_code: pinCode }).eq("id", booking.id)
-        await sendAccessCodeReminder({
-          to: profile.phone,
-          firstName: profile.first_name,
-          bayName: bay.name,
-          accessCode: pinCode,
-          startsAt: new Date(booking.starts_at),
-        })
+        if (smsEligible) {
+          await sendAccessCodeReminder({
+            to: profile!.phone!,
+            firstName: profile!.first_name,
+            bayName: bay.name,
+            accessCode: pinCode,
+            startsAt: new Date(booking.starts_at),
+          })
+        } else if (authUser?.email) {
+          await sendAccessCodeEmail({
+            to: authUser.email,
+            firstName: profile?.first_name ?? "there",
+            bayName: bay.name,
+            accessCode: pinCode,
+            startsAt: new Date(booking.starts_at),
+          })
+        }
         await supabase.from("bookings").update({
           reminder_sent_at: new Date().toISOString(),
           access_sent_at: new Date().toISOString(),
@@ -424,10 +441,11 @@ export async function POST(request: NextRequest) {
           unifi_schedule_id: scheduleId,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any).eq("id", booking.id)
-        await logEvent(supabase, "access-code-sent-immediate", `booking=${booking.id} to=${profile.phone} starts_in_min=${minutesUntilStart.toFixed(1)}`)
+        await logEvent(supabase, "access-code-sent-immediate",
+          `booking=${booking.id} channel=${smsEligible ? "sms" : "email"} to=${smsEligible ? profile!.phone : authUser?.email} starts_in_min=${minutesUntilStart.toFixed(1)}`)
       } catch (err) {
         await logFailure(supabase, "access-code-IMMEDIATE-FAILED",
-          `booking=${booking.id} to=${profile.phone} starts_in_min=${minutesUntilStart.toFixed(1)} err=${String(err).slice(0, 200)}`,
+          `booking=${booking.id} starts_in_min=${minutesUntilStart.toFixed(1)} err=${String(err).slice(0, 200)}`,
           `ALERT Access code FAILED, booking=${booking.id} session starts in ${minutesUntilStart.toFixed(0)}min. Customer may be locked out. CALL THEM.`)
       }
     }

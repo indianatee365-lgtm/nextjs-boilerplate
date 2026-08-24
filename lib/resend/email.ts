@@ -298,6 +298,61 @@ export async function sendBookingConfirmationEmail({
   })
 }
 
+// Fallback channel for the access code when the customer hasn't consented
+// to SMS - grantBayAccess() itself never depended on sms_consent (it doesn't
+// use phone at all), only the notification did. Every confirmed booking
+// gets a working door code regardless of texting preference; this is just
+// the other way to deliver it, mirroring sendAccessCodeReminder's SMS
+// wording so both channels say the same thing.
+export async function sendAccessCodeEmail({
+  to,
+  firstName,
+  bayName,
+  accessCode,
+  startsAt,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  accessCode: string
+  startsAt: Date
+}) {
+  const timeStr = startsAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your access code</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your session in <strong style="color:#fff;">${bayName}</strong> starts <strong style="color:#fff;">${timeStr}</strong>. Use this code at the door to get in:</p>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px;">
+<span style="display:inline-block;padding:16px 32px;border-radius:8px;background:#0f1f0f;border:1px solid #1a3a1a;font-size:32px;font-weight:700;letter-spacing:6px;color:#4ade80;">${accessCode}</span>
+</td></tr></table>
+<p style="margin:0;color:#a3a3a3;font-size:15px;line-height:1.6;">You can also find this code any time on your <a href="https://tee365.org/account/bookings" style="color:#4ade80;text-decoration:none;">account bookings page</a>.</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Tee365 <bookings@tee365.org>",
+    subject: "Your Tee365 access code",
+    html,
+    kind: "access-code-email",
+  })
+}
+
 export async function sendParentalConsentRequestEmail({
   to,
   minorFirstName,
