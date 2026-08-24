@@ -185,6 +185,7 @@ export type Database = {
       bookings: {
         Row: {
           access_code: string | null
+          current_hitter: string | null
           access_sent_at: string | null
           bay_id: string
           bay_powered_off_at: string | null
@@ -227,6 +228,7 @@ export type Database = {
         }
         Insert: {
           access_code?: string | null
+          current_hitter?: string | null
           access_sent_at?: string | null
           bay_id: string
           bay_powered_off_at?: string | null
@@ -269,6 +271,7 @@ export type Database = {
         }
         Update: {
           access_code?: string | null
+          current_hitter?: string | null
           access_sent_at?: string | null
           bay_id?: string
           bay_powered_off_at?: string | null

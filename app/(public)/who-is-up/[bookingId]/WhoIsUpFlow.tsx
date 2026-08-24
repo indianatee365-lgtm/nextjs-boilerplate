@@ -1,33 +1,28 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { confirmRoster } from "./actions"
 
 export default function WhoIsUpFlow({ bookingId, token }: { bookingId: string; token?: string }) {
   const [names, setNames] = useState<string[]>([""])
-  const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   function submit(playerNames: string[]) {
     setError(null)
     startTransition(async () => {
       try {
         await confirmRoster({ bookingId, token, names: playerNames })
-        setDone(true)
+        // Re-fetches the server component so it picks up roster_confirmed_at
+        // and switches straight to the "who's hitting" selector (or the solo
+        // message) without a full page reload.
+        router.refresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong")
       }
     })
-  }
-
-  if (done) {
-    return (
-      <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">
-        <p className="font-semibold text-green-400">You&apos;re all set</p>
-        <p className="mt-1 text-sm text-neutral-300">Go hit it.</p>
-      </div>
-    )
   }
 
   return (

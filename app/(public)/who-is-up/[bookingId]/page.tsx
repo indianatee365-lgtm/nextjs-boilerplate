@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import WhoIsUpFlow from "./WhoIsUpFlow"
+import WhoIsHittingFlow from "./WhoIsHittingFlow"
 
 export const metadata = { title: "Who's Playing? | Tee365" }
 
@@ -22,7 +23,7 @@ export default async function WhoIsUpPage({
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, ends_at, extend_token, roster_confirmed_at, bays(name)")
+    .select("id, user_id, status, ends_at, extend_token, roster_confirmed_at, roster_names, current_hitter, bays(name)")
     .eq("id", bookingId)
     .single()
 
@@ -48,13 +49,20 @@ export default async function WhoIsUpPage({
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
           <p className="text-sm text-neutral-300">This session has already ended.</p>
         </div>
-      ) : booking.roster_confirmed_at ? (
+      ) : !booking.roster_confirmed_at ? (
+        <WhoIsUpFlow bookingId={booking.id} token={token} />
+      ) : booking.roster_names && booking.roster_names.length > 0 ? (
+        <WhoIsHittingFlow
+          bookingId={booking.id}
+          token={token}
+          names={booking.roster_names}
+          initialHitter={booking.current_hitter}
+        />
+      ) : (
         <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">
           <p className="font-semibold text-green-400">You&apos;re all set</p>
           <p className="mt-1 text-sm text-neutral-300">Go hit it.</p>
         </div>
-      ) : (
-        <WhoIsUpFlow bookingId={booking.id} token={token} />
       )}
     </main>
   )
