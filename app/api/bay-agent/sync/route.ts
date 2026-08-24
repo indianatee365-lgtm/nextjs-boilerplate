@@ -48,6 +48,8 @@ interface SyncRequestBody {
     runningProcesses?: string[]
     lastCrashRestartAt?: string
     kioskKill?: { process: string; at: string }
+    selectedHitter?: string
+    selectedHitterBookingId?: string
   }
 }
 
@@ -106,6 +108,21 @@ export async function POST(request: NextRequest) {
     if (status.lastCrashRestartAt) {
       await logEvent(serviceClient, "bay-agent-crash-restart", `bay=${bay.name} at=${status.lastCrashRestartAt}`)
     }
+
+    // Kiosk-side hitter selection (companion.py's on-screen selector, see
+    // showWhoIsUpPrompt's rosterNames/currentHitter below) - same write the
+    // phone's setCurrentHitter action makes, just reported up through the
+    // bay's own heartbeat instead of a customer's authenticated phone
+    // request. No extra auth needed beyond the bay's own agent_token, already
+    // checked above - same trust level as this endpoint already reporting
+    // kiosk_kills or crash-restart timestamps for this bay.
+    if (status.selectedHitter && status.selectedHitterBookingId) {
+      await serviceClient
+        .from("bookings")
+        .update({ current_hitter: status.selectedHitter })
+        .eq("id", status.selectedHitterBookingId)
+        .eq("status", "confirmed")
+    }
   }
 
   const overrideState = existingStatus?.override_state as "occupied" | "available" | "maintenance" | null
@@ -138,7 +155,7 @@ export async function POST(request: NextRequest) {
 
   const { data: activeBooking } = await serviceClient
     .from("bookings")
-    .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, profiles!user_id(first_name)")
+    .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now.toISOString())
@@ -158,7 +175,7 @@ export async function POST(request: NextRequest) {
     const preWarmCutoff = new Date(now.getTime() + PRE_WARM_MINUTES * 60000)
     const { data: upcomingBooking } = await serviceClient
       .from("bookings")
-      .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, profiles!user_id(first_name)")
+      .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
       .eq("bay_id", bayId)
       .eq("status", "confirmed")
       .gt("starts_at", now.toISOString())
@@ -212,6 +229,8 @@ export async function POST(request: NextRequest) {
     minutesRemaining?: number
     showWhoIsUpPrompt?: boolean
     whoIsUpUrl?: string
+    rosterNames?: string[] | null
+    currentHitter?: string | null
   } = {
     desiredState: "occupied",
     booking: { id: booking.id, customerFirstName: profile?.first_name ?? null, endsAt: booking.ends_at },
@@ -232,6 +251,11 @@ export async function POST(request: NextRequest) {
   // showWhoIsUpPrompt stays gated to the opening window - that flag only
   // controls the one-time auto-popup, not whether the link itself works.
   response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
+  // Always sent too, same reasoning - the kiosk-side selector (once a roster
+  // exists) needs to stay in sync with whatever the phone side last set,
+  // independent of the opening-window gate.
+  response.rosterNames = booking.roster_names ?? null
+  response.currentHitter = booking.current_hitter ?? null
   if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
     response.showWhoIsUpPrompt = true
   }
