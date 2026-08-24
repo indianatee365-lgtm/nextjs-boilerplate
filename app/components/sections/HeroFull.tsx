@@ -24,11 +24,14 @@ export default function HeroFull() {
       {/* Content */}
       <div className="relative mx-auto flex min-h-[100svh] max-w-6xl px-6 md:min-h-0 md:h-full">
         <div className="w-full max-w-3xl pt-[calc(5.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:my-auto md:pt-0 md:pb-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
-            Now open for booking · Mishawaka, IN
-          </p>
+          <span
+            className="inline-flex items-center rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-black sm:text-sm"
+            style={{ backgroundColor: "var(--brand)" }}
+          >
+            Booking now open · Aug 30 &amp; beyond
+          </span>
 
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">
             <span className="block">Indoor Golf Simulator</span>
             <span className="block">in Mishawaka, Indiana</span>
             <span className="block">Near Notre Dame and South Bend</span>
@@ -44,11 +47,20 @@ export default function HeroFull() {
             South Bend, Indiana. Minutes from Notre Dame and serving the greater Michiana region.
           </p>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-7">
+            <a
+              href="/book"
+              className="inline-flex w-full items-center justify-center rounded-2xl px-10 py-5 text-xl font-bold text-black shadow-lg shadow-black/30 transition hover:brightness-95 sm:w-auto sm:text-2xl"
+              style={{ backgroundColor: "var(--brand)" }}
+            >
+              Book Now →
+            </a>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <a
               href="/join"
-              className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95"
-              style={{ backgroundColor: "var(--brand)" }}
+              className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
             >
               Become a Member
             </a>
