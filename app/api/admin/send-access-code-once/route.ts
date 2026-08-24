@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
       endsAt: new Date(booking.ends_at),
     })
 
-    await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from("bookings")
       .update({
         access_code: pinCode,
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest) {
       startsAt: new Date(booking.starts_at),
     })
 
-    await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from("bookings")
       .update({ reminder_sent_at: new Date().toISOString(), access_sent_at: new Date().toISOString() })
       .eq("id", booking.id)
