@@ -30,40 +30,82 @@ async function authorizeBooking(serviceClient: ServiceClient, bookingId: string,
   return booking
 }
 
-// Confirms roster once per booking. Empty names array means "just me, solo"
+// Confirms roster once per booking. Empty players array means "just me, solo"
 // (the phone flow's own quick button), stored as roster_confirmed_at with no
 // names rather than a special-cased flag - the companion side only ever
 // checks whether roster_confirmed_at is set, it doesn't care why. Defaults
 // current_hitter to the first name entered so there's always a sane starting
 // selection for the group to switch off of on the next screen.
+//
+// Account linking (Jerrod's ask 2026-08-24): a player can optionally supply
+// an email. If it matches an existing Tee365 account, that name is recorded
+// in roster_links (name -> user_id) so the shot-capture pipeline attributes
+// their shots to THEIR OWN account instead of the booker's - e.g. a founder
+// books and adds his daughter, her rounds show up under her own login, not
+// his. Same admin.listUsers()-and-match-by-email lookup already used by
+// grantHoursByEmail - no separate email index exists, this is a small
+// enough user base that a full listing per lookup is fine. Best-effort: an
+// email with no match doesn't block saving the roster, it's just reported
+// back so the customer can fix a typo or shrug and continue (that name
+// falls back to the booker's own account for storage, same as any
+// unlinked name).
 export async function confirmRoster({
   bookingId,
   token,
-  names,
+  players,
 }: {
   bookingId: string
   token?: string
-  names: string[]
-}): Promise<{ ok: true }> {
+  players: { name: string; email?: string }[]
+}): Promise<{ ok: true; notFoundEmails: string[] }> {
   const serviceClient = await createServiceClient()
   await authorizeBooking(serviceClient, bookingId, token)
 
-  const cleanNames = names.map((n) => n.trim()).filter(Boolean).slice(0, 6)
+  const cleanPlayers = players
+    .map((p) => ({ name: p.name.trim(), email: (p.email ?? "").trim().toLowerCase() }))
+    .filter((p) => p.name)
+    .slice(0, 6)
+
+  const notFoundEmails: string[] = []
+  const rosterLinks: Record<string, string> = {}
+  const emailsToLookUp = cleanPlayers.filter((p) => p.email)
+
+  if (emailsToLookUp.length > 0) {
+    const { data: usersPage, error: listError } =
+      await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    if (listError) throw new Error("Failed to look up accounts")
+
+    for (const p of emailsToLookUp) {
+      const match = usersPage.users.find((u: { email?: string }) => u.email?.toLowerCase() === p.email)
+      if (match) {
+        rosterLinks[p.name] = match.id
+      } else {
+        notFoundEmails.push(p.email)
+      }
+    }
+  }
+
+  const cleanNames = cleanPlayers.map((p) => p.name)
 
   const { error } = await serviceClient
     .from("bookings")
     .update({
       roster_confirmed_at: new Date().toISOString(),
       roster_names: cleanNames.length > 0 ? cleanNames : null,
+      roster_links: Object.keys(rosterLinks).length > 0 ? rosterLinks : null,
       current_hitter: cleanNames.length > 0 ? cleanNames[0] : null,
     })
     .eq("id", bookingId)
 
   if (error) throw new Error("Failed to save")
 
-  await logEvent(serviceClient, "booking-roster-confirmed", `booking=${bookingId} players=${cleanNames.length || "solo"}`)
+  await logEvent(
+    serviceClient,
+    "booking-roster-confirmed",
+    `booking=${bookingId} players=${cleanNames.length || "solo"} linked=${Object.keys(rosterLinks).length}`,
+  )
 
-  return { ok: true }
+  return { ok: true, notFoundEmails }
 }
 
 // Switches whose turn it is - callable repeatedly for the rest of the

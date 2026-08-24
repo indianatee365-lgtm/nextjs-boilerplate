@@ -23,7 +23,7 @@ export default async function WhoIsUpPage({
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, ends_at, extend_token, roster_confirmed_at, roster_names, current_hitter, bays(name)")
+    .select("id, user_id, status, ends_at, extend_token, roster_confirmed_at, roster_names, current_hitter, bays(name), profiles!user_id(first_name)")
     .eq("id", bookingId)
     .single()
 
@@ -38,19 +38,25 @@ export default async function WhoIsUpPage({
   if (!authorized) notFound()
 
   const bay = booking.bays as { name: string } | null
+  const profile = booking.profiles as { first_name: string } | null
+  const bookerName = profile?.first_name ?? "there"
   const ended = booking.status !== "confirmed" || new Date(booking.ends_at) <= new Date()
 
   return (
     <main className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-2xl font-semibold text-white mb-2">Who&apos;s Playing?</h1>
-      <p className="text-sm text-neutral-400 mb-6">{bay?.name}</p>
+      {(ended || booking.roster_confirmed_at) && (
+        <>
+          <h1 className="text-2xl font-semibold text-white mb-2">Who&apos;s Playing?</h1>
+          <p className="text-sm text-neutral-400 mb-6">{bay?.name}</p>
+        </>
+      )}
 
       {ended ? (
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
           <p className="text-sm text-neutral-300">This session has already ended.</p>
         </div>
       ) : !booking.roster_confirmed_at ? (
-        <WhoIsUpFlow bookingId={booking.id} token={token} />
+        <WhoIsUpFlow bookingId={booking.id} token={token} bookerName={bookerName} bayName={bay?.name ?? ""} />
       ) : booking.roster_names && booking.roster_names.length > 0 ? (
         <WhoIsHittingFlow
           bookingId={booking.id}

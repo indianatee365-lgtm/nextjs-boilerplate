@@ -215,6 +215,7 @@ export type Database = {
           refunded_at: string | null
           reminder_sent_at: string | null
           roster_confirmed_at: string | null
+          roster_links: Json | null
           roster_names: string[] | null
           signup_bonus_applied: boolean | null
           starts_at: string
@@ -258,6 +259,7 @@ export type Database = {
           refunded_at?: string | null
           reminder_sent_at?: string | null
           roster_confirmed_at?: string | null
+          roster_links?: Json | null
           roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
           starts_at: string
@@ -301,6 +303,7 @@ export type Database = {
           refunded_at?: string | null
           reminder_sent_at?: string | null
           roster_confirmed_at?: string | null
+          roster_links?: Json | null
           roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
           starts_at?: string
@@ -1201,6 +1204,103 @@ export type Database = {
           start_month?: number
         }
         Relationships: []
+      }
+      shots: {
+        Row: {
+          angle_of_attack: number | null
+          back_spin: number | null
+          bay_id: string | null
+          ball_speed_mph: number | null
+          booking_id: string | null
+          carry_yards: number | null
+          club: string | null
+          club_speed_mph: number | null
+          created_at: string
+          device_id: string | null
+          face_to_target: number | null
+          hitter_name: string | null
+          hla: number | null
+          id: string
+          path: number | null
+          raw: Json | null
+          shot_number: number | null
+          side_spin: number | null
+          source: string
+          total_spin: number | null
+          user_id: string | null
+          vla: number | null
+        }
+        Insert: {
+          angle_of_attack?: number | null
+          back_spin?: number | null
+          bay_id?: string | null
+          ball_speed_mph?: number | null
+          booking_id?: string | null
+          carry_yards?: number | null
+          club?: string | null
+          club_speed_mph?: number | null
+          created_at?: string
+          device_id?: string | null
+          face_to_target?: number | null
+          hitter_name?: string | null
+          hla?: number | null
+          id?: string
+          path?: number | null
+          raw?: Json | null
+          shot_number?: number | null
+          side_spin?: number | null
+          source?: string
+          total_spin?: number | null
+          user_id?: string | null
+          vla?: number | null
+        }
+        Update: {
+          angle_of_attack?: number | null
+          back_spin?: number | null
+          bay_id?: string | null
+          ball_speed_mph?: number | null
+          booking_id?: string | null
+          carry_yards?: number | null
+          club?: string | null
+          club_speed_mph?: number | null
+          created_at?: string
+          device_id?: string | null
+          face_to_target?: number | null
+          hitter_name?: string | null
+          hla?: number | null
+          id?: string
+          path?: number | null
+          raw?: Json | null
+          shot_number?: number | null
+          side_spin?: number | null
+          source?: string
+          total_spin?: number | null
+          user_id?: string | null
+          vla?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shots_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: false
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shots_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waitlist: {
         Row: {
