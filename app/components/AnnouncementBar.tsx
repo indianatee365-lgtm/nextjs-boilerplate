@@ -56,5 +56,16 @@ export default async function AnnouncementBar() {
     )
   }
 
-  return null
+  // Founder's Club deadline passed and Birdie/Eagle already launched - this
+  // used to fall through to `return null` (no banner at all), leaving the
+  // site with no live call-to-action once Founder's Club closed even though
+  // Birdie/Eagle were actually on sale. Found 2026-08-24, days before the
+  // real public opening (8/30) - there was no path driving visitors to
+  // /join at all.
+  return (
+    <Bar href="/join">
+      <span>Birdie &amp; Eagle memberships are on sale now</span>
+      <span aria-hidden="true">→</span>
+    </Bar>
+  )
 }
