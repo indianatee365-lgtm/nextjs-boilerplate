@@ -224,9 +224,16 @@ export async function POST(request: NextRequest) {
     response.minutesRemaining = Math.max(0, Math.round(minutesRemaining))
   }
 
+  // whoIsUpUrl is always sent for an active booking - not just within the
+  // opening window - so the kiosk's minimized "who's up?" icon keeps working
+  // for the rest of the session even after a companion restart wipes its
+  // in-memory cache (found live 2026-08-24 redeploying mid-test: the window
+  // had already closed, so a fresh process had no way to recover the url).
+  // showWhoIsUpPrompt stays gated to the opening window - that flag only
+  // controls the one-time auto-popup, not whether the link itself works.
+  response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
   if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
     response.showWhoIsUpPrompt = true
-    response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
   }
 
   return NextResponse.json(response)
