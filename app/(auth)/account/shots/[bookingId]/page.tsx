@@ -18,7 +18,7 @@ export default async function SessionShotsPage({
 
   const { data: shots } = await serviceClient
     .from("shots")
-    .select("id, created_at, club, carry_yards, ball_speed_mph, club_speed_mph, side_spin, back_spin, hla, vla, hitter_name, bays(name)")
+    .select("id, created_at, club, carry_yards, total_distance_yards, ball_speed_mph, club_speed_mph, side_spin, back_spin, hla, vla, hitter_name, bays(name)")
     .eq("booking_id", bookingId)
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
@@ -60,6 +60,7 @@ export default async function SessionShotsPage({
               <th className="px-4 py-3">Player</th>
               <th className="px-4 py-3">Club</th>
               <th className="px-4 py-3">Carry (yd)</th>
+              <th className="px-4 py-3">Total (yd)</th>
               <th className="px-4 py-3">Ball speed</th>
               <th className="px-4 py-3">Club speed</th>
               <th className="px-4 py-3">Spin (side/back)</th>
@@ -77,6 +78,7 @@ export default async function SessionShotsPage({
                 <td className="px-4 py-3">{s.hitter_name ?? "—"}</td>
                 <td className="px-4 py-3">{s.club ?? "—"}</td>
                 <td className="px-4 py-3">{s.carry_yards != null ? Number(s.carry_yards).toFixed(1) : "—"}</td>
+                <td className="px-4 py-3">{s.total_distance_yards != null ? Number(s.total_distance_yards).toFixed(1) : "—"}</td>
                 <td className="px-4 py-3">{s.ball_speed_mph != null ? `${Number(s.ball_speed_mph).toFixed(1)} mph` : "—"}</td>
                 <td className="px-4 py-3">{s.club_speed_mph != null ? `${Number(s.club_speed_mph).toFixed(1)} mph` : "—"}</td>
                 <td className="px-4 py-3">

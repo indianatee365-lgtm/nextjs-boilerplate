@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   let query = serviceClient
     .from("shots")
-    .select("created_at, hitter_name, club, carry_yards, ball_speed_mph, club_speed_mph, total_spin, back_spin, side_spin, hla, vla, path, angle_of_attack, face_to_target, bays(name)")
+    .select("created_at, hitter_name, club, carry_yards, total_distance_yards, ball_speed_mph, club_speed_mph, total_spin, back_spin, side_spin, hla, vla, path, angle_of_attack, face_to_target, bays(name)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5000)
@@ -33,14 +33,14 @@ export async function GET(request: NextRequest) {
   const { data: shots } = await query
 
   const header = [
-    "date", "bay", "player", "club", "carry_yards", "ball_speed_mph", "club_speed_mph",
+    "date", "bay", "player", "club", "carry_yards", "total_distance_yards", "ball_speed_mph", "club_speed_mph",
     "total_spin", "back_spin", "side_spin", "hla", "vla", "path", "angle_of_attack", "face_to_target",
   ]
   const rows = (shots ?? []).map((s) => {
     const bay = s.bays as { name: string } | null
     return [
       s.created_at, bay?.name ?? "", s.hitter_name ?? "", s.club ?? "",
-      s.carry_yards, s.ball_speed_mph, s.club_speed_mph, s.total_spin,
+      s.carry_yards, s.total_distance_yards, s.ball_speed_mph, s.club_speed_mph, s.total_spin,
       s.back_spin, s.side_spin, s.hla, s.vla, s.path, s.angle_of_attack, s.face_to_target,
     ].map(csvCell).join(",")
   })

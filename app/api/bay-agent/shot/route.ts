@@ -119,20 +119,22 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, id: inserted?.id })
 }
 
-// Best-effort follow-up: fills in a club name discovered after the fact.
-// Same bay-level auth as POST above, additionally scoped to bay_id on the
-// update itself so one bay's agent can never patch another bay's shot.
+// Best-effort follow-up: fills in a club name and/or total distance
+// discovered after the fact (both come from the same delayed GSPro.db
+// lookup - see companion.py's _check_pending_club_patches). Same bay-level
+// auth as POST above, additionally scoped to bay_id on the update itself so
+// one bay's agent can never patch another bay's shot.
 export async function PATCH(request: NextRequest) {
-  let body: { bayId?: string; token?: string; shotId?: string; club?: string }
+  let body: { bayId?: string; token?: string; shotId?: string; club?: string; totalDistanceYards?: number }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { bayId, token, shotId, club } = body
-  if (!bayId || !token || !shotId || !club) {
-    return NextResponse.json({ error: "Missing bayId, token, shotId, or club" }, { status: 400 })
+  const { bayId, token, shotId, club, totalDistanceYards } = body
+  if (!bayId || !token || !shotId || (!club && totalDistanceYards == null)) {
+    return NextResponse.json({ error: "Missing bayId, token, shotId, or an update value" }, { status: 400 })
   }
 
   const serviceClient = await createServiceClient()
@@ -147,9 +149,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const updates: { club?: string; total_distance_yards?: number } = {}
+  if (club) updates.club = club
+  if (totalDistanceYards != null) updates.total_distance_yards = totalDistanceYards
+
   const { error } = await serviceClient
     .from("shots")
-    .update({ club })
+    .update(updates)
     .eq("id", shotId)
     .eq("bay_id", bayId)
 

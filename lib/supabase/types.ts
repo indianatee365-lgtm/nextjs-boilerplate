@@ -1226,6 +1226,7 @@ export type Database = {
           shot_number: number | null
           side_spin: number | null
           source: string
+          total_distance_yards: number | null
           total_spin: number | null
           user_id: string | null
           vla: number | null
@@ -1250,6 +1251,7 @@ export type Database = {
           shot_number?: number | null
           side_spin?: number | null
           source?: string
+          total_distance_yards?: number | null
           total_spin?: number | null
           user_id?: string | null
           vla?: number | null
@@ -1274,6 +1276,7 @@ export type Database = {
           shot_number?: number | null
           side_spin?: number | null
           source?: string
+          total_distance_yards?: number | null
           total_spin?: number | null
           user_id?: string | null
           vla?: number | null

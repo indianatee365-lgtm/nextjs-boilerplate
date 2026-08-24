@@ -13,32 +13,53 @@ import { createClient } from "@/lib/supabase/client"
 // still shows up on its own. RLS (shots_select_own) is what actually keeps
 // this from ever receiving another customer's inserts - the filter here is
 // just to avoid needless refreshes, not the security boundary.
+//
+// Found live 2026-08-24: the channel has to be opened AFTER the browser
+// client has a confirmed session, not immediately on mount - subscribing
+// before the cookie-based session finishes hydrating opens the socket
+// unauthenticated, and since shots is RLS-protected, an unauthenticated
+// subscriber's postgres_changes filter never matches anything (silent, no
+// error) even though the subscription itself reports SUBSCRIBED. Admin
+// pages using this same pattern elsewhere didn't hit this because an admin
+// who just navigated within the authenticated app already has a hydrated
+// session by the time the component mounts; a customer landing here can
+// race it.
 export default function ShotsRealtimeRefresher({ userId, bookingId }: { userId: string; bookingId?: string }) {
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
-    const filter = bookingId ? `booking_id=eq.${bookingId}` : `user_id=eq.${userId}`
-    const channel = supabase
-      .channel(`shots-${bookingId ?? userId}`)
-      .on(
-        // "*" (not just INSERT) - a shot's club name often arrives a few
-        // seconds later via a PATCH (see /api/bay-agent/shot's PATCH
-        // handler), so the UI needs to pick up that UPDATE too, not just
-        // the initial row.
-        "postgres_changes",
-        { event: "*", schema: "public", table: "shots", filter },
-        () => {
-          if (timeoutRef.current) clearTimeout(timeoutRef.current)
-          timeoutRef.current = setTimeout(() => router.refresh(), 300)
-        }
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return
+      if (session) {
+        supabase.realtime.setAuth(session.access_token)
+      }
+
+      const filter = bookingId ? `booking_id=eq.${bookingId}` : `user_id=eq.${userId}`
+      channel = supabase
+        .channel(`shots-${bookingId ?? userId}`)
+        .on(
+          // "*" not just INSERT - a shot's club/total-distance often arrive
+          // a few seconds later via a PATCH (see /api/bay-agent/shot's
+          // PATCH handler), so the UI needs UPDATE events too.
+          "postgres_changes",
+          { event: "*", schema: "public", table: "shots", filter },
+          () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            timeoutRef.current = setTimeout(() => router.refresh(), 300)
+          }
+        )
+        .subscribe()
+    })
 
     return () => {
+      cancelled = true
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [router, userId, bookingId])
 
