@@ -28,6 +28,18 @@ export default function ShotsRealtimeRefresher({ userId, bookingId }: { userId: 
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Belt-and-suspenders (Jerrod's ask 2026-08-24, after the auth-timing fix
+  // above still didn't make the live page auto-update): a plain poll every
+  // few seconds while this page is open, independent of whatever the
+  // WebSocket subscription is doing. Guarantees an update lands within one
+  // polling interval no matter what's wrong with realtime - cheap and far
+  // more robust than continuing to chase realtime auth edge cases blind,
+  // without direct access to the browser console that's actually failing.
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 4000)
+    return () => clearInterval(interval)
+  }, [router])
+
   useEffect(() => {
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null

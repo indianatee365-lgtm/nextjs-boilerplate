@@ -125,15 +125,22 @@ export async function POST(request: NextRequest) {
 // auth as POST above, additionally scoped to bay_id on the update itself so
 // one bay's agent can never patch another bay's shot.
 export async function PATCH(request: NextRequest) {
-  let body: { bayId?: string; token?: string; shotId?: string; club?: string; totalDistanceYards?: number }
+  let body: {
+    bayId?: string
+    token?: string
+    shotId?: string
+    club?: string
+    totalDistanceYards?: number
+    carryYards?: number
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { bayId, token, shotId, club, totalDistanceYards } = body
-  if (!bayId || !token || !shotId || (!club && totalDistanceYards == null)) {
+  const { bayId, token, shotId, club, totalDistanceYards, carryYards } = body
+  if (!bayId || !token || !shotId || (!club && totalDistanceYards == null && carryYards == null)) {
     return NextResponse.json({ error: "Missing bayId, token, shotId, or an update value" }, { status: 400 })
   }
 
@@ -149,9 +156,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const updates: { club?: string; total_distance_yards?: number } = {}
+  // carryYards here is GSPro's own in-game-adjusted carry (see companion.py's
+  // _lookup_recent_range_data), overwriting the raw launch-monitor value the
+  // initial POST had to use since it's all that's available immediately.
+  const updates: { club?: string; total_distance_yards?: number; carry_yards?: number } = {}
   if (club) updates.club = club
   if (totalDistanceYards != null) updates.total_distance_yards = totalDistanceYards
+  if (carryYards != null) updates.carry_yards = carryYards
 
   const { error } = await serviceClient
     .from("shots")
