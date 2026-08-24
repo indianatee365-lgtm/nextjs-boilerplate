@@ -17,6 +17,16 @@ export const runtime = "nodejs"
 const EXTEND_PROMPT_WINDOW_MINUTES = 15
 const KIOSK_KILLS_LOG_LIMIT = 20
 
+// How long into a session the kiosk keeps showing the "who's playing?" QR
+// before giving up on its own (the companion also lets the customer dismiss
+// it early via an on-screen X, or the phone flow can close it out sooner by
+// confirming roster_confirmed_at) - Jerrod's spec 2026-08-24: only at the
+// start of the session, not something nagging mid-round. Negative
+// minutesSinceStart (a pre-warmed booking that hasn't technically started
+// yet) still passes this check, which is fine - the window is only 3 minutes
+// wide during pre-warm, same bound as PRE_WARM_MINUTES below.
+const WHO_IS_UP_WINDOW_MINUTES = 5
+
 // If the bay is cold (no booking currently running) and the next confirmed
 // booking starts within this many minutes, treat it as "occupied" early so
 // the sim chain is already launched and warmed up (UneekorLauncher connect +
@@ -128,7 +138,7 @@ export async function POST(request: NextRequest) {
 
   const { data: activeBooking } = await serviceClient
     .from("bookings")
-    .select("id, ends_at, extend_token, bay_powered_on_at, profiles!user_id(first_name)")
+    .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now.toISOString())
@@ -148,7 +158,7 @@ export async function POST(request: NextRequest) {
     const preWarmCutoff = new Date(now.getTime() + PRE_WARM_MINUTES * 60000)
     const { data: upcomingBooking } = await serviceClient
       .from("bookings")
-      .select("id, ends_at, extend_token, bay_powered_on_at, profiles!user_id(first_name)")
+      .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, profiles!user_id(first_name)")
       .eq("bay_id", bayId)
       .eq("status", "confirmed")
       .gt("starts_at", now.toISOString())
@@ -191,6 +201,8 @@ export async function POST(request: NextRequest) {
   const minutesRemaining = (endsAt.getTime() - now.getTime()) / 60000
   const profile = booking.profiles as { first_name: string } | null
 
+  const minutesSinceStart = (now.getTime() - new Date(booking.starts_at).getTime()) / 60000
+
   const response: {
     desiredState: "occupied"
     booking: { id: string; customerFirstName: string | null; endsAt: string }
@@ -198,6 +210,8 @@ export async function POST(request: NextRequest) {
     showExtendPrompt?: boolean
     extendUrl?: string
     minutesRemaining?: number
+    showWhoIsUpPrompt?: boolean
+    whoIsUpUrl?: string
   } = {
     desiredState: "occupied",
     booking: { id: booking.id, customerFirstName: profile?.first_name ?? null, endsAt: booking.ends_at },
@@ -208,6 +222,11 @@ export async function POST(request: NextRequest) {
     response.showExtendPrompt = true
     response.extendUrl = `https://tee365.org/extend/${booking.id}?token=${booking.extend_token}`
     response.minutesRemaining = Math.max(0, Math.round(minutesRemaining))
+  }
+
+  if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
+    response.showWhoIsUpPrompt = true
+    response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
   }
 
   return NextResponse.json(response)

@@ -213,6 +213,8 @@ export type Database = {
           refund_amount: number | null
           refunded_at: string | null
           reminder_sent_at: string | null
+          roster_confirmed_at: string | null
+          roster_names: string[] | null
           signup_bonus_applied: boolean | null
           starts_at: string
           status: string
@@ -253,6 +255,8 @@ export type Database = {
           refund_amount?: number | null
           refunded_at?: string | null
           reminder_sent_at?: string | null
+          roster_confirmed_at?: string | null
+          roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
           starts_at: string
           status?: string
@@ -293,6 +297,8 @@ export type Database = {
           refund_amount?: number | null
           refunded_at?: string | null
           reminder_sent_at?: string | null
+          roster_confirmed_at?: string | null
+          roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
           starts_at?: string
           status?: string
