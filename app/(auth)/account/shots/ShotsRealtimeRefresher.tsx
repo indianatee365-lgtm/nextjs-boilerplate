@@ -23,8 +23,12 @@ export default function ShotsRealtimeRefresher({ userId, bookingId }: { userId: 
     const channel = supabase
       .channel(`shots-${bookingId ?? userId}`)
       .on(
+        // "*" (not just INSERT) - a shot's club name often arrives a few
+        // seconds later via a PATCH (see /api/bay-agent/shot's PATCH
+        // handler), so the UI needs to pick up that UPDATE too, not just
+        // the initial row.
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "shots", filter },
+        { event: "*", schema: "public", table: "shots", filter },
         () => {
           if (timeoutRef.current) clearTimeout(timeoutRef.current)
           timeoutRef.current = setTimeout(() => router.refresh(), 300)

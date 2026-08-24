@@ -78,32 +78,83 @@ export async function POST(request: NextRequest) {
   const rosterLinks = (booking.roster_links as Record<string, string> | null) ?? {}
   const attributedUserId = (body.hitterName && rosterLinks[body.hitterName]) || booking.user_id
 
-  const { error } = await serviceClient.from("shots").insert({
-    booking_id: booking.id,
-    bay_id: bayId,
-    user_id: attributedUserId,
-    hitter_name: body.hitterName ?? null,
-    shot_number: body.shotNumber ?? null,
-    club: body.club ?? null,
-    ball_speed_mph: body.ballSpeedMph ?? null,
-    club_speed_mph: body.clubSpeedMph ?? null,
-    carry_yards: body.carryYards ?? null,
-    total_spin: body.totalSpin ?? null,
-    back_spin: body.backSpin ?? null,
-    side_spin: body.sideSpin ?? null,
-    hla: body.hla ?? null,
-    vla: body.vla ?? null,
-    path: body.path ?? null,
-    angle_of_attack: body.angleOfAttack ?? null,
-    face_to_target: body.faceToTarget ?? null,
-    device_id: body.deviceId ?? null,
-    source: body.source ?? "connect_debug",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    raw: (body.raw ?? null) as any,
-  })
+  const { data: inserted, error } = await serviceClient
+    .from("shots")
+    .insert({
+      booking_id: booking.id,
+      bay_id: bayId,
+      user_id: attributedUserId,
+      hitter_name: body.hitterName ?? null,
+      shot_number: body.shotNumber ?? null,
+      club: body.club ?? null,
+      ball_speed_mph: body.ballSpeedMph ?? null,
+      club_speed_mph: body.clubSpeedMph ?? null,
+      carry_yards: body.carryYards ?? null,
+      total_spin: body.totalSpin ?? null,
+      back_spin: body.backSpin ?? null,
+      side_spin: body.sideSpin ?? null,
+      hla: body.hla ?? null,
+      vla: body.vla ?? null,
+      path: body.path ?? null,
+      angle_of_attack: body.angleOfAttack ?? null,
+      face_to_target: body.faceToTarget ?? null,
+      device_id: body.deviceId ?? null,
+      source: body.source ?? "connect_debug",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      raw: (body.raw ?? null) as any,
+    })
+    .select("id")
+    .single()
 
   if (error) {
     return NextResponse.json({ error: "Failed to save shot" }, { status: 500 })
+  }
+
+  // id is returned so the capture thread can PATCH the club name in a few
+  // seconds later (see PATCH below) - GSPro.db's DrivingRangeShot table,
+  // the only source with a real club name, lags ConnectDebug.txt's own
+  // ball/club data by several seconds (confirmed live 2026-08-24: posting
+  // immediately, which is required for the real-time "no refresh" UI, means
+  // the club name genuinely isn't written yet at insert time).
+  return NextResponse.json({ ok: true, id: inserted?.id })
+}
+
+// Best-effort follow-up: fills in a club name discovered after the fact.
+// Same bay-level auth as POST above, additionally scoped to bay_id on the
+// update itself so one bay's agent can never patch another bay's shot.
+export async function PATCH(request: NextRequest) {
+  let body: { bayId?: string; token?: string; shotId?: string; club?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  const { bayId, token, shotId, club } = body
+  if (!bayId || !token || !shotId || !club) {
+    return NextResponse.json({ error: "Missing bayId, token, shotId, or club" }, { status: 400 })
+  }
+
+  const serviceClient = await createServiceClient()
+
+  const { data: bay } = await serviceClient
+    .from("bays")
+    .select("id, agent_token")
+    .eq("id", bayId)
+    .single()
+
+  if (!bay || !bay.agent_token || bay.agent_token !== token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { error } = await serviceClient
+    .from("shots")
+    .update({ club })
+    .eq("id", shotId)
+    .eq("bay_id", bayId)
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to update shot" }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })
