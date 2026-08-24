@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START } from "@/lib/bookings/launch-gate"
+import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START, PUBLIC_BOOKING_OPENS } from "@/lib/bookings/launch-gate"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -50,23 +50,31 @@ export default async function BookPage({
     advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
   }
 
-  // Admin gate: bookings not open to public until launch, with three
+  // Admin gate: bookings not open to public until launch, with four
   // carve-outs - (1) a founder with an active Founders Day credit can get
   // through starting 8/18 to book their Friends & Founders Day (8/29) slot,
   // even after that credit is fully redeemed (hasFoundersDayCredit alone
   // would go back to false once hours_remaining hits 0, wrongly locking a
   // founder back out), (2) starting 8/19 00:01 EDT (FOUNDERS_CLUB_DEADLINE),
   // any active founder can get through to book anything from 8/29 onward,
-  // and (3) a non-founder guest holding the shared Friends Day coupon link
+  // (3) a non-founder guest holding the shared Friends Day coupon link
   // (?code=FRIENDSDAY) can get through too - checked here just to admit
   // them to the page; the coupon's own validity/usage rules are enforced
-  // for real at checkout in create.ts, same as any other coupon.
+  // for real at checkout in create.ts, same as any other coupon - and (4)
+  // starting 8/23 (PUBLIC_BOOKING_OPENS, 7 days ahead of the 8/30 public
+  // opening), literally anyone can get through, since create.ts's own
+  // isPublicBookingOpen() check already accepts any session from 8/30
+  // onward for a non-founder - this fourth carve-out was missing entirely
+  // until 2026-08-24, which meant Birdie/Eagle members and the general
+  // public were stuck on "Coming Soon" even though the backend was fully
+  // ready to book them.
   // The backend (lib/bookings/create.ts) enforces the actual date
   // restriction per-session; this just decides whether to show the booking
   // UI at all, and has to mirror all of create.ts's carve-outs or someone
   // eligible gets wrongly stuck on the "Coming Soon" screen.
   const isEarlyAccessOpen = Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
   const isFounderPlan = membershipSlug === "founder"
+  const isPublicOpen = Date.now() >= PUBLIC_BOOKING_OPENS.getTime()
   const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
 
@@ -80,13 +88,13 @@ export default async function BookPage({
     advanceDays = Math.max(advanceDays, daysUntilFoundersDay)
   }
 
-  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode) {
+  if (!isAdmin && !(await hasFoundersDayCredit(serviceClient, user.id)) && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode && !isPublicOpen) {
     return (
       <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
-        <h1 className="text-3xl font-bold text-white mb-3">Bookings Available September 2026</h1>
+        <h1 className="text-3xl font-bold text-white mb-3">Bookings Open August 30</h1>
         <p className="text-neutral-400 max-w-sm">
-          We&apos;re getting the bays ready. Online booking opens when we do. Check back in September.
+          We&apos;re getting the bays ready. Online booking opens August 30, 2026.
         </p>
       </main>
     )

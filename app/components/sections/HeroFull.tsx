@@ -25,7 +25,7 @@ export default function HeroFull() {
       <div className="relative mx-auto flex min-h-[100svh] max-w-6xl px-6 md:min-h-0 md:h-full">
         <div className="w-full max-w-3xl pt-[calc(5.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:my-auto md:pt-0 md:pb-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-200">
-            Opening September 2026 · Mishawaka, IN
+            Now open for booking · Mishawaka, IN
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">

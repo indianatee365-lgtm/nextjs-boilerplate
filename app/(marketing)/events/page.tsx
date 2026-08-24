@@ -121,7 +121,7 @@ export default function EventsPage() {
             <span className="font-semibold text-white">Clubs.</span> Bring your own, or ask us about the loaner options we'll have available. No equipment rental fees.
           </p>
           <p>
-            <span className="font-semibold text-white">Timing.</span> Tee365 opens September 2026 at 4615 Grape Rd, Mishawaka, IN. Events are available during any hour, any day.
+            <span className="font-semibold text-white">Timing.</span> Tee365 opens for booking August 30, 2026 at 4615 Grape Rd, Mishawaka, IN. Events are available during any hour, any day.
           </p>
         </div>
       </section>
