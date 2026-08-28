@@ -2,8 +2,8 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
-import { sendBookingConfirmation } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendBookingCancellationSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
@@ -24,7 +24,10 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, starts_at, total, stripe_payment_intent_id, stripe_charge_id")
+    .select(`
+      id, user_id, status, starts_at, ends_at, total, stripe_payment_intent_id, stripe_charge_id,
+      bays(name)
+    `)
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .single()
@@ -41,6 +44,7 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   const b = booking as typeof booking & {
     stripe_payment_intent_id: string | null
     stripe_charge_id: string | null
+    bays: { name: string } | null
   }
 
   if (b.status === "pending" && b.stripe_payment_intent_id) {
@@ -50,6 +54,10 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   } else if (refundEligible && b.stripe_charge_id && Number(b.total) > 0) {
     await getStripe().refunds.create({ charge: b.stripe_charge_id })
   }
+
+  // Only a paid, charged booking actually gets money back - a pending booking's
+  // total was never captured, so telling that customer "refunded" would be false.
+  const refundIssued = refundEligible && Boolean(b.stripe_charge_id) && Number(b.total) > 0
 
   await serviceClient
     .from("bookings")
@@ -65,8 +73,51 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   // Hour credits follow the same forfeit rules as dollars: refund-eligible cancels
   // get their hours back; inside the forfeit window they are lost. Pending bookings
   // never consumed credits, so restoring is a safe no-op there.
-  if (refundEligible || b.status === "pending") {
-    await restoreHourCredits(serviceClient, bookingId)
+  const creditHoursRestored = (refundEligible || b.status === "pending")
+    ? await restoreHourCredits(serviceClient, bookingId)
+    : 0
+
+  if (b.bays) {
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("first_name, phone, sms_consent")
+      .eq("id", user.id)
+      .single()
+    const p = profile as { first_name: string; phone: string | null; sms_consent: boolean } | null
+
+    if (p?.phone && p.sms_consent) {
+      try {
+        await sendBookingCancellationSms({
+          to: p.phone,
+          firstName: p.first_name,
+          bayName: b.bays.name,
+          startsAt: new Date(b.starts_at),
+          endsAt: new Date(b.ends_at),
+          refundAmount: refundIssued ? Number(b.total) : 0,
+          creditHoursRestored,
+        })
+      } catch (e) {
+        await logFailure(serviceClient, "booking-cancellation-sms-FAILED",
+          `booking=${bookingId} err=${String(e).slice(0, 200)}`)
+      }
+    }
+
+    if (user.email) {
+      try {
+        await sendBookingCancellationEmail({
+          to: user.email,
+          firstName: p?.first_name ?? "",
+          bayName: b.bays.name,
+          startsAt: new Date(b.starts_at),
+          endsAt: new Date(b.ends_at),
+          refundAmount: refundIssued ? Number(b.total) : 0,
+          creditHoursRestored,
+        })
+      } catch (e) {
+        await logFailure(serviceClient, "booking-cancellation-email-FAILED",
+          `booking=${bookingId} err=${String(e).slice(0, 200)}`)
+      }
+    }
   }
 
   return { refunded: refundEligible }

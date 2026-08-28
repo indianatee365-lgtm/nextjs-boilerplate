@@ -289,3 +289,49 @@ export async function sendBookingPaymentFailedSms({
     "booking-payment-failed"
   )
 }
+
+export async function sendBookingCancellationSms({
+  to,
+  firstName,
+  bayName,
+  startsAt,
+  endsAt,
+  refundAmount,
+  creditHoursRestored,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  startsAt: Date
+  endsAt: Date
+  refundAmount: number
+  creditHoursRestored: number
+}) {
+  const startStr = startsAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  const endStr = endsAt.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+
+  const lines = [
+    "Hi " + firstName + ", your Tee365 booking has been cancelled.",
+    "🕒 " + startStr + " – " + endStr,
+    "🏌️ Bay: " + bayName,
+  ]
+  if (refundAmount > 0) lines.push("💳 $" + refundAmount.toFixed(2) + " refunded to your card.")
+  if (creditHoursRestored > 0) {
+    lines.push("⏱ " + creditHoursRestored + " hour" + (creditHoursRestored === 1 ? "" : "s") + " credit restored to your account.")
+  }
+  lines.push("Questions? info@tee365.org")
+  lines.push("Reply STOP to opt out, HELP for info. Msg & data rates may apply.")
+
+  await sendSms(to, lines.join("\n"), "booking-cancellation")
+}

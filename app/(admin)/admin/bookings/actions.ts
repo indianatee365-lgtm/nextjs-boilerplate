@@ -1,8 +1,8 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendBookingCancellationSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 
@@ -97,11 +97,19 @@ export async function cancelBooking(bookingId: string) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, status, total, stripe_payment_intent_id, stripe_charge_id")
+    .select(`
+      id, status, total, starts_at, ends_at, user_id, stripe_payment_intent_id, stripe_charge_id,
+      bays(name), profiles!user_id(first_name, phone, sms_consent)
+    `)
     .eq("id", bookingId)
     .single()
 
-  const b = booking as { id: string; status: string; total: number; stripe_payment_intent_id: string | null; stripe_charge_id: string | null } | null
+  const b = booking as {
+    id: string; status: string; total: number; starts_at: string; ends_at: string; user_id: string
+    stripe_payment_intent_id: string | null; stripe_charge_id: string | null
+    bays: { name: string } | null
+    profiles: { first_name: string; phone: string | null; sms_consent: boolean } | null
+  } | null
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") return
 
@@ -119,6 +127,11 @@ export async function cancelBooking(bookingId: string) {
     })
   }
 
+  // Only a paid, charged booking actually gets money back - a pending
+  // booking's total was never captured, so telling that customer "refunded"
+  // would be false even though b.total is nonzero.
+  const refundIssued = Boolean(b.stripe_charge_id) && Number(b.total) > 0
+
   await serviceClient
     .from("bookings")
     .update({
@@ -133,7 +146,42 @@ export async function cancelBooking(bookingId: string) {
   // Admin-initiated cancellations always return hour credits, unlike the customer
   // self-serve flow's 24h forfeit window: an operator cancelling on someone's
   // behalf is never the abuse case that window exists to prevent.
-  await restoreHourCredits(serviceClient, bookingId)
+  const creditHoursRestored = await restoreHourCredits(serviceClient, bookingId)
+
+  if (b.bays && b.profiles) {
+    if (b.profiles.phone && b.profiles.sms_consent) {
+      try {
+        await sendBookingCancellationSms({
+          to: b.profiles.phone,
+          firstName: b.profiles.first_name,
+          bayName: b.bays.name,
+          startsAt: new Date(b.starts_at),
+          endsAt: new Date(b.ends_at),
+          refundAmount: refundIssued ? Number(b.total) : 0,
+          creditHoursRestored,
+        })
+      } catch (smsError) {
+        console.error("Cancellation SMS failed", smsError)
+      }
+    }
+
+    const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(b.user_id)
+    if (authUser?.email) {
+      try {
+        await sendBookingCancellationEmail({
+          to: authUser.email,
+          firstName: b.profiles.first_name,
+          bayName: b.bays.name,
+          startsAt: new Date(b.starts_at),
+          endsAt: new Date(b.ends_at),
+          refundAmount: refundIssued ? Number(b.total) : 0,
+          creditHoursRestored,
+        })
+      } catch (emailError) {
+        console.error("Cancellation email failed", emailError)
+      }
+    }
+  }
 }
 
 export async function blockTime({
