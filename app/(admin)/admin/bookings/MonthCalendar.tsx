@@ -98,16 +98,17 @@ export default function MonthCalendar({
           if (!dateStr) return <div key={`empty-${i}`} />
           const dayNum = parseInt(dateStr.split("-")[2], 10)
           const isToday = dateStr === todayStr
+          const isPast = dateStr < todayStr
           const status = dayStatus.get(dateStr)
           return (
             <button
               key={dateStr}
               onClick={() => openDay(dateStr)}
-              className={`aspect-square rounded-lg border p-2 text-left text-sm transition hover:opacity-80 ${colorForDay(status)} ${
-                isToday ? "ring-1 ring-white/40" : ""
-              }`}
+              className={`aspect-square rounded-lg border p-2 text-left text-sm transition hover:opacity-80 ${
+                isPast ? "border-white/5 bg-white/[0.03] text-neutral-500" : colorForDay(status)
+              } ${isToday ? "ring-1 ring-white/40" : ""}`}
             >
-              <div className="font-medium">{dayNum}</div>
+              <div className={`font-medium ${isPast ? "text-neutral-500" : ""}`}>{dayNum}</div>
               {status && (
                 <div className="mt-1 text-[10px] leading-tight opacity-80">
                   {status.confirmed > 0 && <div>{status.confirmed} active</div>}
