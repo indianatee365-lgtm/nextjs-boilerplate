@@ -38,6 +38,7 @@ export default async function AdminPage() {
     { data: giftCardBalances },
     { data: recentBookings },
     { count: activeCouponCount },
+    { count: userCount },
     revenue,
   ] = await Promise.all([
     serviceClient.from("bookings").select("id", { count: "exact", head: true })
@@ -63,6 +64,7 @@ export default async function AdminPage() {
     serviceClient.from("coupons")
       .select("id", { count: "exact", head: true })
       .eq("active", true),
+    serviceClient.from("profiles").select("id", { count: "exact", head: true }),
     computeRevenue(serviceClient),
   ])
 
@@ -122,7 +124,7 @@ export default async function AdminPage() {
           { href: "/admin/bookings", icon: <Calendar size={16} />, label: "Manage Bookings" },
           { href: "/admin/bays", icon: <Clock size={16} />, label: "Bays & Block Times" },
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
-          { href: "/admin/users", icon: <UserCircle size={16} />, label: "Users" },
+          { href: "/admin/users", icon: <UserCircle size={16} />, label: `Users (${userCount ?? 0})` },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
           { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },
