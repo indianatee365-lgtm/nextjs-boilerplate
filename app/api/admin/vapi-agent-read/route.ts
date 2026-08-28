@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
   const relevant = tools.filter((t: { function?: { name?: string } }) =>
     ["check_availability", "create_phone_booking"].includes(t?.function?.name ?? "")
   )
+  const messages: { role: string; content: string }[] = agent?.model?.messages ?? []
+  const systemPrompt = messages.find(m => m.role === "system")?.content ?? ""
+  const phoneBookingSection = systemPrompt.slice(
+    systemPrompt.indexOf("PHONE BOOKING"),
+    systemPrompt.indexOf("---", systemPrompt.indexOf("PHONE BOOKING") + 20)
+  )
 
-  return NextResponse.json({ tools: relevant })
+  return NextResponse.json({ tools: relevant, phoneBookingSection })
 }
