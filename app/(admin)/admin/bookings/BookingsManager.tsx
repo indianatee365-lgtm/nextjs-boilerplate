@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, Lock, CalendarRange } from "lucide-react"
 import { cancelBooking, blockTime, confirmBookingManually } from "./actions"
 
 interface Booking {
@@ -49,6 +49,7 @@ export default function BookingsManager({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [blocking, setBlocking] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
   const [blockForm, setBlockForm] = useState({
     bayId: "" as string | null,
     date: selectedDate,
@@ -94,6 +95,19 @@ export default function BookingsManager({
   }
 
   const displayDate = new Date(`${selectedDate}T12:00:00`)
+
+  const statusCounts = useMemo(() => ({
+    active: bookings.filter((b) => b.status === "confirmed").length,
+    pending: bookings.filter((b) => b.status === "pending").length,
+    cancelled: bookings.filter((b) => b.status === "cancelled").length,
+    all: bookings.length,
+  }), [bookings])
+
+  const visibleBookings = useMemo(() => {
+    if (statusFilter === "all") return bookings
+    if (statusFilter === "active") return bookings.filter((b) => b.status === "confirmed")
+    return bookings.filter((b) => b.status === statusFilter)
+  }, [bookings, statusFilter])
 
   return (
     <div className="mt-6 space-y-6">
@@ -155,9 +169,37 @@ export default function BookingsManager({
           {displayDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </span>
         <button onClick={() => navigateDate(1)} className="btn-ghost p-2"><ChevronRight size={18} /></button>
+        <button
+          onClick={() => router.push(`/admin/bookings?view=month&date=${selectedDate}`)}
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <CalendarRange size={14} /> Month view
+        </button>
         <button onClick={() => setBlocking(true)} className="ml-auto btn-secondary flex items-center gap-2 text-sm">
           <Lock size={14} /> Block Time
         </button>
+      </div>
+
+      {/* Status filter tabs - opens on Active so a day full of cancelled bookings doesn't bury it */}
+      <div className="flex items-center gap-2">
+        {(["active", "pending", "cancelled", "all"] as const).map((s) => {
+          const activeClasses =
+            s === "active" ? "bg-brand/20 text-brand"
+            : s === "pending" ? "bg-yellow-500/20 text-yellow-400"
+            : s === "cancelled" ? "bg-red-500/20 text-red-400"
+            : "bg-white/15 text-white"
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+                statusFilter === s ? activeClasses : "bg-white/5 text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              {s} ({statusCounts[s]})
+            </button>
+          )
+        })}
       </div>
 
       {/* Bay grid view */}
@@ -182,7 +224,7 @@ export default function BookingsManager({
               >
                 <div className="py-2 pr-3 text-right text-xs text-neutral-600">{hourLabel}</div>
                 {bays.map((bay) => {
-                  const slotBookings = bookings.filter((b) => {
+                  const slotBookings = visibleBookings.filter((b) => {
                     if (b.bays?.id !== bay.id) return false
                     const start = new Date(b.starts_at)
                     const etHour = parseInt(start.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Indiana/Indianapolis" })) % 24

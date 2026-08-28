@@ -1,13 +1,14 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingsManager from "./BookingsManager"
+import MonthCalendar from "./MonthCalendar"
 
 export const metadata = { title: "Manage Bookings | Tee365 Admin" }
 
 export default async function AdminBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; status?: string }>
+  searchParams: Promise<{ date?: string; status?: string; view?: string }>
 }) {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
@@ -24,6 +25,25 @@ export default async function AdminBookingsPage({
   const params = await searchParams
   const pendingMode = params.status === "pending"
   const dateStr = params.date ?? new Date().toISOString().split("T")[0]
+  const view = params.view === "month" ? "month" : "day"
+
+  if (view === "month" && !pendingMode) {
+    const anchor = new Date(`${dateStr}T00:00:00`)
+    const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+    const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1)
+    const { data: monthBookings } = await serviceClient
+      .from("bookings")
+      .select("starts_at, status")
+      .gte("starts_at", monthStart.toISOString())
+      .lt("starts_at", monthEnd.toISOString())
+
+    return (
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <h1 className="text-2xl font-semibold text-white">Manage Bookings</h1>
+        <MonthCalendar bookings={monthBookings ?? []} selectedDate={dateStr} />
+      </main>
+    )
+  }
 
   let bookings
   if (pendingMode) {
