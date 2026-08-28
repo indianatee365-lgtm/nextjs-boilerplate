@@ -235,6 +235,44 @@ async function handleTransferToHuman(
   return "Please hold while I connect you with someone who can help."
 }
 
+// Shared by handleCheckAvailability and handleCreatePhoneBooking - we never
+// tell callers which bays exist or let them pick one (Jerrod: "we don't do
+// that"), so both just need "is anything open" / "give me one open bay",
+// never a list of names.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promise<
+  { openBay: { id: string; number: number; name: string } | null; facilityClosed: boolean; noBaysConfigured: boolean }
+> {
+  const { data: bays } = await supabase.from("bays").select("id, number, name").eq("active", true).order("number")
+  if (!bays || bays.length === 0) {
+    return { openBay: null, facilityClosed: false, noBaysConfigured: true }
+  }
+
+  const { data: conflicts } = await supabase
+    .from("bookings")
+    .select("bay_id")
+    .in("status", ["pending", "confirmed"])
+    .lt("starts_at", endDate.toISOString())
+    .gt("ends_at", startDate.toISOString())
+
+  const { data: blocked } = await supabase
+    .from("blocked_times")
+    .select("bay_id")
+    .lt("starts_at", endDate.toISOString())
+    .gt("ends_at", startDate.toISOString())
+
+  if ((blocked ?? []).some((b: { bay_id: string | null }) => b.bay_id === null)) {
+    return { openBay: null, facilityClosed: true, noBaysConfigured: false }
+  }
+
+  const busyBayIds = new Set([
+    ...(conflicts ?? []).map((c: { bay_id: string }) => c.bay_id),
+    ...(blocked ?? []).map((b: { bay_id: string }) => b.bay_id),
+  ])
+  const openBay = bays.find((b: { id: string }) => !busyBayIds.has(b.id)) ?? null
+  return { openBay, facilityClosed: false, noBaysConfigured: false }
+}
+
 function parseSlotDate(date: string, startTime: string): Date | null {
   const d = new Date(`${date}T${startTime}:00`)
   return isNaN(d.getTime()) ? null : d
@@ -306,50 +344,30 @@ async function handleCheckAvailability(args: Record<string, string>, callerPhone
     }
   }
 
-  const { data: bays } = await supabase.from("bays").select("id, number, name").eq("active", true).order("number")
-  if (!bays || bays.length === 0) {
+  const { openBay, facilityClosed, noBaysConfigured } = await findOpenBay(supabase, startDate, endDate)
+  if (noBaysConfigured) {
     return "I'm not able to check availability right now. Let me transfer you to someone who can help."
   }
-
-  const { data: conflicts } = await supabase
-    .from("bookings")
-    .select("bay_id")
-    .in("status", ["pending", "confirmed"])
-    .lt("starts_at", endDate.toISOString())
-    .gt("ends_at", startDate.toISOString())
-
-  const { data: blocked } = await supabase
-    .from("blocked_times")
-    .select("bay_id")
-    .lt("starts_at", endDate.toISOString())
-    .gt("ends_at", startDate.toISOString())
-
-  if ((blocked ?? []).some((b) => b.bay_id === null)) {
+  if (facilityClosed) {
     return "We're closed facility-wide during that window. Would you like to try a different time?"
   }
-
-  const busyBayIds = new Set([
-    ...(conflicts ?? []).map((c) => c.bay_id),
-    ...(blocked ?? []).map((b) => b.bay_id),
-  ])
-  const openBays = bays.filter((b) => !busyBayIds.has(b.id))
-
-  if (openBays.length === 0) {
+  if (!openBay) {
     return "Nothing is open at that time. Would you like to try a different time?"
   }
-  return `Open at that time: ${openBays.map((b) => b.name).join(", ")}.`
+  // Deliberately does not name which bay, how many are open, or offer a
+  // choice - Jerrod: "we don't do that." Bay assignment is automatic.
+  return "Yes, we have a bay open at that time."
 }
 
 async function handleCreatePhoneBooking(args: Record<string, string>, callerPhone: string): Promise<string> {
   const firstName = args.first_name?.trim()
   const lastName = args.last_name?.trim()
   const email = args.email?.trim()
-  const bayChoice = args.bay_choice?.trim()
   const startDate = parseSlotDate(args.date, args.start_time)
   const duration = validDuration(args.duration_minutes)
 
-  if (!firstName || !lastName || !email || !bayChoice || !startDate || !duration) {
-    return "I'm missing some details - I need your first and last name, an email, which bay, and the date, time, and duration."
+  if (!firstName || !lastName || !email || !startDate || !duration) {
+    return "I'm missing some details - I need your first and last name, an email, and the date, time, and duration."
   }
   if (!callerPhone || callerPhone === "unknown") {
     return "I wasn't able to get your phone number to text you a booking link. Let me transfer you to someone who can help."
@@ -393,12 +411,13 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
     }).eq("id", userId)
   }
 
-  const { data: bays } = await supabase.from("bays").select("id, number, name").eq("active", true)
-  const bay = (bays ?? []).find((b) =>
-    b.name.toLowerCase().includes(bayChoice.toLowerCase()) || String(b.number) === bayChoice
-  )
+  const endDate = new Date(startDate.getTime() + duration * 60000)
+  const { openBay: bay } = await findOpenBay(supabase, startDate, endDate)
   if (!bay) {
-    return `I couldn't match "${bayChoice}" to one of our bays. Can you confirm which bay number?`
+    // Caller passed check_availability earlier but the slot got taken (or
+    // this is the first real check) before create_phone_booking ran -
+    // same "nothing open" framing as check_availability, no bay talk.
+    return "Sorry, nothing's open at that time anymore. Want to try a different time?"
   }
 
   const result = await createBooking({
@@ -443,7 +462,10 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
     logEvent(supabase, "phone-booking-created", `booking=${result.bookingId} caller=${normalizedPhone} bay=${bay.name}`),
   ])
 
-  return `I've texted you a link to finish your reservation for ${bay.name}. It'll hold for 15 minutes - just tap the link and complete payment to confirm.`
+  // Doesn't name the bay to the caller (Jerrod: "we don't do that") - the
+  // texted link itself and its SMS both correctly show the real bay, this
+  // is just what she says out loud.
+  return "I've texted you a link to finish your reservation. It'll hold for 15 minutes - just tap the link and complete payment to confirm."
 }
 
 async function lookupCallerName(phone: string): Promise<string | null> {
