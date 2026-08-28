@@ -3,7 +3,15 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
-import { isFoundersDaySession, hasFoundersDayCredit } from "@/lib/bookings/launch-gate"
+import {
+  isFoundersDaySession,
+  hasFoundersDayCredit,
+  isEarlyAccessEligibleSession,
+  isPublicBookingOpen,
+  isActiveFounder,
+  PUBLIC_EARLIEST_BOOKABLE_START,
+  FOUNDERS_DAY_START,
+} from "@/lib/bookings/launch-gate"
 
 const OWNER_PHONE = "+15749990622"
 
@@ -268,12 +276,33 @@ async function handleCheckAvailability(args: Record<string, string>, callerPhone
   }
 
   if (!isAdmin) {
+    // Mirrors lib/bookings/create.ts's real eligibility check exactly (same
+    // launch-gate functions) - this used to be a narrower, hand-rolled check
+    // that only covered the Founders Day credit path, so it kept telling
+    // real callers "not open" even after the founder early-access window
+    // (8/19) and the public advance-booking window (8/23) had already
+    // opened. Any caller this now rejects is genuinely not eligible yet.
     let eligible = false
-    if (callerId && isFoundersDaySession(startDate)) {
-      eligible = await hasFoundersDayCredit(supabase, callerId)
+    if (callerId) {
+      const eligibleForFoundersCredit =
+        isFoundersDaySession(startDate) && await hasFoundersDayCredit(supabase, callerId)
+      const eligibleForEarlyAccess =
+        isEarlyAccessEligibleSession(startDate) && await isActiveFounder(supabase, callerId)
+      eligible = eligibleForFoundersCredit || eligibleForEarlyAccess
     }
     if (!eligible) {
-      return "Bookings open in September 2026 - I can't check real-time availability yet. I can text you the website, or take your info so our team can follow up."
+      eligible = isPublicBookingOpen(startDate)
+    }
+    if (!eligible) {
+      const earliestPublic = PUBLIC_EARLIEST_BOOKABLE_START.toLocaleDateString("en-US", {
+        month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis",
+      })
+      if (startDate.getTime() < FOUNDERS_DAY_START.getTime() || startDate.getTime() >= PUBLIC_EARLIEST_BOOKABLE_START.getTime()) {
+        // Requested date is before public opens, or is a legitimate future
+        // date but this caller isn't an eligible founder for early access.
+        return `I can't book that date yet - we open to the public on ${earliestPublic}. I can check availability for ${earliestPublic} or later, or take your info so our team can follow up.`
+      }
+      return `That date is reserved for our Founders Day launch window. General public booking opens ${earliestPublic}. Want me to check a date on or after that?`
     }
   }
 
@@ -387,7 +416,15 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
 
   if (!result.ok) {
     if (result.status === 403) {
-      return "Bookings open in September 2026 - I can't finalize this yet, but I've got your information and someone will follow up when we open."
+      if (result.error === "Bookings not yet available") {
+        const earliestPublic = PUBLIC_EARLIEST_BOOKABLE_START.toLocaleDateString("en-US", {
+          month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis",
+        })
+        return `I can't finalize that date yet - we open to the public on ${earliestPublic}. I've got your information and can have our team follow up, or try a date on or after ${earliestPublic}.`
+      }
+      // "Bookings can only be made up to N days in advance" - a different
+      // rejection reason than the launch gate above, needs its own message.
+      return `${result.error}. Want to try a closer date, or should I have our team follow up with you?`
     }
     console.error("[create_phone_booking] createBooking failed", result)
     await logEvent(supabase, "phone-booking-create-FAILED", `caller=${normalizedPhone} bay=${bay.name} status=${result.status} err=${result.error}`)
