@@ -217,7 +217,7 @@ export async function sendAccessCodeReminder({
 
   await sendSms(
     to,
-    "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nReply STOP to opt out.",
+    "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + ".\nAccess code: " + accessCode + "\nTap the keypad to wake it up, enter your code, then press the checkmark.\nReply STOP to opt out.",
     "access-code-reminder"
   )
 }
