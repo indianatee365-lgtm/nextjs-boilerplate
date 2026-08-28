@@ -132,6 +132,33 @@ async function handleSendInfoSms(callerPhone: string): Promise<string> {
   }
 }
 
+async function handleReportIssue(args: Record<string, string>, callerPhone: string): Promise<string> {
+  const description = args.description?.trim() || "No details given"
+  const bay = args.bay?.trim()
+
+  try {
+    const supabase = await createServiceClient()
+    await logEvent(
+      supabase,
+      "phone-agent-customer-report",
+      `caller=${callerPhone} bay=${bay || "unspecified"} report=${description}`,
+    )
+  } catch (err) {
+    console.error("[report_issue] db log failed", err)
+  }
+
+  await notifyOwner(
+    [
+      "Tee365 customer report (phone):",
+      bay ? `Bay: ${bay}` : null,
+      `From: ${callerPhone}`,
+      `Report: ${description}`,
+    ].filter(Boolean).join("\n")
+  )
+
+  return "Thank you, I've passed that along to our team right away. We're always working to make this a world-class experience, and reports like yours are exactly how we get there."
+}
+
 async function handleCaptureEventLead(args: Record<string, string>, callerPhone: string): Promise<string> {
   const name = args.name?.trim() || "unknown"
   const eventType = args.event_type?.trim() || "unspecified"
@@ -623,6 +650,8 @@ export async function POST(request: NextRequest) {
         result = await handleLookupUpcomingBooking(args.phone || callerPhone)
       } else if (name === "send_info_sms") {
         result = await handleSendInfoSms(callerPhone)
+      } else if (name === "report_issue") {
+        result = await handleReportIssue(args, callerPhone)
       } else if (name === "capture_event_lead") {
         result = await handleCaptureEventLead(args, callerPhone)
       } else if (name === "transfer_to_human") {
