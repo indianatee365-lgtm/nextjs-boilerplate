@@ -321,6 +321,7 @@ const GUIDE_BODY = `<div class="page">
     <p>Still stuck, or something feels genuinely wrong?</p>
     <div class="number">574-444-9365</div>
     <p style="margin-top: 0.6rem; font-size: 0.85rem;">We're a 24/7 automated facility, but a real person always gets your message.</p>
+    <p style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.9rem;">See something that's not quite perfect &mdash; even something small? Let us know at <strong style="color: var(--text);">info@tee365.org</strong>. We're building a world-class experience here, and reports like yours are exactly how we get there.</p>
   </div>
 
   <footer>Tee365 · 4615 Grape Rd, Mishawaka IN</footer>
