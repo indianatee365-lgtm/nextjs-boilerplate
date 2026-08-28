@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
+import { restoreHourCredits } from "@/lib/hour-credits"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -128,6 +129,11 @@ export async function cancelBooking(bookingId: string) {
       refunded_at: b.stripe_charge_id ? new Date().toISOString() : null,
     })
     .eq("id", bookingId)
+
+  // Admin-initiated cancellations always return hour credits, unlike the customer
+  // self-serve flow's 24h forfeit window: an operator cancelling on someone's
+  // behalf is never the abuse case that window exists to prevent.
+  await restoreHourCredits(serviceClient, bookingId)
 }
 
 export async function blockTime({
