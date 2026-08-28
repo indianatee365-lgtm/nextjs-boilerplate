@@ -284,6 +284,61 @@ function validDuration(raw: string): number | null {
   return n
 }
 
+// Same pre-launch gate as actual booking creation (lib/bookings/create.ts),
+// reimplemented here (not imported) rather than reusing createBooking's own
+// gate, because createBooking() has its own admin bypass for the admin
+// dashboard's legitimate manual-booking use case - this is a customer-facing
+// phone line, not an internal admin tool, so it must never inherit that
+// bypass. Jerrod testing from his own admin-tied number needs to hear
+// exactly what a real caller would hear; an admin who genuinely needs to
+// book outside the gate has the actual admin dashboard for that. Shared by
+// both handleCheckAvailability and handleCreatePhoneBooking so the phone
+// experience is consistent end to end - if check_availability says no, a
+// caller who somehow talked her into calling create_phone_booking anyway
+// gets the same no, never a bypass.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function checkLaunchGateEligible(supabase: any, callerId: string | null, startDate: Date): Promise<string | null> {
+  // Mirrors lib/bookings/create.ts's real eligibility check exactly (same
+  // launch-gate functions) - this used to be a narrower, hand-rolled check
+  // that only covered the Founders Day credit path, so it kept telling
+  // real callers "not open" even after the founder early-access window
+  // (8/19) and the public advance-booking window (8/23) had already
+  // opened. Any caller this now rejects is genuinely not eligible yet.
+  let eligible = false
+  if (callerId) {
+    const eligibleForFoundersCredit =
+      isFoundersDaySession(startDate) && await hasFoundersDayCredit(supabase, callerId)
+    const eligibleForEarlyAccess =
+      isEarlyAccessEligibleSession(startDate) && await isActiveFounder(supabase, callerId)
+    eligible = eligibleForFoundersCredit || eligibleForEarlyAccess
+  }
+  if (!eligible) {
+    eligible = isPublicBookingOpen(startDate)
+  }
+  if (eligible) return null
+
+  const earliestPublic = PUBLIC_EARLIEST_BOOKABLE_START.toLocaleDateString("en-US", {
+    month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis",
+  })
+  if (startDate.getTime() < FOUNDERS_DAY_START.getTime() || startDate.getTime() >= PUBLIC_EARLIEST_BOOKABLE_START.getTime()) {
+    // Requested date is before public opens, or is a legitimate future
+    // date but this caller isn't an eligible founder for early access.
+    return `I can't book that date yet - we open to the public on ${earliestPublic}. I can check availability for ${earliestPublic} or later, or take your info so our team can follow up.`
+  }
+  return `That date is reserved for our Founders Day launch window. General public booking opens ${earliestPublic}. Want me to check a date on or after that?`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function lookupCallerId(supabase: any, callerPhone: string): Promise<string | null> {
+  if (!callerPhone || callerPhone === "unknown") return null
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("phone", normalizePhone(callerPhone))
+    .single()
+  return profile?.id ?? null
+}
+
 async function handleCheckAvailability(args: Record<string, string>, callerPhone: string): Promise<string> {
   const startDate = parseSlotDate(args.date, args.start_time)
   const duration = validDuration(args.duration_minutes)
@@ -293,56 +348,10 @@ async function handleCheckAvailability(args: Record<string, string>, callerPhone
   const endDate = new Date(startDate.getTime() + duration * 60000)
 
   const supabase = await createServiceClient()
+  const callerId = await lookupCallerId(supabase, callerPhone)
 
-  // Same pre-launch gate as actual booking creation (lib/bookings/create.ts).
-  // Without this, the agent checks real bay/booking conflicts, finds none
-  // (because nothing can be booked yet), and confidently tells a real caller
-  // everything is "open" - which is exactly what happened on a real call
-  // 2026-08-01, weeks before the real public opening.
-  let isAdmin = false
-  let callerId: string | null = null
-  if (callerPhone && callerPhone !== "unknown") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role")
-      .eq("phone", normalizePhone(callerPhone))
-      .single()
-    if (profile) {
-      callerId = profile.id
-      isAdmin = profile.role === "admin"
-    }
-  }
-
-  if (!isAdmin) {
-    // Mirrors lib/bookings/create.ts's real eligibility check exactly (same
-    // launch-gate functions) - this used to be a narrower, hand-rolled check
-    // that only covered the Founders Day credit path, so it kept telling
-    // real callers "not open" even after the founder early-access window
-    // (8/19) and the public advance-booking window (8/23) had already
-    // opened. Any caller this now rejects is genuinely not eligible yet.
-    let eligible = false
-    if (callerId) {
-      const eligibleForFoundersCredit =
-        isFoundersDaySession(startDate) && await hasFoundersDayCredit(supabase, callerId)
-      const eligibleForEarlyAccess =
-        isEarlyAccessEligibleSession(startDate) && await isActiveFounder(supabase, callerId)
-      eligible = eligibleForFoundersCredit || eligibleForEarlyAccess
-    }
-    if (!eligible) {
-      eligible = isPublicBookingOpen(startDate)
-    }
-    if (!eligible) {
-      const earliestPublic = PUBLIC_EARLIEST_BOOKABLE_START.toLocaleDateString("en-US", {
-        month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis",
-      })
-      if (startDate.getTime() < FOUNDERS_DAY_START.getTime() || startDate.getTime() >= PUBLIC_EARLIEST_BOOKABLE_START.getTime()) {
-        // Requested date is before public opens, or is a legitimate future
-        // date but this caller isn't an eligible founder for early access.
-        return `I can't book that date yet - we open to the public on ${earliestPublic}. I can check availability for ${earliestPublic} or later, or take your info so our team can follow up.`
-      }
-      return `That date is reserved for our Founders Day launch window. General public booking opens ${earliestPublic}. Want me to check a date on or after that?`
-    }
-  }
+  const gateMessage = await checkLaunchGateEligible(supabase, callerId, startDate)
+  if (gateMessage) return gateMessage
 
   const { openBay, facilityClosed, noBaysConfigured } = await findOpenBay(supabase, startDate, endDate)
   if (noBaysConfigured) {
@@ -384,6 +393,17 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
     .select("id")
     .eq("phone", normalizedPhone)
     .single()
+
+  // Same launch-gate check as handleCheckAvailability, run again here (not
+  // just trusted from an earlier check_availability call) so a caller can
+  // never talk her past the gate by skipping straight to booking - and
+  // deliberately does NOT call createBooking() to find this out, since
+  // createBooking() has its own admin bypass for the dashboard's legitimate
+  // use case that this phone line must never inherit. Checked before
+  // creating an account too, so a rejected caller doesn't get a real
+  // account made for nothing.
+  const gateMessage = await checkLaunchGateEligible(supabase, existingProfile?.id ?? null, startDate)
+  if (gateMessage) return gateMessage
 
   if (existingProfile) {
     userId = existingProfile.id
