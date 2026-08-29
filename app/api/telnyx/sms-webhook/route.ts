@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { verifyTelnyxSignature } from "@/lib/telnyx/verify-webhook"
 import { sendInboundSmsAutoAck, sendOptOutConfirmation, sendOptInConfirmation, sendHelpSms } from "@/lib/telnyx/sms"
 import { sendSmsOptOutConfirmationEmail } from "@/lib/resend/email"
-import { notifyOwner, logEvent, logFailure } from "@/lib/observability/notify"
+import { notifyOwner, logEvent, logFailure, getCustomerNameByPhone } from "@/lib/observability/notify"
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "")
@@ -144,8 +144,9 @@ export async function POST(request: NextRequest) {
   // the link jumps straight into that conversation instead of making Jerrod
   // hunt for it in the inbox list.
   const conversationUrl = `https://tee365.org/admin/sms?phone=${encodeURIComponent(phone)}`
+  const customerName = await getCustomerNameByPhone(supabase, phone)
   await Promise.allSettled([
-    notifyOwner(`Tee365 SMS from ${phone}: "${text.slice(0, 300)}"\n${conversationUrl}`),
+    notifyOwner(`Tee365 SMS from ${customerName}: "${text.slice(0, 300)}"\n${conversationUrl}`),
     logEvent(supabase, "inbound-sms-received", `from=${phone} text=${text.slice(0, 100)}`),
   ])
 

@@ -22,6 +22,24 @@ export async function getCustomerName(supabase: SupabaseClient, userId: string):
   }
 }
 
+// Same idea as getCustomerName, but keyed by phone - for alerts that only
+// have the raw number on hand (e.g. an inbound SMS webhook), like the
+// admin SMS inbox's own phone-number lookup. Falls back to the phone
+// itself on any lookup failure or unmatched number.
+export async function getCustomerNameByPhone(supabase: SupabaseClient, phone: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("phone", phone)
+      .maybeSingle()
+    const name = [data?.first_name, data?.last_name].filter(Boolean).join(" ")
+    return name || phone
+  } catch {
+    return phone
+  }
+}
+
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""
