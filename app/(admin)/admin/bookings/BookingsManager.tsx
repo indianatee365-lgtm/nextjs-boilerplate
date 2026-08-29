@@ -336,12 +336,12 @@ export default function BookingsManager({
                     style={{ gridColumn: bi + 2, gridRow: `${hourRow(start)} / ${hourRow(end)}` }}
                     draggable={booking.status !== "cancelled"}
                     onDragStart={(e) => handleDragStart(e, booking.id)}
-                    className={`m-1 overflow-hidden rounded px-2 py-1 text-xs ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
+                    className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
                       booking.status === "confirmed"
-                        ? "bg-brand/20 text-brand"
+                        ? "border-brand/50 bg-brand/20 text-brand"
                         : booking.status === "cancelled"
-                        ? "bg-red-500/20 text-red-400 line-through"
-                        : "bg-yellow-500/20 text-yellow-400"
+                        ? "border-red-500/50 bg-red-500/20 text-red-400 line-through"
+                        : "border-yellow-500/50 bg-yellow-500/20 text-yellow-400"
                     }`}
                   >
                     <div className="font-medium">
