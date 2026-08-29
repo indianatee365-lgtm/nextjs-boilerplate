@@ -144,6 +144,7 @@ export async function sendBookingConfirmation({
     "🕒 " + startStr + " – " + endStr,
     "🏌️ Bay: " + bayName,
     "✅ Access code sent 10–20 min before your session.",
+    "👀 Want to check out our system before you arrive? tee365.org/guide",
     "Questions? info@tee365.org",
     "Reply STOP to opt out, HELP for info. Msg & data rates may apply.",
   ].join("\n")

@@ -140,6 +140,7 @@ function buildEmailHtml({
   hourCreditDiscount = 0,
   headline = "Booking Confirmed!",
   intro = `Hi ${firstName}, you&rsquo;re all set. Here are your booking details.`,
+  showGuideNote = false,
 }: {
   firstName: string
   bayName: string
@@ -154,6 +155,7 @@ function buildEmailHtml({
   hourCreditDiscount?: number
   headline?: string
   intro?: string
+  showGuideNote?: boolean
 }): string {
   const dateStr = startsAt.toLocaleDateString("en-US", {
     weekday: "long",
@@ -236,6 +238,12 @@ function buildEmailHtml({
                   &#128274; Your 6-digit access code will be sent to your phone via SMS approximately 15 minutes before your session. You&rsquo;ll need it to enter the facility.
                 </p>
               </div>
+${showGuideNote ? `
+              <div style="background:#f9f9f9;border:1px solid #eee;border-radius:6px;padding:16px;margin-top:16px;">
+                <p style="margin:0;color:#444;font-size:14px;line-height:1.5;">
+                  &#128064; Want to check out our system before you arrive? <a href="https://tee365.org/guide" style="color:#4ade80;text-decoration:none;font-weight:600;">tee365.org/guide</a>
+                </p>
+              </div>` : ""}
             </td>
           </tr>
           <tr>
@@ -297,6 +305,7 @@ export async function sendBookingConfirmationEmail({
       giftCardApplied,
       total,
       hourCreditDiscount,
+      showGuideNote: true,
     }),
     kind: "booking-confirmation",
   })
