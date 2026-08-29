@@ -26,6 +26,38 @@ interface Bay { id: string; number: number; name: string }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
+function hourLabel(hour: number): string {
+  return hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
+}
+
+// Grid row for a given clock hour - +2 to leave row 1 for the bay-name
+// header (rows are 1-indexed in CSS Grid).
+function hourRow(hour: number): number {
+  return hour + 2
+}
+
+function etHourMinute(date: Date): { hour: number; minute: number } {
+  const str = date.toLocaleString("en-US", {
+    hour: "numeric", minute: "2-digit", hour12: false,
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  const [h, m] = str.split(":").map((s) => parseInt(s, 10))
+  return { hour: h % 24, minute: m }
+}
+
+// A booking's visual span on the grid, in whole hour-rows - the grid itself
+// is hour-resolution (no half-hour lines), so a booking that ends mid-hour
+// (e.g. 11:30) still visually blocks the full hour row it ends in, rounding
+// up rather than under-representing how long the bay is actually occupied.
+function bookingRowSpan(startsAt: string, endsAt: string): { start: number; end: number } {
+  const s = etHourMinute(new Date(startsAt))
+  const e = etHourMinute(new Date(endsAt))
+  const start = s.hour
+  let end = e.hour + (e.minute > 0 ? 1 : 0)
+  if (end <= start) end = start + 1
+  return { start, end }
+}
+
 function getAge(createdAt: string): string {
   const diff = Date.now() - new Date(createdAt).getTime()
   const mins = Math.floor(diff / 60000)
@@ -91,8 +123,7 @@ export default function BookingsManager({
     setDragOverKey(null)
     const bookingId = e.dataTransfer.getData("text/plain")
     if (!bookingId) return
-    const hourLabel = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
-    if (!confirm(`Move this booking to ${bay.name} at ${hourLabel}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+    if (!confirm(`Move this booking to ${bay.name} at ${hourLabel(hour)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
 
     // Same-day-only by design - the grid only ever shows one date, so this
     // is the only time this action can construct. Server recomputes the
@@ -232,94 +263,115 @@ export default function BookingsManager({
         })}
       </div>
 
-      {/* Bay grid view */}
+      {/* Bay grid view - one unified grid (not 24 stacked per-hour grids) so a
+          booking's card can span multiple hour-rows for its actual duration,
+          instead of only ever appearing in its start hour's cell. */}
       <div className="overflow-x-auto">
-        <div className="min-w-[700px]">
-          {/* Header */}
-          <div className="grid text-xs text-neutral-500 mb-1" style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}>
-            <div />
-            {bays.map((bay) => (
-              <div key={bay.id} className="px-2 text-center font-medium text-neutral-300">{bay.name}</div>
-            ))}
-          </div>
+        <div
+          className="grid min-w-[700px]"
+          style={{
+            gridTemplateColumns: `80px repeat(${bays.length}, 1fr)`,
+            gridTemplateRows: `auto repeat(24, minmax(40px, auto))`,
+          }}
+        >
+          {/* Header row */}
+          <div style={{ gridColumn: 1, gridRow: 1 }} />
+          {bays.map((bay, bi) => (
+            <div
+              key={bay.id}
+              style={{ gridColumn: bi + 2, gridRow: 1 }}
+              className="px-2 pb-1 text-center text-xs font-medium text-neutral-300"
+            >
+              {bay.name}
+            </div>
+          ))}
 
-          {/* Hour rows */}
-          {HOURS.map((hour) => {
-            const hourLabel = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
-            return (
-              <div
-                key={hour}
-                className="grid border-t border-white/5"
-                style={{ gridTemplateColumns: `80px repeat(${bays.length}, 1fr)` }}
-              >
-                <div className="py-2 pr-3 text-right text-xs text-neutral-600">{hourLabel}</div>
-                {bays.map((bay) => {
-                  const slotBookings = visibleBookings.filter((b) => {
-                    if (b.bays?.id !== bay.id) return false
-                    const start = new Date(b.starts_at)
-                    const etHour = parseInt(start.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Indiana/Indianapolis" })) % 24
-                    return etHour === hour
-                  })
-                  const cellKey = `${bay.id}-${hour}`
-                  return (
-                    <div
-                      key={bay.id}
-                      className={`min-h-[40px] border-l border-white/5 px-1 py-1 transition-colors ${
-                        dragOverKey === cellKey ? "bg-brand/10 ring-1 ring-inset ring-brand/40" : ""
-                      }`}
-                      onDragOver={(e) => {
-                        e.preventDefault()
-                        e.dataTransfer.dropEffect = "move"
-                        if (dragOverKey !== cellKey) setDragOverKey(cellKey)
-                      }}
-                      onDragLeave={() => setDragOverKey((k) => (k === cellKey ? null : k))}
-                      onDrop={(e) => handleDrop(e, bay, hour)}
-                    >
-                      {slotBookings.map((booking) => (
-                        <div
-                          key={booking.id}
-                          draggable={booking.status !== "cancelled"}
-                          onDragStart={(e) => handleDragStart(e, booking.id)}
-                          className={`rounded px-2 py-1 text-xs ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
-                            booking.status === "confirmed"
-                              ? "bg-brand/20 text-brand"
-                              : booking.status === "cancelled"
-                              ? "bg-red-500/20 text-red-400 line-through"
-                              : "bg-yellow-500/20 text-yellow-400"
-                          }`}
-                        >
-                          <div className="font-medium">
-                            {booking.profiles?.first_name} {booking.profiles?.last_name?.[0]}.
-                          </div>
-                          <div className="opacity-75">
-                            {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                            {" – "}
-                            {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                          </div>
-                          {booking.status === "confirmed" && (
-                            <button
-                              onClick={() => handleCancel(booking.id)}
-                              className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
-                            >
-                              <X size={10} /> Cancel
-                            </button>
-                          )}
-                          {booking.status === "pending" && (
-                            <button
-                              onClick={() => handleConfirm(booking.id)}
-                              className="mt-0.5 flex items-center gap-0.5 text-green-400 hover:text-green-300"
-                            >
-                              ✓ Confirm + SMS
-                            </button>
-                          )}
-                        </div>
-                      ))}
+          {/* Hour labels */}
+          {HOURS.map((hour) => (
+            <div
+              key={`label-${hour}`}
+              style={{ gridColumn: 1, gridRow: hourRow(hour) }}
+              className="border-t border-white/5 py-2 pr-3 text-right text-xs text-neutral-600"
+            >
+              {hourLabel(hour)}
+            </div>
+          ))}
+
+          {/* Drop-target background cells - one per bay/hour regardless of
+              whether a booking currently occupies it, so there's always
+              somewhere to drop onto (including hours "covered" only by
+              another booking's span, which sit visually beneath that card). */}
+          {bays.map((bay, bi) =>
+            HOURS.map((hour) => {
+              const cellKey = `${bay.id}-${hour}`
+              return (
+                <div
+                  key={cellKey}
+                  style={{ gridColumn: bi + 2, gridRow: hourRow(hour) }}
+                  className={`border-l border-t border-white/5 transition-colors ${
+                    dragOverKey === cellKey ? "bg-brand/10 ring-1 ring-inset ring-brand/40" : ""
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = "move"
+                    if (dragOverKey !== cellKey) setDragOverKey(cellKey)
+                  }}
+                  onDragLeave={() => setDragOverKey((k) => (k === cellKey ? null : k))}
+                  onDrop={(e) => handleDrop(e, bay, hour)}
+                />
+              )
+            })
+          )}
+
+          {/* Booking cards - spans start-hour to end-hour so the card visually
+              blocks out the whole session, not just where it started. */}
+          {bays.map((bay, bi) =>
+            visibleBookings
+              .filter((booking) => booking.bays?.id === bay.id)
+              .map((booking) => {
+                const { start, end } = bookingRowSpan(booking.starts_at, booking.ends_at)
+                return (
+                  <div
+                    key={booking.id}
+                    style={{ gridColumn: bi + 2, gridRow: `${hourRow(start)} / ${hourRow(end)}` }}
+                    draggable={booking.status !== "cancelled"}
+                    onDragStart={(e) => handleDragStart(e, booking.id)}
+                    className={`m-1 overflow-hidden rounded px-2 py-1 text-xs ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
+                      booking.status === "confirmed"
+                        ? "bg-brand/20 text-brand"
+                        : booking.status === "cancelled"
+                        ? "bg-red-500/20 text-red-400 line-through"
+                        : "bg-yellow-500/20 text-yellow-400"
+                    }`}
+                  >
+                    <div className="font-medium">
+                      {booking.profiles?.first_name} {booking.profiles?.last_name?.[0]}.
                     </div>
-                  )
-                })}
-              </div>
-            )
-          })}
+                    <div className="opacity-75">
+                      {new Date(booking.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                      {" – "}
+                      {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                    </div>
+                    {booking.status === "confirmed" && (
+                      <button
+                        onClick={() => handleCancel(booking.id)}
+                        className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
+                      >
+                        <X size={10} /> Cancel
+                      </button>
+                    )}
+                    {booking.status === "pending" && (
+                      <button
+                        onClick={() => handleConfirm(booking.id)}
+                        className="mt-0.5 flex items-center gap-0.5 text-green-400 hover:text-green-300"
+                      >
+                        ✓ Confirm + SMS
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+          )}
         </div>
       </div>
       </>
