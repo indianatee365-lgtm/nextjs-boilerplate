@@ -2,8 +2,8 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
-import { sendBookingConfirmation, sendBookingCancellationSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "@/lib/resend/email"
+import { sendBookingCancellationSms, sendBookingRescheduledSms } from "@/lib/telnyx/sms"
+import { sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
@@ -283,7 +283,7 @@ export async function finalizeReschedule({
 
   if (phone && smsConsent) {
     try {
-      await sendBookingConfirmation({ to: phone, firstName, bayName, startsAt: new Date(newStartsAt), endsAt: new Date(newEndsAt) })
+      await sendBookingRescheduledSms({ to: phone, firstName, bayName, startsAt: new Date(newStartsAt), endsAt: new Date(newEndsAt) })
       await logEvent(serviceClient, "reschedule-sms-sent", `newBooking=${newBooking.id} to=${phone}`)
     } catch (e) {
       await logFailure(serviceClient, "reschedule-sms-FAILED",
@@ -293,7 +293,7 @@ export async function finalizeReschedule({
 
   if (authUser?.email) {
     try {
-      await sendBookingConfirmationEmail({
+      await sendBookingRescheduledEmail({
         to: authUser.email, firstName, bayName,
         startsAt: new Date(newStartsAt), endsAt: new Date(newEndsAt),
         subtotal: newPricing.subtotal,
