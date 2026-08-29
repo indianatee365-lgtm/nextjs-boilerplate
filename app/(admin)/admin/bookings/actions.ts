@@ -1,8 +1,8 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendBookingCancellationSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingRescheduledSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 
@@ -179,6 +179,101 @@ export async function cancelBooking(bookingId: string) {
         })
       } catch (emailError) {
         console.error("Cancellation email failed", emailError)
+      }
+    }
+  }
+}
+
+// Drag-and-drop move on the admin grid. Jerrod's call 2026-08-29: this is a
+// staff convenience, not a customer-facing paid change - keeps the original
+// price/credit/total exactly as they were, no repricing against the target
+// slot's rate. Same-day only (the grid itself only ever renders one day, so
+// there is no cross-date drop target); duration is preserved and computed
+// server-side from duration_minutes rather than trusting a client-sent
+// endsAt, so a drop can't accidentally shrink or stretch a booking.
+export async function rescheduleBooking(bookingId: string, newBayId: string, newStartsAt: string) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  const { data: booking } = await serviceClient
+    .from("bookings")
+    .select(`
+      id, status, duration_minutes, user_id,
+      bays(name), profiles!user_id(first_name, phone, sms_consent)
+    `)
+    .eq("id", bookingId)
+    .single()
+
+  const b = booking as {
+    id: string; status: string; duration_minutes: number; user_id: string
+    bays: { name: string } | null
+    profiles: { first_name: string; phone: string | null; sms_consent: boolean } | null
+  } | null
+  if (!b) throw new Error("Booking not found")
+  if (b.status === "cancelled") throw new Error("Cannot reschedule a cancelled booking")
+
+  const newStart = new Date(newStartsAt)
+  const newEnd = new Date(newStart.getTime() + b.duration_minutes * 60000)
+
+  const { data: conflicts } = await serviceClient
+    .from("bookings")
+    .select("id")
+    .eq("bay_id", newBayId)
+    .in("status", ["pending", "confirmed"])
+    .neq("id", bookingId)
+    .lt("starts_at", newEnd.toISOString())
+    .gt("ends_at", newStart.toISOString())
+
+  if (conflicts?.length) {
+    throw new Error("That time slot is already booked in the target bay.")
+  }
+
+  await serviceClient
+    .from("bookings")
+    .update({
+      bay_id: newBayId,
+      starts_at: newStart.toISOString(),
+      ends_at: newEnd.toISOString(),
+    })
+    .eq("id", bookingId)
+
+  const { data: newBay } = await serviceClient.from("bays").select("name").eq("id", newBayId).single()
+  const bayName = (newBay as { name: string } | null)?.name ?? b.bays?.name ?? "your bay"
+
+  if (b.profiles) {
+    if (b.profiles.phone && b.profiles.sms_consent) {
+      try {
+        await sendBookingRescheduledSms({
+          to: b.profiles.phone,
+          firstName: b.profiles.first_name,
+          bayName,
+          startsAt: newStart,
+          endsAt: newEnd,
+        })
+      } catch (smsError) {
+        console.error("Reschedule SMS failed", smsError)
+      }
+    }
+
+    const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(b.user_id)
+    if (authUser?.email) {
+      try {
+        await sendBookingRescheduledEmail({
+          to: authUser.email,
+          firstName: b.profiles.first_name,
+          bayName,
+          startsAt: newStart,
+          endsAt: newEnd,
+        })
+      } catch (emailError) {
+        console.error("Reschedule email failed", emailError)
       }
     }
   }

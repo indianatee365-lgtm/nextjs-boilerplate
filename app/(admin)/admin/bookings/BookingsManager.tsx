@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange } from "lucide-react"
-import { cancelBooking, blockTime, confirmBookingManually } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking } from "./actions"
 
 interface Booking {
   id: string
@@ -50,6 +50,7 @@ export default function BookingsManager({
   const [isPending, startTransition] = useTransition()
   const [blocking, setBlocking] = useState(false)
   const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [blockForm, setBlockForm] = useState({
     bayId: "" as string | null,
     date: selectedDate,
@@ -77,6 +78,35 @@ export default function BookingsManager({
     startTransition(async () => {
       await confirmBookingManually(bookingId)
       router.refresh()
+    })
+  }
+
+  function handleDragStart(e: React.DragEvent, bookingId: string) {
+    e.dataTransfer.setData("text/plain", bookingId)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  function handleDrop(e: React.DragEvent, bay: Bay, hour: number) {
+    e.preventDefault()
+    setDragOverKey(null)
+    const bookingId = e.dataTransfer.getData("text/plain")
+    if (!bookingId) return
+    const hourLabel = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
+    if (!confirm(`Move this booking to ${bay.name} at ${hourLabel}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+
+    // Same-day-only by design - the grid only ever shows one date, so this
+    // is the only time this action can construct. Server recomputes the
+    // duration from the booking's own duration_minutes rather than trusting
+    // a client-sent end time.
+    const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:00:00`)
+
+    startTransition(async () => {
+      try {
+        await rescheduleBooking(bookingId, bay.id, startsAt.toISOString())
+        router.refresh()
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Could not move that booking.")
+      }
     })
   }
 
@@ -230,12 +260,27 @@ export default function BookingsManager({
                     const etHour = parseInt(start.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Indiana/Indianapolis" })) % 24
                     return etHour === hour
                   })
+                  const cellKey = `${bay.id}-${hour}`
                   return (
-                    <div key={bay.id} className="min-h-[40px] border-l border-white/5 px-1 py-1">
+                    <div
+                      key={bay.id}
+                      className={`min-h-[40px] border-l border-white/5 px-1 py-1 transition-colors ${
+                        dragOverKey === cellKey ? "bg-brand/10 ring-1 ring-inset ring-brand/40" : ""
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = "move"
+                        if (dragOverKey !== cellKey) setDragOverKey(cellKey)
+                      }}
+                      onDragLeave={() => setDragOverKey((k) => (k === cellKey ? null : k))}
+                      onDrop={(e) => handleDrop(e, bay, hour)}
+                    >
                       {slotBookings.map((booking) => (
                         <div
                           key={booking.id}
-                          className={`rounded px-2 py-1 text-xs ${
+                          draggable={booking.status !== "cancelled"}
+                          onDragStart={(e) => handleDragStart(e, booking.id)}
+                          className={`rounded px-2 py-1 text-xs ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
                             booking.status === "confirmed"
                               ? "bg-brand/20 text-brand"
                               : booking.status === "cancelled"

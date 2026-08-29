@@ -340,3 +340,41 @@ export async function sendBookingCancellationSms({
 
   await sendSms(to, lines.join("\n"), "booking-cancellation")
 }
+
+export async function sendBookingRescheduledSms({
+  to,
+  firstName,
+  bayName,
+  startsAt,
+  endsAt,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  startsAt: Date
+  endsAt: Date
+}) {
+  const startStr = startsAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  const endStr = endsAt.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+
+  const message = [
+    "Hi " + firstName + "! Your rescheduled Tee365 booking is confirmed.",
+    "🕒 " + startStr + " – " + endStr,
+    "🏌️ Bay: " + bayName,
+    "Questions? info@tee365.org",
+    "Reply STOP to opt out, HELP for info. Msg & data rates may apply.",
+  ].join("\n")
+
+  await sendSms(to, message, "booking-rescheduled")
+}
