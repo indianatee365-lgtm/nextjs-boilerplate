@@ -23,9 +23,12 @@ export async function GET(request: NextRequest) {
 
   const bookingId = request.nextUrl.searchParams.get("bookingId") ?? "35e52faf-83fb-4c20-b4a1-9d47c8a8283d"
 
-  const { data: booking } = await serviceClient
+  // unifi_* columns exist on the real table but aren't in the generated
+  // Database types yet - same `as any` workaround already used for them
+  // everywhere else in this codebase (create.ts, booking-reminders cron).
+  const { data: booking } = await (serviceClient
     .from("bookings")
-    .select("id, access_code, unifi_visitor_id, unifi_access_policy_id, unifi_schedule_id, starts_at, ends_at")
+    .select("id, access_code, unifi_visitor_id, unifi_access_policy_id, unifi_schedule_id, starts_at, ends_at") as any)
     .eq("id", bookingId)
     .single()
 
