@@ -24,36 +24,47 @@ interface Booking {
 
 interface Bay { id: string; number: number; name: string }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i)
+// Half-hour resolution, not hourly - BookingFlow.tsx snaps every booking to
+// a :00/:30 boundary (confirmed 2026-08-29), so an hour-only grid renders a
+// 10:30 booking as if it started at 10:00, which is exactly what makes an
+// admin misjudge whether there's room to extend an adjacent booking.
+const SLOTS = Array.from({ length: 48 }, (_, i) => i)
 
-function hourLabel(hour: number): string {
-  return hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`
+function slotToHourMinute(slot: number): { hour: number; minute: number } {
+  return { hour: Math.floor(slot / 2), minute: (slot % 2) * 30 }
 }
 
-// Grid row for a given clock hour - +2 to leave row 1 for the bay-name
+function slotLabel(slot: number): string {
+  const { hour, minute } = slotToHourMinute(slot)
+  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  const ampm = hour < 12 ? "am" : "pm"
+  return minute === 0 ? `${h12}${ampm}` : `${h12}:${minute}${ampm}`
+}
+
+// Grid row for a given half-hour slot - +2 to leave row 1 for the bay-name
 // header (rows are 1-indexed in CSS Grid).
-function hourRow(hour: number): number {
-  return hour + 2
+function slotRow(slot: number): number {
+  return slot + 2
 }
 
-function etHourMinute(date: Date): { hour: number; minute: number } {
+// roundUp=false for a booking's start (floor to the slot it's actually in),
+// roundUp=true for its end (a booking ending mid-slot still visually blocks
+// the full slot it ends in, rounding up rather than under-representing how
+// long the bay is occupied).
+function etSlot(date: Date, roundUp: boolean): number {
   const str = date.toLocaleString("en-US", {
     hour: "numeric", minute: "2-digit", hour12: false,
     timeZone: "America/Indiana/Indianapolis",
   })
   const [h, m] = str.split(":").map((s) => parseInt(s, 10))
-  return { hour: h % 24, minute: m }
+  const totalMinutes = (h % 24) * 60 + m
+  const raw = totalMinutes / 30
+  return roundUp ? Math.ceil(raw) : Math.floor(raw)
 }
 
-// A booking's visual span on the grid, in whole hour-rows - the grid itself
-// is hour-resolution (no half-hour lines), so a booking that ends mid-hour
-// (e.g. 11:30) still visually blocks the full hour row it ends in, rounding
-// up rather than under-representing how long the bay is actually occupied.
-function bookingRowSpan(startsAt: string, endsAt: string): { start: number; end: number } {
-  const s = etHourMinute(new Date(startsAt))
-  const e = etHourMinute(new Date(endsAt))
-  const start = s.hour
-  let end = e.hour + (e.minute > 0 ? 1 : 0)
+function bookingSlotSpan(startsAt: string, endsAt: string): { start: number; end: number } {
+  const start = etSlot(new Date(startsAt), false)
+  let end = etSlot(new Date(endsAt), true)
   if (end <= start) end = start + 1
   return { start, end }
 }
@@ -118,18 +129,19 @@ export default function BookingsManager({
     e.dataTransfer.effectAllowed = "move"
   }
 
-  function handleDrop(e: React.DragEvent, bay: Bay, hour: number) {
+  function handleDrop(e: React.DragEvent, bay: Bay, slot: number) {
     e.preventDefault()
     setDragOverKey(null)
     const bookingId = e.dataTransfer.getData("text/plain")
     if (!bookingId) return
-    if (!confirm(`Move this booking to ${bay.name} at ${hourLabel(hour)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+    if (!confirm(`Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
 
     // Same-day-only by design - the grid only ever shows one date, so this
     // is the only time this action can construct. Server recomputes the
     // duration from the booking's own duration_minutes rather than trusting
     // a client-sent end time.
-    const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:00:00`)
+    const { hour, minute } = slotToHourMinute(slot)
+    const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
 
     startTransition(async () => {
       try {
@@ -263,15 +275,16 @@ export default function BookingsManager({
         })}
       </div>
 
-      {/* Bay grid view - one unified grid (not 24 stacked per-hour grids) so a
-          booking's card can span multiple hour-rows for its actual duration,
-          instead of only ever appearing in its start hour's cell. */}
+      {/* Bay grid view - one unified grid (not 24 stacked per-hour grids) at
+          half-hour resolution, so a booking's card spans its actual duration
+          and lands on the real :00/:30 boundary it starts on, instead of only
+          ever appearing in - and snapping to - its start hour's cell. */}
       <div className="overflow-x-auto">
         <div
           className="grid min-w-[700px]"
           style={{
             gridTemplateColumns: `80px repeat(${bays.length}, 1fr)`,
-            gridTemplateRows: `auto repeat(24, minmax(40px, auto))`,
+            gridTemplateRows: `auto repeat(48, minmax(20px, auto))`,
           }}
         >
           {/* Header row */}
@@ -286,29 +299,35 @@ export default function BookingsManager({
             </div>
           ))}
 
-          {/* Hour labels */}
-          {HOURS.map((hour) => (
-            <div
-              key={`label-${hour}`}
-              style={{ gridColumn: 1, gridRow: hourRow(hour) }}
-              className="border-t border-white/5 py-2 pr-3 text-right text-xs text-neutral-600"
-            >
-              {hourLabel(hour)}
-            </div>
-          ))}
+          {/* Half-hour labels - only the on-the-hour slots get text, to avoid
+              a cluttered every-30-min label column, but every slot still gets
+              its own row so bookings can land precisely. */}
+          {SLOTS.map((slot) => {
+            const onHour = slot % 2 === 0
+            return (
+              <div
+                key={`label-${slot}`}
+                style={{ gridColumn: 1, gridRow: slotRow(slot) }}
+                className={`py-1 pr-3 text-right text-[10px] text-neutral-600 ${onHour ? "border-t border-white/5" : ""}`}
+              >
+                {onHour ? slotLabel(slot) : ""}
+              </div>
+            )
+          })}
 
-          {/* Drop-target background cells - one per bay/hour regardless of
-              whether a booking currently occupies it, so there's always
-              somewhere to drop onto (including hours "covered" only by
+          {/* Drop-target background cells - one per bay/half-hour regardless
+              of whether a booking currently occupies it, so there's always
+              somewhere to drop onto (including slots "covered" only by
               another booking's span, which sit visually beneath that card). */}
           {bays.map((bay, bi) =>
-            HOURS.map((hour) => {
-              const cellKey = `${bay.id}-${hour}`
+            SLOTS.map((slot) => {
+              const cellKey = `${bay.id}-${slot}`
+              const onHour = slot % 2 === 0
               return (
                 <div
                   key={cellKey}
-                  style={{ gridColumn: bi + 2, gridRow: hourRow(hour) }}
-                  className={`border-l border-t border-white/5 transition-colors ${
+                  style={{ gridColumn: bi + 2, gridRow: slotRow(slot) }}
+                  className={`border-l border-t transition-colors ${onHour ? "border-white/5" : "border-white/[0.03]"} ${
                     dragOverKey === cellKey ? "bg-brand/10 ring-1 ring-inset ring-brand/40" : ""
                   }`}
                   onDragOver={(e) => {
@@ -317,23 +336,24 @@ export default function BookingsManager({
                     if (dragOverKey !== cellKey) setDragOverKey(cellKey)
                   }}
                   onDragLeave={() => setDragOverKey((k) => (k === cellKey ? null : k))}
-                  onDrop={(e) => handleDrop(e, bay, hour)}
+                  onDrop={(e) => handleDrop(e, bay, slot)}
                 />
               )
             })
           )}
 
-          {/* Booking cards - spans start-hour to end-hour so the card visually
-              blocks out the whole session, not just where it started. */}
+          {/* Booking cards - spans start-slot to end-slot so the card visually
+              blocks out the whole session at its real :00/:30 position, not
+              just the hour it started in. */}
           {bays.map((bay, bi) =>
             visibleBookings
               .filter((booking) => booking.bays?.id === bay.id)
               .map((booking) => {
-                const { start, end } = bookingRowSpan(booking.starts_at, booking.ends_at)
+                const { start, end } = bookingSlotSpan(booking.starts_at, booking.ends_at)
                 return (
                   <div
                     key={booking.id}
-                    style={{ gridColumn: bi + 2, gridRow: `${hourRow(start)} / ${hourRow(end)}` }}
+                    style={{ gridColumn: bi + 2, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
                     draggable={booking.status !== "cancelled"}
                     onDragStart={(e) => handleDragStart(e, booking.id)}
                     className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
