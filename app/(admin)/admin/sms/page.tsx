@@ -53,6 +53,18 @@ export default async function AdminSmsPage({
 
   const rows = (messages ?? []) as SmsRow[]
 
+  // sms_messages.phone_number and profiles.phone are both stored in the same
+  // Telnyx-delivered E.164 format (confirmed against the webhook's own
+  // .eq("phone", phone) lookup), so this is a direct match - no normalizing.
+  const { data: namedProfiles } = await db
+    .from("profiles")
+    .select("first_name, last_name, phone")
+    .not("phone", "is", null)
+  const nameByPhone = new Map<string, string>()
+  for (const p of (namedProfiles ?? []) as { first_name: string; last_name: string; phone: string }[]) {
+    nameByPhone.set(p.phone, `${p.first_name} ${p.last_name}`.trim())
+  }
+
   // Group into one conversation per phone number, newest first.
   const conversations = new Map<string, { latest: SmsRow; unread: number }>()
   for (const row of rows) {
@@ -97,7 +109,7 @@ export default async function AdminSmsPage({
               className={`block px-4 py-3 hover:bg-white/5 transition-colors ${selectedPhone === phone ? "bg-white/10" : ""}`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-white">{phone}</span>
+                <span className="text-sm font-medium text-white">{nameByPhone.get(phone) ?? phone}</span>
                 {unread > 0 && (
                   <span className="rounded-full bg-[#00A651] px-1.5 py-0.5 text-[10px] font-bold text-white">{unread}</span>
                 )}
@@ -114,6 +126,12 @@ export default async function AdminSmsPage({
             <p className="text-sm text-neutral-500">Select a conversation to view and reply.</p>
           ) : (
             <>
+              <div className="mb-3 flex items-baseline gap-2">
+                <span className="text-sm font-medium text-white">{nameByPhone.get(selectedPhone) ?? selectedPhone}</span>
+                {nameByPhone.has(selectedPhone) && (
+                  <span className="text-xs text-neutral-500">{selectedPhone}</span>
+                )}
+              </div>
               <div className="max-h-[50vh] space-y-3 overflow-y-auto">
                 {thread.map((m) => (
                   <div key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.direction === "outbound" ? "ml-auto bg-[#00A651]/20 text-white" : "bg-white/5 text-neutral-200"}`}>
