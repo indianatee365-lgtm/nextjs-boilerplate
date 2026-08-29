@@ -25,7 +25,10 @@ export default async function AdminBookingsPage({
   const params = await searchParams
   const pendingMode = params.status === "pending"
   const dateStr = params.date ?? new Date().toISOString().split("T")[0]
-  const view = params.view === "month" ? "month" : "day"
+  // Defaults to month now (Jerrod's call 2026-08-29) - day was the original
+  // default before month view existed. An explicit ?view=day (used by the
+  // month grid's own "Day view" button and clicking into a day) still wins.
+  const view = params.view === "day" ? "day" : "month"
 
   if (view === "month" && !pendingMode) {
     const anchor = new Date(`${dateStr}T00:00:00`)
