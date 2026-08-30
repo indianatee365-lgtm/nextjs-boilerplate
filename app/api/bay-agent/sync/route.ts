@@ -113,8 +113,15 @@ export async function POST(request: NextRequest) {
     // 8/26 alone had been re-logged 13,822 times, ~44.8k duplicate rows
     // total across 38 real crashes going back to 8/21 - the same unbounded-
     // logging shape that caused tonight's earlier net._http_response bloat
-    // incident. Only log when this timestamp is actually new for this bay.
-    if (status.lastCrashRestartAt && status.lastCrashRestartAt !== existingStatus?.last_crash_restart_at) {
+    // incident. Only log when this timestamp is actually new for this bay -
+    // compared as real instants (Date.getTime()), not raw strings: the
+    // first attempt at this fix compared the incoming "...T...Z" string
+    // straight against Postgres's own "... +00" rendering of the same
+    // column, which never matches even for the identical instant, so the
+    // dedupe check was always true and the spam kept right on going.
+    const incomingCrashMs = status.lastCrashRestartAt ? new Date(status.lastCrashRestartAt).getTime() : null
+    const knownCrashMs = existingStatus?.last_crash_restart_at ? new Date(existingStatus.last_crash_restart_at).getTime() : null
+    if (incomingCrashMs !== null && incomingCrashMs !== knownCrashMs) {
       await logEvent(serviceClient, "bay-agent-crash-restart", `bay=${bay.name} at=${status.lastCrashRestartAt}`)
     }
 
