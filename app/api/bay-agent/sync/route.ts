@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state, restart_requested_at")
+    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -105,7 +105,16 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     })
 
-    if (status.lastCrashRestartAt) {
+    // companion.py's last_crash_restart_at stays set on every heartbeat
+    // until the NEXT real crash (it's not a one-shot event flag) - logging
+    // it unconditionally here re-inserted the exact same "crash" on every
+    // single sync call forever after the first one, not just when it
+    // actually changed. Confirmed live 2026-08-29/30: one real crash from
+    // 8/26 alone had been re-logged 13,822 times, ~44.8k duplicate rows
+    // total across 38 real crashes going back to 8/21 - the same unbounded-
+    // logging shape that caused tonight's earlier net._http_response bloat
+    // incident. Only log when this timestamp is actually new for this bay.
+    if (status.lastCrashRestartAt && status.lastCrashRestartAt !== existingStatus?.last_crash_restart_at) {
       await logEvent(serviceClient, "bay-agent-crash-restart", `bay=${bay.name} at=${status.lastCrashRestartAt}`)
     }
 
