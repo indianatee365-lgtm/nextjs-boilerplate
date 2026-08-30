@@ -5,6 +5,26 @@ import MonthCalendar from "./MonthCalendar"
 
 export const metadata = { title: "Manage Bookings | Tee365 Admin" }
 
+// Vercel's server runs in UTC, so a bare `${dateStr}T00:00:00` parses as UTC
+// midnight, not Eastern midnight - anything booked between 8pm and midnight
+// Eastern was landing in the NEXT day's query window. The offset is looked
+// up for the specific date being queried (via a noon-UTC anchor, safely
+// inside the same Eastern calendar day either side of DST) rather than
+// hardcoded, so this stays correct across the DST changeover instead of
+// only working for whichever offset happens to be active right now.
+function easternDayBoundsUtc(dateStr: string): { start: Date; end: Date } {
+  const noonUtc = new Date(`${dateStr}T12:00:00Z`)
+  const offsetPart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Indiana/Indianapolis",
+    timeZoneName: "shortOffset",
+  }).formatToParts(noonUtc).find((p) => p.type === "timeZoneName")?.value ?? "GMT-5"
+  const offsetHours = parseInt(offsetPart.replace("GMT", ""), 10) || -5
+  const offsetStr = `${offsetHours >= 0 ? "+" : "-"}${String(Math.abs(offsetHours)).padStart(2, "0")}:00`
+  const start = new Date(`${dateStr}T00:00:00${offsetStr}`)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  return { start, end }
+}
+
 export default async function AdminBookingsPage({
   searchParams,
 }: {
@@ -24,7 +44,13 @@ export default async function AdminBookingsPage({
 
   const params = await searchParams
   const pendingMode = params.status === "pending"
-  const dateStr = params.date ?? new Date().toISOString().split("T")[0]
+  // Eastern, not UTC - the server runs in UTC, so a naive toISOString()
+  // rolls "today" over to tomorrow's date as soon as it hits 8pm Eastern,
+  // silently defaulting the whole page (and the day-view query below) to
+  // the wrong calendar day for the rest of the evening. Confirmed live
+  // 2026-08-29 ~10:40pm ET: an 11pm booking (tonight) was showing up under
+  // tomorrow's date.
+  const dateStr = params.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "America/Indiana/Indianapolis" })
   // Defaults to month now (Jerrod's call 2026-08-29) - day was the original
   // default before month view existed. An explicit ?view=day (used by the
   // month grid's own "Day view" button and clicking into a day) still wins.
@@ -63,9 +89,7 @@ export default async function AdminBookingsPage({
       .order("created_at", { ascending: false })
     bookings = data
   } else {
-    const date = new Date(`${dateStr}T00:00:00`)
-    const nextDay = new Date(date)
-    nextDay.setDate(nextDay.getDate() + 1)
+    const { start, end } = easternDayBoundsUtc(dateStr)
     const { data } = await serviceClient
       .from("bookings")
       .select(`
@@ -75,8 +99,8 @@ export default async function AdminBookingsPage({
         bays(id, name, number),
         profiles!user_id(id, first_name, last_name, phone)
       `)
-      .gte("starts_at", date.toISOString())
-      .lt("starts_at", nextDay.toISOString())
+      .gte("starts_at", start.toISOString())
+      .lt("starts_at", end.toISOString())
       .order("starts_at")
     bookings = data
   }

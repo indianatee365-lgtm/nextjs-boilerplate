@@ -90,7 +90,19 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   // weekday's start/end pair can't represent a span that crosses midnight.
   const doorOpensAt = new Date(grant.startsAt.getTime() - DOOR_OPENS_EARLY_MINUTES * 60 * 1000)
   const start = localTimeParts(doorOpensAt)
-  const end = localTimeParts(grant.endsAt)
+  // A session ending exactly at local midnight has nothing left to grant on
+  // the following weekday - stepping back 1s makes it end at 23:59:59 on
+  // the door-open day instead, so it merges into the same-weekday branch
+  // below rather than the crosses-midnight branch producing a genuinely
+  // zero-width 00:00:00-00:00:00 window on the next weekday. That zero-width
+  // window is exactly what UniFi's schedule API was rejecting with
+  // CODE_PARAMS_INVALID - confirmed live 2026-08-29 for an 11pm-midnight
+  // booking, which left the customer with no door code minutes before
+  // arrival.
+  const endsAtEffective = localTimeParts(grant.endsAt).time === "00:00:00"
+    ? new Date(grant.endsAt.getTime() - 1000)
+    : grant.endsAt
+  const end = localTimeParts(endsAtEffective)
   const weekSchedule: Record<string, Array<{ start_time: string; end_time: string }>> = {}
   for (const day of WEEKDAYS) weekSchedule[day] = []
   if (start.weekday === end.weekday) {
