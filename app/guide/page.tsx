@@ -305,6 +305,17 @@ const GUIDE_BODY = `<div class="page">
   </section>
 
   <section>
+    <h2>Quick tips</h2>
+    <div class="card">
+      <ul class="rules">
+        <li>Not on the green and want to putt? Tell GSPro first — select the putter from your club selector before you swing, or it won't read as a putt.</li>
+        <li>Starting a round, you can choose which tees to play from on the Round Settings screen — pick based on your skill level or how much time you have.</li>
+        <li>Want a quick, low-pressure round? Select the Par 3 tees and GSPro turns every hole into a short par-3 challenge — great for practice or a fast session.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
     <h2>Something not working?</h2>
     <p>Almost everything gets fixed by one of three things:</p>
     <ol class="steps" style="margin-top: 0.9rem;">
