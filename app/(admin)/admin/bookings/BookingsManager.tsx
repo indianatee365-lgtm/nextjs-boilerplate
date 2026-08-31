@@ -18,6 +18,14 @@ interface Booking {
   refund_amount: number | null
   created_at?: string
   stripe_payment_intent_id?: string | null
+  subtotal?: number
+  membership_discount?: number
+  coupon_discount?: number
+  tax?: number
+  gift_card_applied?: number
+  credit_hours_applied?: number
+  credit_discount?: number
+  paid_at?: string | null
   bays: { id: string; name: string; number: number } | null
   profiles: { id: string; first_name: string; last_name: string; phone: string | null } | null
 }
@@ -69,6 +77,17 @@ function bookingSlotSpan(startsAt: string, endsAt: string): { start: number; end
   return { start, end }
 }
 
+function money(n: number | null | undefined): string {
+  return `$${Number(n ?? 0).toFixed(2)}`
+}
+
+function fullDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    weekday: "short", month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis",
+  })
+}
+
 function getAge(createdAt: string): string {
   const diff = Date.now() - new Date(createdAt).getTime()
   const mins = Math.floor(diff / 60000)
@@ -94,6 +113,8 @@ export default function BookingsManager({
   const [blocking, setBlocking] = useState(false)
   const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null)
+  const [justDragged, setJustDragged] = useState(false)
   const [blockForm, setBlockForm] = useState({
     bayId: "" as string | null,
     date: selectedDate,
@@ -127,6 +148,14 @@ export default function BookingsManager({
   function handleDragStart(e: React.DragEvent, bookingId: string) {
     e.dataTransfer.setData("text/plain", bookingId)
     e.dataTransfer.effectAllowed = "move"
+    setJustDragged(true)
+  }
+
+  // Chrome doesn't fire a click after a real drag, but this guards the other
+  // browsers/edge cases that do - a card drop shouldn't also pop the detail
+  // panel open on top of the "move this booking?" confirm dialog.
+  function handleDragEnd() {
+    setTimeout(() => setJustDragged(false), 0)
   }
 
   function handleDrop(e: React.DragEvent, bay: Bay, slot: number) {
@@ -356,7 +385,9 @@ export default function BookingsManager({
                     style={{ gridColumn: bi + 2, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
                     draggable={booking.status !== "cancelled"}
                     onDragStart={(e) => handleDragStart(e, booking.id)}
-                    className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : ""} ${
+                    onDragEnd={handleDragEnd}
+                    onClick={() => { if (!justDragged) setDetailBooking(booking) }}
+                    className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
                       booking.status === "confirmed"
                         ? "border-brand/50 bg-brand/20 text-brand"
                         : booking.status === "cancelled"
@@ -374,7 +405,7 @@ export default function BookingsManager({
                     </div>
                     {booking.status === "confirmed" && (
                       <button
-                        onClick={() => handleCancel(booking.id)}
+                        onClick={(e) => { e.stopPropagation(); handleCancel(booking.id) }}
                         className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
                       >
                         <X size={10} /> Cancel
@@ -382,7 +413,7 @@ export default function BookingsManager({
                     )}
                     {booking.status === "pending" && (
                       <button
-                        onClick={() => handleConfirm(booking.id)}
+                        onClick={(e) => { e.stopPropagation(); handleConfirm(booking.id) }}
                         className="mt-0.5 flex items-center gap-0.5 text-green-400 hover:text-green-300"
                       >
                         ✓ Confirm + SMS
@@ -460,6 +491,166 @@ export default function BookingsManager({
               </div>
               <button type="submit" className="btn-primary w-full">Block time</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Booking detail panel */}
+      {detailBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setDetailBooking(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0a] p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  {detailBooking.profiles
+                    ? `${detailBooking.profiles.first_name} ${detailBooking.profiles.last_name}`
+                    : "Unknown customer"}
+                </h2>
+                <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                  detailBooking.status === "confirmed" ? "bg-brand/20 text-brand"
+                  : detailBooking.status === "cancelled" ? "bg-red-500/20 text-red-400"
+                  : "bg-yellow-500/20 text-yellow-400"
+                }`}>
+                  {detailBooking.status}
+                </span>
+              </div>
+              <button onClick={() => setDetailBooking(null)} className="text-neutral-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Bay</span>
+                <span className="text-white">{detailBooking.bays?.name ?? "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Booked for</span>
+                <span className="text-white">{fullDateTime(detailBooking.starts_at)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Ends</span>
+                <span className="text-white">{fullDateTime(detailBooking.ends_at)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Duration</span>
+                <span className="text-white">{detailBooking.duration_minutes} min</span>
+              </div>
+              {detailBooking.profiles?.phone && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Phone</span>
+                  <span className="text-white">{detailBooking.profiles.phone}</span>
+                </div>
+              )}
+
+              <div className="my-2 border-t border-white/10" />
+
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Subtotal</span>
+                <span className="text-white">{money(detailBooking.subtotal)}</span>
+              </div>
+              {!!detailBooking.membership_discount && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Membership discount</span>
+                  <span className="text-red-400">-{money(detailBooking.membership_discount)}</span>
+                </div>
+              )}
+              {!!detailBooking.coupon_discount && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Coupon discount</span>
+                  <span className="text-red-400">-{money(detailBooking.coupon_discount)}</span>
+                </div>
+              )}
+              {!!detailBooking.credit_discount && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Hour credit ({detailBooking.credit_hours_applied}h)</span>
+                  <span className="text-red-400">-{money(detailBooking.credit_discount)}</span>
+                </div>
+              )}
+              {!!detailBooking.gift_card_applied && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Gift card applied</span>
+                  <span className="text-red-400">-{money(detailBooking.gift_card_applied)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Tax</span>
+                <span className="text-white">{money(detailBooking.tax)}</span>
+              </div>
+              <div className="flex justify-between text-base font-semibold">
+                <span className="text-white">{detailBooking.status === "cancelled" ? "Total" : "Paid"}</span>
+                <span className="text-white">{money(detailBooking.total)}</span>
+              </div>
+
+              <div className="my-2 border-t border-white/10" />
+
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Payment</span>
+                <span className="font-mono text-xs text-neutral-400">
+                  {detailBooking.stripe_payment_intent_id ?? "No charge (free/comp)"}
+                </span>
+              </div>
+              {detailBooking.paid_at && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Paid at</span>
+                  <span className="text-white">{fullDateTime(detailBooking.paid_at)}</span>
+                </div>
+              )}
+              {detailBooking.access_code && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Access code</span>
+                  <span className="font-mono text-white">{detailBooking.access_code}</span>
+                </div>
+              )}
+              {detailBooking.created_at && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-500">Booked</span>
+                  <span className="text-white">{getAge(detailBooking.created_at)}</span>
+                </div>
+              )}
+              {detailBooking.status === "cancelled" && (
+                <>
+                  {detailBooking.cancelled_at && (
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Cancelled</span>
+                      <span className="text-white">{fullDateTime(detailBooking.cancelled_at)}</span>
+                    </div>
+                  )}
+                  {detailBooking.refund_amount != null && (
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Refunded</span>
+                      <span className="text-white">{money(detailBooking.refund_amount)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {detailBooking.notes && (
+                <div>
+                  <span className="text-neutral-500">Notes</span>
+                  <p className="mt-1 rounded-lg bg-white/5 p-2 text-neutral-300">{detailBooking.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {detailBooking.status === "confirmed" && (
+              <button
+                onClick={() => { handleCancel(detailBooking.id); setDetailBooking(null) }}
+                className="mt-5 w-full rounded-lg border border-red-500/30 bg-red-500/10 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20"
+              >
+                Cancel this booking
+              </button>
+            )}
+            {detailBooking.status === "pending" && (
+              <button
+                onClick={() => { handleConfirm(detailBooking.id); setDetailBooking(null) }}
+                className="mt-5 w-full rounded-lg border border-green-500/30 bg-green-500/10 py-2 text-sm font-medium text-green-400 hover:bg-green-500/20"
+              >
+                Confirm + send SMS
+              </button>
+            )}
           </div>
         </div>
       )}

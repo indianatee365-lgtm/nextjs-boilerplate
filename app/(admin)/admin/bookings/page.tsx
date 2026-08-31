@@ -96,6 +96,8 @@ export default async function AdminBookingsPage({
         id, starts_at, ends_at, status, total, duration_minutes,
         access_code, notes, cancelled_at, refund_amount,
         created_at, stripe_payment_intent_id,
+        subtotal, membership_discount, coupon_discount, tax,
+        gift_card_applied, credit_hours_applied, credit_discount, paid_at,
         bays(id, name, number),
         profiles!user_id(id, first_name, last_name, phone)
       `)
