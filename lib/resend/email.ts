@@ -11,12 +11,14 @@ function fmt(amount: number): string {
 async function sendResendEmail({
   to,
   from,
+  replyTo,
   subject,
   html,
   kind,
 }: {
   to: string
   from: string
+  replyTo?: string
   subject: string
   html: string
   kind: string
@@ -30,7 +32,7 @@ async function sendResendEmail({
         "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to: [to], subject, html }),
+      body: JSON.stringify({ from, to: [to], subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     })
   } catch (err) {
     await logEvent(supabase, "email-send-FAILED", `kind=${kind} to=${to} err=${String(err).slice(0, 200)}`)
@@ -970,6 +972,7 @@ export async function sendFounderMessage({
   paragraphs,
   ctaText,
   ctaUrl,
+  replyTo,
 }: {
   to: string
   firstName: string
@@ -978,6 +981,7 @@ export async function sendFounderMessage({
   paragraphs: string[]
   ctaText?: string
   ctaUrl?: string
+  replyTo?: string
 }) {
   const bodyParagraphs = [
     `Hi ${firstName},`,
@@ -1013,6 +1017,7 @@ ${cta}
   await sendResendEmail({
     to,
     from: "jerrod <jerrod@tee365.org>",
+    replyTo,
     subject,
     html,
     kind: "founder-message",

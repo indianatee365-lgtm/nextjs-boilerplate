@@ -198,6 +198,7 @@ export type Database = {
           duration_minutes: number
           ends_at: string
           extend_token: string | null
+          feedback_email_sent_at: string | null
           gift_card_applied: number
           gift_card_id: string | null
           id: string
@@ -247,6 +248,7 @@ export type Database = {
           duration_minutes: number
           ends_at: string
           extend_token?: string | null
+          feedback_email_sent_at?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
@@ -296,6 +298,7 @@ export type Database = {
           duration_minutes?: number
           ends_at?: string
           extend_token?: string | null
+          feedback_email_sent_at?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
