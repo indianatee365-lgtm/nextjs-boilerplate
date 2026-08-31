@@ -40,6 +40,18 @@ export async function getCustomerNameByPhone(supabase: SupabaseClient, phone: st
   }
 }
 
+// Reads an admin_settings toggle (see 20260831_admin_settings.sql). Fails
+// open (true) on any lookup error or missing row - a settings-table hiccup
+// must never be the reason a real notification silently never fires.
+export async function getAdminSetting(supabase: SupabaseClient, key: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.from("admin_settings").select("value").eq("key", key).maybeSingle()
+    return data?.value ?? true
+  } catch {
+    return true
+  }
+}
+
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""

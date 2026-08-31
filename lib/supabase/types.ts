@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_logs: {
@@ -59,6 +34,77 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      admin_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: boolean
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: boolean
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: boolean
+        }
+        Relationships: []
+      }
+      bay_agent_status: {
+        Row: {
+          agent_version: string | null
+          bay_id: string
+          enforcement_mode: string | null
+          kiosk_kills: Json | null
+          last_crash_restart_at: string | null
+          last_heartbeat_at: string | null
+          override_state: string | null
+          restart_requested_at: string | null
+          running_processes: Json | null
+          session_state: string | null
+          sim_running: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          agent_version?: string | null
+          bay_id: string
+          enforcement_mode?: string | null
+          kiosk_kills?: Json | null
+          last_crash_restart_at?: string | null
+          last_heartbeat_at?: string | null
+          override_state?: string | null
+          restart_requested_at?: string | null
+          running_processes?: Json | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          agent_version?: string | null
+          bay_id?: string
+          enforcement_mode?: string | null
+          kiosk_kills?: Json | null
+          last_crash_restart_at?: string | null
+          last_heartbeat_at?: string | null
+          override_state?: string | null
+          restart_requested_at?: string | null
+          running_processes?: Json | null
+          session_state?: string | null
+          sim_running?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bay_agent_status_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: true
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bays: {
         Row: {
@@ -86,59 +132,6 @@ export type Database = {
           number?: number
         }
         Relationships: []
-      }
-      bay_agent_status: {
-        Row: {
-          bay_id: string
-          last_heartbeat_at: string | null
-          agent_version: string | null
-          enforcement_mode: string | null
-          session_state: string | null
-          sim_running: boolean | null
-          running_processes: Json | null
-          last_crash_restart_at: string | null
-          kiosk_kills: Json
-          override_state: string | null
-          restart_requested_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          bay_id: string
-          last_heartbeat_at?: string | null
-          agent_version?: string | null
-          enforcement_mode?: string | null
-          session_state?: string | null
-          sim_running?: boolean | null
-          running_processes?: Json | null
-          last_crash_restart_at?: string | null
-          kiosk_kills?: Json
-          override_state?: string | null
-          restart_requested_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          bay_id?: string
-          last_heartbeat_at?: string | null
-          agent_version?: string | null
-          enforcement_mode?: string | null
-          session_state?: string | null
-          sim_running?: boolean | null
-          running_processes?: Json | null
-          last_crash_restart_at?: string | null
-          kiosk_kills?: Json
-          override_state?: string | null
-          restart_requested_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bay_agent_status_bay_id_fkey"
-            columns: ["bay_id"]
-            isOneToOne: true
-            referencedRelation: "bays"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       blocked_times: {
         Row: {
@@ -188,7 +181,7 @@ export type Database = {
       bookings: {
         Row: {
           access_code: string | null
-          current_hitter: string | null
+          access_code_issued_at: string | null
           access_sent_at: string | null
           bay_id: string
           bay_powered_off_at: string | null
@@ -200,6 +193,7 @@ export type Database = {
           created_at: string
           credit_discount: number
           credit_hours_applied: number
+          current_hitter: string | null
           discount_percent_applied: number | null
           duration_minutes: number
           ends_at: string
@@ -221,6 +215,7 @@ export type Database = {
           roster_links: Json | null
           roster_names: string[] | null
           signup_bonus_applied: boolean | null
+          source: string
           starts_at: string
           status: string
           stripe_charge_id: string | null
@@ -228,11 +223,14 @@ export type Database = {
           subtotal: number
           tax: number
           total: number
+          unifi_access_policy_id: string | null
+          unifi_schedule_id: string | null
+          unifi_visitor_id: string | null
           user_id: string
         }
         Insert: {
           access_code?: string | null
-          current_hitter?: string | null
+          access_code_issued_at?: string | null
           access_sent_at?: string | null
           bay_id: string
           bay_powered_off_at?: string | null
@@ -244,6 +242,7 @@ export type Database = {
           created_at?: string
           credit_discount?: number
           credit_hours_applied?: number
+          current_hitter?: string | null
           discount_percent_applied?: number | null
           duration_minutes: number
           ends_at: string
@@ -265,6 +264,7 @@ export type Database = {
           roster_links?: Json | null
           roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
+          source?: string
           starts_at: string
           status?: string
           stripe_charge_id?: string | null
@@ -272,11 +272,14 @@ export type Database = {
           subtotal: number
           tax?: number
           total: number
+          unifi_access_policy_id?: string | null
+          unifi_schedule_id?: string | null
+          unifi_visitor_id?: string | null
           user_id: string
         }
         Update: {
           access_code?: string | null
-          current_hitter?: string | null
+          access_code_issued_at?: string | null
           access_sent_at?: string | null
           bay_id?: string
           bay_powered_off_at?: string | null
@@ -288,6 +291,7 @@ export type Database = {
           created_at?: string
           credit_discount?: number
           credit_hours_applied?: number
+          current_hitter?: string | null
           discount_percent_applied?: number | null
           duration_minutes?: number
           ends_at?: string
@@ -309,6 +313,7 @@ export type Database = {
           roster_links?: Json | null
           roster_names?: string[] | null
           signup_bonus_applied?: boolean | null
+          source?: string
           starts_at?: string
           status?: string
           stripe_charge_id?: string | null
@@ -316,6 +321,9 @@ export type Database = {
           subtotal?: number
           tax?: number
           total?: number
+          unifi_access_policy_id?: string | null
+          unifi_schedule_id?: string | null
+          unifi_visitor_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -369,6 +377,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_logs: {
+        Row: {
+          caller_name: string | null
+          caller_phone: string | null
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          ended_reason: string | null
+          id: string
+          recording_url: string | null
+          started_at: string | null
+          summary: string | null
+          transcript: string | null
+          vapi_call_id: string | null
+        }
+        Insert: {
+          caller_name?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          recording_url?: string | null
+          started_at?: string | null
+          summary?: string | null
+          transcript?: string | null
+          vapi_call_id?: string | null
+        }
+        Update: {
+          caller_name?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          recording_url?: string | null
+          started_at?: string | null
+          summary?: string | null
+          transcript?: string | null
+          vapi_call_id?: string | null
+        }
+        Relationships: []
       }
       campaign_flags: {
         Row: {
@@ -969,6 +1022,7 @@ export type Database = {
           annual_start_date: string | null
           cancellation_requested_at: string | null
           cancelled_at: string | null
+          comped: boolean
           created_at: string
           current_period_end: string | null
           founder_number: number | null
@@ -997,6 +1051,7 @@ export type Database = {
           annual_start_date?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          comped?: boolean
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
@@ -1025,6 +1080,7 @@ export type Database = {
           annual_start_date?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          comped?: boolean
           created_at?: string
           current_period_end?: string | null
           founder_number?: number | null
@@ -1212,8 +1268,8 @@ export type Database = {
         Row: {
           angle_of_attack: number | null
           back_spin: number | null
-          bay_id: string | null
           ball_speed_mph: number | null
+          bay_id: string | null
           booking_id: string | null
           carry_yards: number | null
           club: string | null
@@ -1237,8 +1293,8 @@ export type Database = {
         Insert: {
           angle_of_attack?: number | null
           back_spin?: number | null
-          bay_id?: string | null
           ball_speed_mph?: number | null
+          bay_id?: string | null
           booking_id?: string | null
           carry_yards?: number | null
           club?: string | null
@@ -1262,8 +1318,8 @@ export type Database = {
         Update: {
           angle_of_attack?: number | null
           back_spin?: number | null
-          bay_id?: string | null
           ball_speed_mph?: number | null
+          bay_id?: string | null
           booking_id?: string | null
           carry_yards?: number | null
           club?: string | null
@@ -1307,6 +1363,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sms_messages: {
+        Row: {
+          body: string
+          created_at: string
+          direction: string
+          id: string
+          phone_number: string
+          read_at: string | null
+          telnyx_message_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          direction: string
+          id?: string
+          phone_number: string
+          read_at?: string | null
+          telnyx_message_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          phone_number?: string
+          read_at?: string | null
+          telnyx_message_id?: string | null
+        }
+        Relationships: []
+      }
+      sms_opt_outs: {
+        Row: {
+          opted_out_at: string
+          phone_number: string
+        }
+        Insert: {
+          opted_out_at?: string
+          phone_number: string
+        }
+        Update: {
+          opted_out_at?: string
+          phone_number?: string
+        }
+        Relationships: []
       }
       waitlist: {
         Row: {
@@ -1519,9 +1620,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
-import { notifyOwner, logEvent } from "@/lib/observability/notify"
+import { notifyOwner, logEvent, getAdminSetting } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
 import {
   isFoundersDaySession,
@@ -504,8 +504,11 @@ async function handleCreatePhoneBooking(args: Record<string, string>, callerPhon
     console.error("[create_phone_booking] sms failed", e)
   }
 
+  const notifyEnabled = await getAdminSetting(supabase, "notify_new_bookings")
   await Promise.allSettled([
-    notifyOwner(`Tee365 phone booking: ${firstName} ${lastName} (${normalizedPhone}) booked ${bay.name} on ${startDate.toLocaleString("en-US", { timeZone: "America/Indiana/Indianapolis" })}. Payment link texted, awaiting completion.`),
+    notifyEnabled
+      ? notifyOwner(`Tee365 phone booking: ${firstName} ${lastName} (${normalizedPhone}) booked ${bay.name} on ${startDate.toLocaleString("en-US", { timeZone: "America/Indiana/Indianapolis" })}. Payment link texted, awaiting completion.`)
+      : Promise.resolve(),
     logEvent(supabase, "phone-booking-created", `booking=${result.bookingId} caller=${normalizedPhone} bay=${bay.name}`),
   ])
 

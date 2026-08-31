@@ -5,7 +5,7 @@ import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFail
 import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail, sendAccessCodeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
-import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting } from "@/lib/observability/notify"
 import { PLAN_DISPLAY_NAMES } from "@/lib/membership/first-year"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
@@ -393,6 +393,14 @@ export async function POST(request: NextRequest) {
         await logFailure(supabase, "booking-confirmation-email-FAILED",
           `booking=${booking.id} to=${authUser.email} err=${String(emailError).slice(0, 200)}`)
       }
+    }
+
+    if (profile && bay && await getAdminSetting(supabase, "notify_new_bookings")) {
+      await notifyOwner(
+        `New booking: ${profile.first_name} ${profile.last_name}, ${bay.name}, ` +
+        `${new Date(booking.starts_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}, ` +
+        `$${Number(b.total ?? 0).toFixed(2)}`
+      )
     }
 
     // If booking starts within 15 minutes, generate + send the access code
