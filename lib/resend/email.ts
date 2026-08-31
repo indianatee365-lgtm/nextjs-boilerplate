@@ -391,7 +391,7 @@ export async function sendParentalConsentRequestEmail({
   <div style="text-align:center;margin:32px 0">
     <a href="${consentUrl}" style="display:inline-block;background:#22c55e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Review &amp; Sign Consent Form</a>
   </div>
-  <p style="color:#737373;font-size:12px;line-height:1.6">This link expires in 7 days. If you did not expect this email, you can safely ignore it — no account will be activated without your signature.</p>
+  <p style="color:#737373;font-size:12px;line-height:1.6">This link expires in 7 days. If you did not expect this email, you can safely ignore it. No account will be activated without your signature.</p>
   <hr style="border:none;border-top:1px solid #262626;margin:24px 0">
   <p style="color:#737373;font-size:12px">Questions? Reply to this email or contact us at bookings@tee365.org</p>
 </div></body></html>`,
@@ -409,7 +409,7 @@ export async function sendMinorAccountApprovedEmail({
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: "You're all set — your Tee365 account is ready",
+    subject: "You're all set, your Tee365 account is ready",
     html: `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e5e5;padding:40px 20px;margin:0">
 <div style="max-width:520px;margin:0 auto;background:#141414;border-radius:12px;padding:36px;border:1px solid #262626">
   <h1 style="margin:0 0 20px;font-size:22px;color:#fff">You're good to go, ${firstName}!</h1>
@@ -463,7 +463,7 @@ export async function sendFounderConfirmationEmail({
         </table>
         <div style="background:#0f1f0f;border:1px solid #1a3a1a;border-radius:8px;padding:20px;margin-bottom:32px;text-align:left;">
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4ade80;">What happens next</p>
-          <p style="margin:0;color:#86efac;font-size:13px;line-height:1.7;">Tee365 opens September 2026. You'll receive an email before the booking calendar goes live — Founders get 48 hours before anyone else.<br><br><strong>Founders &amp; Friends Day</strong> is a private pre-opening event for you, your family, and friends. Two complimentary hours included. Details coming closer to opening.<br><br>Your name will be on the permanent Founders Wall inside the facility from day one.</p>
+          <p style="margin:0;color:#86efac;font-size:13px;line-height:1.7;">Tee365 opens September 2026. You'll receive an email before the booking calendar goes live. Founders get 48 hours before anyone else.<br><br><strong>Founders &amp; Friends Day</strong> is a private pre-opening event for you, your family, and friends. Two complimentary hours included. Details coming closer to opening.<br><br>Your name will be on the permanent Founders Wall inside the facility from day one.</p>
         </div>
         <div style="border-top:1px solid #27272a;padding-top:24px;text-align:left;">
           <p style="margin:0 0 10px;font-size:12px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;">From Jerrod</p>
@@ -483,7 +483,7 @@ export async function sendFounderConfirmationEmail({
   await sendResendEmail({
     to,
     from: "Jerrod | Tee365 <jerrod@tee365.org>",
-    subject: `Welcome to Founder's Club — you're #${founderNumber} of 100`,
+    subject: `Welcome to Founder's Club, you're #${founderNumber} of 100`,
     html,
     kind: "founder-confirmation",
   })
@@ -519,7 +519,7 @@ export async function sendEagleConfirmationEmail({
         </td></tr></table>
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px;margin-bottom:24px;">
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#166534;">Your 2 free hours</p>
-          <p style="margin:0;color:#166534;font-size:13px;line-height:1.6;">Your signup bonus is credited to your account and valid for 90 days. The discount applies automatically when you book — no code needed.</p>
+          <p style="margin:0;color:#166534;font-size:13px;line-height:1.6;">Your signup bonus is credited to your account and valid for 90 days. The discount applies automatically when you book. No code needed.</p>
         </div>
         <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.7;">Tee365 opens September 2026. Your 14-day advance booking window and 20% discount apply from your first session.</p>
         <div style="text-align:center;"><a href="https://tee365.org/account" style="display:inline-block;background:#111;color:#4ade80;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View your account</a></div>
@@ -534,7 +534,7 @@ export async function sendEagleConfirmationEmail({
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: "Welcome to Eagle — your 2 free hours are waiting",
+    subject: "Welcome to Eagle, your 2 free hours are waiting",
     html,
     kind: "eagle-confirmation",
   })
@@ -554,7 +554,7 @@ export async function sendCancellationConfirmation({
   const founderNote = isFounder && founderNumber
     ? `<div style="background:#0f1f0f;border:1px solid #1a3a1a;border-radius:8px;padding:16px;margin:24px 0;">
          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4ade80;">Your Founder status is permanent</p>
-         <p style="margin:0;color:#86efac;font-size:13px;line-height:1.6;">Member <strong>#${founderNumber}</strong> is yours, always. Reactivate any time at your original Founder's terms — same discount, same booking window, same number on the Founders Wall.</p>
+         <p style="margin:0;color:#86efac;font-size:13px;line-height:1.6;">Member <strong>#${founderNumber}</strong> is yours, always. Reactivate any time at your original Founder's terms: same discount, same booking window, same number on the Founders Wall.</p>
        </div>`
     : ""
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -579,7 +579,7 @@ ${founderNote}
   await sendResendEmail({
     to,
     from: "Jerrod | Tee365 <jerrod@tee365.org>",
-    subject: `Your ${planName} membership — cancellation confirmed`,
+    subject: `${planName} membership cancellation confirmed`,
     html,
     kind: "cancellation-confirmation",
   })
@@ -641,7 +641,7 @@ export async function sendPaymentRetryEmail({
 <tr><td style="padding:36px 32px;">
 <h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your checkout didn't finish</h1>
 <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
-<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Looks like your <strong style="color:#fff;">${planName}</strong> signup ($${amount}) didn't go through — checkout expired before it finished. No charge was made, and nothing is pending on your account.</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Looks like your <strong style="color:#fff;">${planName}</strong> signup ($${amount}) didn't go through. Checkout expired before it finished. No charge was made, and nothing is pending on your account.</p>
 <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.6;">If you'd like to pick up where you left off, just click below.</p>
 <table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
 <a href="https://tee365.org/join" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Finish signing up</a>
@@ -880,7 +880,7 @@ export async function sendAccountWelcomeEmail({
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: "Welcome to Tee365 — your account is ready",
+    subject: "Welcome to Tee365, your account is ready",
     html,
     kind: "account-welcome",
   })
@@ -914,7 +914,7 @@ export async function sendMembershipWelcomeEmail({
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: `Welcome to Tee365 — your ${planName} membership is active`,
+    subject: `Welcome to Tee365, your ${planName} membership is active`,
     html,
     kind: "membership-welcome",
   })

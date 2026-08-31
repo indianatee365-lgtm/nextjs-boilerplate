@@ -45,6 +45,53 @@ export default async function AdminLogsPage({
   const { data: logs } = await query
   const rows = (logs ?? []) as Array<{ event: string; detail: string; created_at: string }>
 
+  // Communications gets its own cleaner view - "detail" is a machine-format
+  // string (kind=X to=Y subject=Z) that's useless to read raw. Parsed once
+  // here since only this filter's rows have that consistent shape (see
+  // sendResendEmail/sendSmsMessage's own logEvent calls) - every other
+  // filter mixes too many different detail formats to parse the same way,
+  // so they keep the raw view below.
+  let commRows: { when: string; what: string; to: string; subject: string | null; name: string | null }[] = []
+  if (filter === "communications" && rows.length > 0) {
+    const parsed = rows.map((r) => {
+      const kind = r.detail.match(/kind=(\S+)/)?.[1] ?? "unknown"
+      const to = r.detail.match(/to=(\S+)/)?.[1] ?? ""
+      const subject = r.detail.match(/subject=(.+)$/)?.[1] ?? null
+      return { r, kind, to, subject }
+    })
+
+    const { data: profiles } = await serviceClient.from("profiles").select("id, first_name, last_name, phone")
+    const profileList = (profiles ?? []) as { id: string; first_name: string; last_name: string; phone: string | null }[]
+    const nameById = new Map(profileList.map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+    const nameByPhone = new Map(profileList.filter((p) => p.phone).map((p) => [p.phone as string, nameById.get(p.id) ?? null]))
+
+    const emailRecipients = parsed.filter((p) => p.to.includes("@"))
+    let nameByEmail = new Map<string, string | null>()
+    if (emailRecipients.length > 0) {
+      // No direct "get user by email" admin call exists - same
+      // listUsers()-and-match pattern already used elsewhere (bays'
+      // startTestBooking, hour-credits' grantHoursByEmail) rather than one
+      // lookup per row.
+      const { data: usersPage } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      nameByEmail = new Map(
+        (usersPage?.users ?? [])
+          .filter((u) => u.email)
+          .map((u) => [u.email!.toLowerCase(), nameById.get(u.id) ?? null])
+      )
+    }
+
+    commRows = parsed.map(({ r, kind, to, subject }) => ({
+      when: new Date(r.created_at).toLocaleString("en-US", {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+        timeZone: "America/Indiana/Indianapolis",
+      }),
+      what: kind.split("-").map((w) => w[0]?.toUpperCase() + w.slice(1)).join(" "),
+      to,
+      subject,
+      name: (to.includes("@") ? nameByEmail.get(to.toLowerCase()) : nameByPhone.get(to)) ?? null,
+    }))
+  }
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -73,8 +120,27 @@ export default async function AdminLogsPage({
 
       {rows.length === 0 ? (
         <p className="text-sm text-neutral-500 py-10 text-center">No events match this filter.</p>
+      ) : filter === "communications" ? (
+        <div className="overflow-hidden rounded-xl border border-white/10 divide-y divide-white/5">
+          {commRows.map((row, i) => (
+            <div key={i} className="px-4 py-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+              <div className="text-xs text-neutral-500 sm:w-28 sm:shrink-0 whitespace-nowrap">{row.when}</div>
+              <div className="text-xs font-medium text-neutral-200 sm:w-36 sm:shrink-0">{row.what}</div>
+              <div className="text-xs text-neutral-300 sm:w-56 sm:shrink-0 break-all">
+                {row.name ? (
+                  <>
+                    {row.name} <span className="text-neutral-600">({row.to})</span>
+                  </>
+                ) : (
+                  row.to
+                )}
+              </div>
+              <div className="text-xs text-neutral-500 sm:flex-1 break-words">{row.subject ?? "n/a"}</div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
