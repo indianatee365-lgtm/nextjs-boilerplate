@@ -4,7 +4,7 @@ import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sm
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
 import { isInFirstYear } from "@/lib/membership/first-year"
-import { logEvent, logFailure, notifyOwner, getAdminSetting } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 
@@ -414,7 +414,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       await notifyOwner(
         `New booking: ${p.first_name} ${p.last_name}, ${bay.name}, ` +
         `${startDate.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}, ` +
-        `$${Number(pricing.total).toFixed(2)}`
+        `${formatDuration(durationMinutes)}, $${Number(pricing.total).toFixed(2)}`
       )
     }
 

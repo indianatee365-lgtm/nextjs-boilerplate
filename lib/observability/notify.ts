@@ -52,6 +52,16 @@ export async function getAdminSetting(supabase: SupabaseClient, key: string): Pr
   }
 }
 
+// "1hr" / "1.5hr" / "2hr" - bookings are always in 30-min increments, so this
+// never needs to handle an odd remainder. Used in owner-notification text so
+// a low total (e.g. a 30-min session) doesn't read as a pricing mistake -
+// see 2026-08-31, Jerrod double-checking the pricing table over what was
+// actually just a short booking.
+export function formatDuration(minutes: number): string {
+  const hours = minutes / 60
+  return `${hours % 1 === 0 ? hours : hours.toFixed(1)}hr`
+}
+
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""

@@ -5,7 +5,7 @@ import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFail
 import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail, sendAccessCodeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
-import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { PLAN_DISPLAY_NAMES } from "@/lib/membership/first-year"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
@@ -396,10 +396,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (profile && bay && await getAdminSetting(supabase, "notify_new_bookings")) {
+      const durationMinutes = Math.round((new Date(booking.ends_at).getTime() - new Date(booking.starts_at).getTime()) / 60000)
       await notifyOwner(
         `New booking: ${profile.first_name} ${profile.last_name}, ${bay.name}, ` +
         `${new Date(booking.starts_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}, ` +
-        `$${Number(b.total ?? 0).toFixed(2)}`
+        `${formatDuration(durationMinutes)}, $${Number(b.total ?? 0).toFixed(2)}`
       )
     }
 
