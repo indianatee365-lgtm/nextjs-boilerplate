@@ -6,6 +6,11 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"
 interface MonthBooking {
   starts_at: string
   status: string
+  total: number
+}
+
+function money(n: number): string {
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -33,13 +38,16 @@ export default function MonthCalendar({
   const year = anchor.getFullYear()
   const month = anchor.getMonth()
 
-  const dayStatus = new Map<string, { confirmed: number; pending: number; cancelled: number }>()
+  const dayStatus = new Map<string, { confirmed: number; pending: number; cancelled: number; revenue: number }>()
   for (const b of bookings) {
     const etDateStr = new Date(b.starts_at).toLocaleDateString("en-CA", {
       timeZone: "America/Indiana/Indianapolis",
     })
-    const entry = dayStatus.get(etDateStr) ?? { confirmed: 0, pending: 0, cancelled: 0 }
-    if (b.status === "confirmed") entry.confirmed++
+    const entry = dayStatus.get(etDateStr) ?? { confirmed: 0, pending: 0, cancelled: 0, revenue: 0 }
+    if (b.status === "confirmed") {
+      entry.confirmed++
+      entry.revenue += Number(b.total ?? 0)
+    }
     else if (b.status === "pending") entry.pending++
     else if (b.status === "cancelled") entry.cancelled++
     dayStatus.set(etDateStr, entry)
@@ -111,7 +119,12 @@ export default function MonthCalendar({
               <div className={`font-medium ${isPast ? "text-neutral-500" : ""}`}>{dayNum}</div>
               {status && (
                 <div className="mt-1 text-[10px] leading-tight opacity-80">
-                  {status.confirmed > 0 && <div>{status.confirmed} active</div>}
+                  {status.confirmed > 0 && (
+                    <>
+                      <div>{status.confirmed} {isPast ? "completed" : "confirmed"}</div>
+                      <div>{money(status.revenue)}</div>
+                    </>
+                  )}
                   {status.pending > 0 && <div>{status.pending} pending</div>}
                   {status.confirmed === 0 && status.pending === 0 && status.cancelled > 0 && (
                     <div>{status.cancelled} cancelled</div>
@@ -124,7 +137,7 @@ export default function MonthCalendar({
       </div>
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-500">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-brand" /> Has active booking</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-brand" /> Has a confirmed booking</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400" /> Pending only</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Cancelled only</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-white/20" /> No bookings</span>

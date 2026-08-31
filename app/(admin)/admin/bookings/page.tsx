@@ -62,7 +62,7 @@ export default async function AdminBookingsPage({
     const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1)
     const { data: monthBookings } = await serviceClient
       .from("bookings")
-      .select("starts_at, status")
+      .select("starts_at, status, total")
       .gte("starts_at", monthStart.toISOString())
       .lt("starts_at", monthEnd.toISOString())
 
