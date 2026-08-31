@@ -419,18 +419,22 @@ export default function BookingsManager({
               .filter((booking) => booking.bays?.id === bay.id)
               .map((booking) => {
                 const { start, end } = bookingSlotSpan(booking.starts_at, booking.ends_at)
-                const isPast = booking.status !== "cancelled" && new Date(booking.ends_at).getTime() < nowMs
+                // A finished session is a good outcome, not a faded one -
+                // Jerrod's call 2026-08-31: gray read as "less important,"
+                // completed should read as positive (green), same family as
+                // the confirm/completed checkmarks elsewhere on this page.
+                const isCompleted = booking.status === "confirmed" && new Date(booking.ends_at).getTime() < nowMs
                 return (
                   <div
                     key={booking.id}
                     style={{ gridColumn: bi + 2, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
-                    draggable={booking.status !== "cancelled"}
+                    draggable={booking.status !== "cancelled" && !isCompleted}
                     onDragStart={(e) => handleDragStart(e, booking.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => { if (!justDragged) setDetailBooking(booking) }}
-                    className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
-                      isPast
-                        ? "border-white/10 bg-white/[0.03] text-neutral-500"
+                    className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" && !isCompleted ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
+                      isCompleted
+                        ? "border-green-500/50 bg-green-500/15 text-green-400"
                         : booking.status === "confirmed"
                         ? "border-brand/50 bg-brand/20 text-brand"
                         : booking.status === "cancelled"
@@ -447,12 +451,18 @@ export default function BookingsManager({
                       {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                     </div>
                     {booking.status === "confirmed" && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCancel(booking.id) }}
-                        className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
-                      >
-                        <X size={10} /> Cancel
-                      </button>
+                      isCompleted ? (
+                        <span className="mt-0.5 flex items-center gap-0.5 text-green-400">
+                          ✓ Completed
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCancel(booking.id) }}
+                          className="mt-0.5 flex items-center gap-0.5 text-red-400 hover:text-red-300"
+                        >
+                          <X size={10} /> Cancel
+                        </button>
+                      )
                     )}
                     {booking.status === "pending" && (
                       <button
