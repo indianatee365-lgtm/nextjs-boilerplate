@@ -14,12 +14,10 @@ export const runtime = "nodejs"
 const DELAY_MINUTES = 60
 const WINDOW_MINUTES = 30
 
-// Reply-to for "just reply to this email" - defaults to the address already
-// proven working for booking confirmations. Jerrod's asked for feedback@
-// instead once he's confirmed it's actually routed somewhere in Cloudflare
-// Email Routing (not yet confirmed as of 2026-08-31) - swap this one line
-// when that's live, no other changes needed.
-const FEEDBACK_REPLY_TO = "bookings@tee365.org"
+// Reply-to for "just reply to this email" - Jerrod's call 2026-08-31.
+const FEEDBACK_REPLY_TO = "info@tee365.org"
+
+const GOOGLE_REVIEW_URL = "https://g.page/r/Cfqp3OPwaMWgEBM/review"
 
 export async function GET(request: NextRequest) {
   const secret = request.headers.get("x-cron-secret")
@@ -49,7 +47,6 @@ export async function GET(request: NextRequest) {
   }
 
   const results: { id: string; sent: boolean; error?: string }[] = []
-  const googleReviewUrl = process.env.GOOGLE_REVIEW_URL
 
   for (const booking of sessions ?? []) {
     const bay = booking.bays as { name: string } | null
@@ -66,13 +63,13 @@ export async function GET(request: NextRequest) {
         to: authUser.email,
         firstName: profile?.first_name ?? "there",
         subject: "How was your round at Tee365?",
-        heading: `Thanks for playing${bay ? `, ${bay.name}` : ""}!`,
+        heading: "Thanks for playing!",
         paragraphs: [
-          "Hope you had a great session. We're a brand new spot and still fine-tuning everything, so if anything felt off, hit any snags, or you've just got thoughts on how we could make it better, hit reply and tell me directly.",
+          `Hope you had a great session${bay ? ` in ${bay.name}` : ""}. We're a brand new spot and still fine-tuning everything, so if anything felt off, hit any snags, or you've just got thoughts on how we could make it better, hit reply and tell me directly.`,
           "And if you had a good time, a Google review genuinely helps us out more than almost anything else right now.",
         ],
-        ctaText: googleReviewUrl ? "Leave us a review" : undefined,
-        ctaUrl: googleReviewUrl,
+        ctaText: "Leave us a review",
+        ctaUrl: GOOGLE_REVIEW_URL,
         replyTo: FEEDBACK_REPLY_TO,
       })
       await serviceClient
