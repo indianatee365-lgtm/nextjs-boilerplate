@@ -202,6 +202,24 @@ export default function BookingsManager({
 
   const displayDate = new Date(`${selectedDate}T12:00:00`)
 
+  // Current-time indicator: only meaningful on the day actually showing
+  // "now" - a past or future date has no real "now" row to draw. Positioned
+  // as a fractional offset within its half-hour slot's own row rather than
+  // computed against real pixel heights, since row heights vary with
+  // content (minmax(20px, auto)) - close enough for an at-a-glance line,
+  // not meant to be pixel-exact.
+  const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/Indiana/Indianapolis" })
+  const isToday = selectedDate === todayET
+  const nowET = new Date().toLocaleString("en-US", {
+    hour: "numeric", minute: "2-digit", second: "2-digit", hour12: false,
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  const [nowH, nowM, nowS] = nowET.split(":").map((s) => parseInt(s, 10))
+  const nowTotalMinutes = (nowH % 24) * 60 + nowM + nowS / 60
+  const nowSlot = Math.floor(nowTotalMinutes / 30)
+  const nowFraction = (nowTotalMinutes % 30) / 30
+  const nowMs = new Date().getTime()
+
   const statusCounts = useMemo(() => ({
     active: bookings.filter((b) => b.status === "confirmed").length,
     pending: bookings.filter((b) => b.status === "pending").length,
@@ -375,6 +393,24 @@ export default function BookingsManager({
             })
           )}
 
+          {/* Current-time line - only on today's grid, see isToday/nowSlot
+              above. pointer-events-none so it never intercepts drag/drop or
+              clicks meant for the cells and cards underneath it. */}
+          {isToday && nowSlot >= 0 && nowSlot < SLOTS.length && (
+            <div
+              style={{ gridColumn: "1 / -1", gridRow: slotRow(nowSlot) }}
+              className="pointer-events-none relative z-10"
+            >
+              <div
+                className="absolute left-0 right-0 flex items-center"
+                style={{ top: `${nowFraction * 100}%` }}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                <span className="h-px flex-1 bg-red-500/70" />
+              </div>
+            </div>
+          )}
+
           {/* Booking cards - spans start-slot to end-slot so the card visually
               blocks out the whole session at its real :00/:30 position, not
               just the hour it started in. */}
@@ -383,6 +419,7 @@ export default function BookingsManager({
               .filter((booking) => booking.bays?.id === bay.id)
               .map((booking) => {
                 const { start, end } = bookingSlotSpan(booking.starts_at, booking.ends_at)
+                const isPast = booking.status !== "cancelled" && new Date(booking.ends_at).getTime() < nowMs
                 return (
                   <div
                     key={booking.id}
@@ -392,7 +429,9 @@ export default function BookingsManager({
                     onDragEnd={handleDragEnd}
                     onClick={() => { if (!justDragged) setDetailBooking(booking) }}
                     className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
-                      booking.status === "confirmed"
+                      isPast
+                        ? "border-white/10 bg-white/[0.03] text-neutral-500"
+                        : booking.status === "confirmed"
                         ? "border-brand/50 bg-brand/20 text-brand"
                         : booking.status === "cancelled"
                         ? "border-red-500/50 bg-red-500/20 text-red-400 line-through"
