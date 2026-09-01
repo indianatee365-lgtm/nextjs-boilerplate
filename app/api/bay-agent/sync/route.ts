@@ -158,16 +158,34 @@ export async function POST(request: NextRequest) {
     if (status.addPlayerName && status.addPlayerBookingId) {
       const { data: targetBooking } = await serviceClient
         .from("bookings")
-        .select("roster_names, roster_links")
+        .select("user_id, roster_names, roster_links, roster_confirmed_at, current_hitter, profiles!user_id(first_name)")
         .eq("id", status.addPlayerBookingId)
         .eq("status", "confirmed")
         .single()
 
       if (targetBooking) {
-        const existingNames = (targetBooking.roster_names as string[] | null) ?? []
+        let existingNames = (targetBooking.roster_names as string[] | null) ?? []
+        const rosterLinks = { ...((targetBooking.roster_links as Record<string, string> | null) ?? {}) }
         const cleanName = status.addPlayerName.trim()
+
+        // Nobody's ever confirmed a roster for this booking (kiosk showing
+        // the booker's name as a default placeholder, see companion.py's
+        // 2026-09-01 update - the booker never went through confirmRoster to
+        // land in roster_names/roster_links themselves). Seed them in first
+        // so adding a second name here doesn't silently replace them the way
+        // it would have before roster_links covered player 0 at all.
+        let currentHitter = targetBooking.current_hitter as string | null
+        if (existingNames.length === 0) {
+          const profile = targetBooking.profiles as { first_name: string } | null
+          const bookerName = profile?.first_name
+          if (bookerName) {
+            existingNames = [bookerName]
+            rosterLinks[bookerName] = targetBooking.user_id as string
+            currentHitter = currentHitter ?? bookerName
+          }
+        }
+
         if (cleanName && !existingNames.includes(cleanName) && existingNames.length < 6) {
-          const rosterLinks = { ...((targetBooking.roster_links as Record<string, string> | null) ?? {}) }
           const cleanEmail = (status.addPlayerEmail ?? "").trim().toLowerCase()
           if (cleanEmail) {
             const { data: usersPage } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
@@ -179,6 +197,8 @@ export async function POST(request: NextRequest) {
             .update({
               roster_names: [...existingNames, cleanName],
               roster_links: Object.keys(rosterLinks).length > 0 ? rosterLinks : null,
+              roster_confirmed_at: targetBooking.roster_confirmed_at ?? new Date().toISOString(),
+              current_hitter: currentHitter,
             })
             .eq("id", status.addPlayerBookingId)
         }
