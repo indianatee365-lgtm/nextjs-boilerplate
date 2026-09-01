@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import WhoIsUpFlow from "./WhoIsUpFlow"
 import WhoIsHittingFlow from "./WhoIsHittingFlow"
+import AllSetPanel from "./AllSetPanel"
 
 export const metadata = { title: "Who's Playing? | Tee365" }
 
@@ -65,10 +66,7 @@ export default async function WhoIsUpPage({
           initialHitter={booking.current_hitter}
         />
       ) : (
-        <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">
-          <p className="font-semibold text-green-400">You&apos;re all set</p>
-          <p className="mt-1 text-sm text-neutral-300">Go hit it.</p>
-        </div>
+        <AllSetPanel bookingId={booking.id} token={token} />
       )}
     </main>
   )

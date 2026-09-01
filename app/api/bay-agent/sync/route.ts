@@ -50,6 +50,8 @@ interface SyncRequestBody {
     kioskKill?: { process: string; at: string }
     selectedHitter?: string
     selectedHitterBookingId?: string
+    addPlayerName?: string
+    addPlayerBookingId?: string
   }
 }
 
@@ -138,6 +140,36 @@ export async function POST(request: NextRequest) {
         .update({ current_hitter: status.selectedHitter })
         .eq("id", status.selectedHitterBookingId)
         .eq("status", "confirmed")
+    }
+
+    // Kiosk-side "type a name" add (companion.py's on-screen Entry field,
+    // see _add_player). Writes straight to roster_names through this same
+    // trusted bay-agent channel instead of routing through the phone's
+    // /who-is-up page, because that page turned out to be a dead end here:
+    // once roster_confirmed_at is set it never renders the add form again,
+    // solo or otherwise (fixed separately for the phone side by actions.ts's
+    // new addPlayer export, but the kiosk doesn't depend on that fix at all).
+    // No email/account-link possible from a shared kiosk keyboard, so a
+    // kiosk-typed name always falls back to the booker's own account for
+    // shot attribution, same as an unlinked phone-typed name.
+    if (status.addPlayerName && status.addPlayerBookingId) {
+      const { data: targetBooking } = await serviceClient
+        .from("bookings")
+        .select("roster_names")
+        .eq("id", status.addPlayerBookingId)
+        .eq("status", "confirmed")
+        .single()
+
+      if (targetBooking) {
+        const existingNames = (targetBooking.roster_names as string[] | null) ?? []
+        const cleanName = status.addPlayerName.trim()
+        if (cleanName && !existingNames.includes(cleanName) && existingNames.length < 6) {
+          await serviceClient
+            .from("bookings")
+            .update({ roster_names: [...existingNames, cleanName] })
+            .eq("id", status.addPlayerBookingId)
+        }
+      }
     }
   }
 

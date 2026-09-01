@@ -108,6 +108,76 @@ export async function confirmRoster({
   return { ok: true, notFoundEmails }
 }
 
+// Appends one player to an already-confirmed roster - the mid-round
+// counterpart to confirmRoster, which only ever runs once. Added
+// 2026-09-01: confirmRoster's one-time write meant this page had no path
+// back to adding anyone once roster_confirmed_at was set, solo booking or
+// not - the kiosk's "scan to add another player" QR was pointing at a page
+// with nowhere for that scan to go. Same optional email-link behavior as
+// confirmRoster, for the same reason (attribute a mid-round add's own shots
+// to their own account, not the booker's).
+export async function addPlayer({
+  bookingId,
+  token,
+  name,
+  email,
+}: {
+  bookingId: string
+  token?: string
+  name: string
+  email?: string
+}): Promise<{ ok: true; notFoundEmail: boolean }> {
+  const serviceClient = await createServiceClient()
+  await authorizeBooking(serviceClient, bookingId, token)
+
+  const cleanName = name.trim()
+  if (!cleanName) throw new Error("Name is required")
+  const cleanEmail = (email ?? "").trim().toLowerCase()
+
+  const { data: current } = await serviceClient
+    .from("bookings")
+    .select("roster_names, roster_links, current_hitter")
+    .eq("id", bookingId)
+    .single()
+
+  const existingNames = (current?.roster_names as string[] | null) ?? []
+  if (existingNames.includes(cleanName)) throw new Error("That name is already in the group")
+  if (existingNames.length >= 6) throw new Error("Group is full")
+
+  let notFoundEmail = false
+  const rosterLinks = { ...((current?.roster_links as Record<string, string> | null) ?? {}) }
+  if (cleanEmail) {
+    const { data: usersPage, error: listError } =
+      await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    if (listError) throw new Error("Failed to look up accounts")
+    const match = usersPage.users.find((u: { email?: string }) => u.email?.toLowerCase() === cleanEmail)
+    if (match) {
+      rosterLinks[cleanName] = match.id
+    } else {
+      notFoundEmail = true
+    }
+  }
+
+  const { error } = await serviceClient
+    .from("bookings")
+    .update({
+      roster_names: [...existingNames, cleanName],
+      roster_links: Object.keys(rosterLinks).length > 0 ? rosterLinks : null,
+      current_hitter: current?.current_hitter ?? cleanName,
+    })
+    .eq("id", bookingId)
+
+  if (error) throw new Error("Failed to save")
+
+  await logEvent(
+    serviceClient,
+    "booking-roster-player-added",
+    `booking=${bookingId} name=${cleanName} linked=${cleanName in rosterLinks}`,
+  )
+
+  return { ok: true, notFoundEmail }
+}
+
 // Switches whose turn it is - callable repeatedly for the rest of the
 // session, unlike confirmRoster which only ever runs once. No shot-capture
 // pipeline reads this yet (that's separate, unbuilt work), but the group

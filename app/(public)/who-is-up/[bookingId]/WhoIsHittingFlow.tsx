@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { setCurrentHitter } from "./actions"
+import AddPlayerForm from "./AddPlayerForm"
 
 export default function WhoIsHittingFlow({
   bookingId,
@@ -16,6 +17,7 @@ export default function WhoIsHittingFlow({
 }) {
   const [current, setCurrent] = useState(initialHitter)
   const [isPending, startTransition] = useTransition()
+  const [adding, setAdding] = useState(false)
 
   function pick(name: string) {
     setCurrent(name)
@@ -44,6 +46,13 @@ export default function WhoIsHittingFlow({
           </button>
         ))}
       </div>
+      {adding ? (
+        <AddPlayerForm bookingId={bookingId} token={token} onCancel={() => setAdding(false)} />
+      ) : (
+        <button type="button" onClick={() => setAdding(true)} className="text-sm text-neutral-400 hover:text-white">
+          + Add someone
+        </button>
+      )}
     </div>
   )
 }
