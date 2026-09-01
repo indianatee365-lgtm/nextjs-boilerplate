@@ -3,6 +3,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
+import { pickBestBay } from "@/lib/bookings/bay-selection"
 import {
   isFoundersDaySession,
   hasFoundersDayCredit,
@@ -265,7 +266,9 @@ async function handleTransferToHuman(
 // Shared by handleCheckAvailability and handleCreatePhoneBooking - we never
 // tell callers which bays exist or let them pick one (Jerrod: "we don't do
 // that"), so both just need "is anything open" / "give me one open bay",
-// never a list of names.
+// never a list of names. Which bay it actually picks is pickBestBay()'s job
+// (see lib/bookings/bay-selection.ts) - space it away from whoever's
+// already booked nearby, don't always hand out bay 1.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promise<
   { openBay: { id: string; number: number; name: string } | null; facilityClosed: boolean; noBaysConfigured: boolean }
@@ -296,7 +299,31 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
     ...(conflicts ?? []).map((c: { bay_id: string }) => c.bay_id),
     ...(blocked ?? []).map((b: { bay_id: string }) => b.bay_id),
   ])
-  const openBay = bays.find((b: { id: string }) => !busyBayIds.has(b.id)) ?? null
+  const candidates: { id: string; number: number; name: string }[] =
+    bays.filter((b: { id: string }) => !busyBayIds.has(b.id))
+  const busyBayNumbers = bays
+    .filter((b: { id: string }) => busyBayIds.has(b.id))
+    .map((b: { number: number }) => b.number)
+
+  // Today's load per bay, for the "nothing's busy yet" tiebreak - same
+  // Eastern-day window pattern already used elsewhere (see
+  // easternDayBoundsUtc in admin/bookings/page.tsx), computed with a plain
+  // offset here since this is a short-lived voice call, not worth pulling
+  // in that helper for one query.
+  const dayStart = new Date(startDate); dayStart.setUTCHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+  const { data: todaysBookings } = await supabase
+    .from("bookings")
+    .select("bay_id")
+    .in("status", ["pending", "confirmed"])
+    .gte("starts_at", dayStart.toISOString())
+    .lt("starts_at", dayEnd.toISOString())
+  const loadByBayId = new Map<string, number>()
+  for (const b of (todaysBookings ?? []) as { bay_id: string }[]) {
+    loadByBayId.set(b.bay_id, (loadByBayId.get(b.bay_id) ?? 0) + 1)
+  }
+
+  const openBay = pickBestBay(candidates, busyBayNumbers, loadByBayId)
   return { openBay, facilityClosed: false, noBaysConfigured: false }
 }
 

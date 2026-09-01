@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import { pickBestBay } from "@/lib/bookings/bay-selection"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer } from "lucide-react"
@@ -177,24 +178,45 @@ export default function BookingFlow({
         const res = await fetch(`/api/availability?date=${d.toISOString()}`)
         const data: BayAvailability[] = await res.json()
         if (!Array.isArray(data)) continue
-        let best: NextAvailable | null = null
+
+        // Find the single earliest moment ANY bay opens up today, then let
+        // pickBestBay() choose among every bay that shares that exact
+        // earliest slot - same spacing/fairness logic as findBayForSlot,
+        // just applied to "whichever bay opens soonest" instead of a bay
+        // the customer already committed to a specific time for.
+        let bestTime: string | null = null
+        let bestSlot: SlotData | null = null
+        let tiedCandidates: Bay[] = []
+        const busyBayNumbers: number[] = []
+        const loadByBayId = new Map<string, number>()
+
         for (const bayAvail of data) {
+          loadByBayId.set(bayAvail.bay.id, bayAvail.slots.filter((s) => !s.available).length)
+          let firstOpenSlot: SlotData | null = null
           for (let i = 0; i < bayAvail.slots.length - 1; i++) {
             const slot = bayAvail.slots[i]
             const next = bayAvail.slots[i + 1]
-            if (slot.available && next.available) {
-              if (!best || new Date(slot.startsAt) < new Date(best.slot.startsAt)) {
-                const slotDate = new Date(d)
-                slotDate.setHours(0, 0, 0, 0)
-                best = { date: slotDate, slot, bay: bayAvail.bay }
-              }
-              break
-            }
+            if (slot.available && next.available) { firstOpenSlot = slot; break }
+          }
+          if (!firstOpenSlot) { busyBayNumbers.push(bayAvail.bay.number); continue }
+
+          if (!bestTime || new Date(firstOpenSlot.startsAt) < new Date(bestTime)) {
+            bestTime = firstOpenSlot.startsAt
+            bestSlot = firstOpenSlot
+            tiedCandidates = [bayAvail.bay]
+          } else if (firstOpenSlot.startsAt === bestTime) {
+            tiedCandidates.push(bayAvail.bay)
           }
         }
-        if (best) {
-          setNextAvailable(best)
-          return
+
+        if (bestSlot) {
+          const bay = pickBestBay(tiedCandidates, busyBayNumbers, loadByBayId)
+          if (bay) {
+            const slotDate = new Date(d)
+            slotDate.setHours(0, 0, 0, 0)
+            setNextAvailable({ date: slotDate, slot: bestSlot, bay })
+            return
+          }
         }
       }
       setNextAvailable(null)
@@ -317,18 +339,32 @@ export default function BookingFlow({
     return false
   }
 
+  // Which bay a customer actually gets is pickBestBay()'s call (see
+  // lib/bookings/bay-selection.ts) - prefers spacing away from whoever's
+  // already booked around this same time, falls back to whichever bay has
+  // the lighter load today so a quiet day doesn't always hand out the same
+  // low-numbered bay. Never blocks a booking over spacing - if only one
+  // bay fits, that's what gets returned regardless of distance.
   function findBayForSlot(slotStartsAt: string, durationMins: number): Bay | null {
     const needed = durationMins / 30
+    const candidates: Bay[] = []
+    const busyBayNumbers: number[] = []
+    const loadByBayId = new Map<string, number>()
+
     for (const bayAvail of availability) {
       const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
-      if (startIdx === -1) continue
+      loadByBayId.set(bayAvail.bay.id, bayAvail.slots.filter((s) => !s.available).length)
+      if (startIdx === -1) { busyBayNumbers.push(bayAvail.bay.number); continue }
+
       let fits = true
       for (let i = 0; i < needed; i++) {
         if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
       }
-      if (fits) return bayAvail.bay
+      if (fits) candidates.push(bayAvail.bay)
+      else busyBayNumbers.push(bayAvail.bay.number)
     }
-    return null
+
+    return pickBestBay(candidates, busyBayNumbers, loadByBayId)
   }
 
   function selectDate(date: Date) {
