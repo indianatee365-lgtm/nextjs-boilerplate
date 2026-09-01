@@ -59,7 +59,7 @@ export async function confirmRoster({
   players: { name: string; email?: string }[]
 }): Promise<{ ok: true; notFoundEmails: string[] }> {
   const serviceClient = await createServiceClient()
-  await authorizeBooking(serviceClient, bookingId, token)
+  const booking = await authorizeBooking(serviceClient, bookingId, token)
 
   const cleanPlayers = players
     .map((p) => ({ name: p.name.trim(), email: (p.email ?? "").trim().toLowerCase() }))
@@ -86,6 +86,19 @@ export async function confirmRoster({
   }
 
   const cleanNames = cleanPlayers.map((p) => p.name)
+
+  // Player 0 is always the booker (WhoIsUpFlow prefills that slot with their
+  // own name and "Just me" submits exactly this one entry) but never went
+  // through the email-match loop above, so without this line their own name
+  // was never in roster_links at all - harmless while shot attribution just
+  // fell back to booking.user_id for anyone unlinked, but load-bearing now
+  // that an unlinked name means "drop the shot" (see shot/route.ts's
+  // 2026-09-01 update): without this, the single most common case of all -
+  // solo play through the roster flow - would have silently dropped the
+  // booker's own shots.
+  if (cleanNames.length > 0) {
+    rosterLinks[cleanNames[0]] = booking.user_id
+  }
 
   const { error } = await serviceClient
     .from("bookings")

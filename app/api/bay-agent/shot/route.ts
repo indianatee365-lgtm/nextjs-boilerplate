@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, user_id, bay_id, status, roster_links")
+    .select("id, user_id, bay_id, status, roster_links, roster_names")
     .eq("id", bookingId)
     .single()
 
@@ -71,12 +71,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Booking does not belong to this bay" }, { status: 400 })
   }
 
-  // Attribute to the linked account for the hitter name if one was set up
-  // during roster confirmation (see who-is-up/actions.ts's confirmRoster),
-  // otherwise fall back to the booking owner - covers both an unlinked
-  // guest name and the common case of nobody ever touching who's-up at all.
+  // Jerrod's call 2026-09-01: a named hitter with no linked Tee365 account
+  // must never have their shots folded into the booker's own "My Shots" -
+  // drop the shot entirely rather than misattribute it. Three cases:
+  //   - no hitterName at all -> nobody ever touched who's-up, solo by
+  //     default, always the booker.
+  //   - hitterName has a roster_links entry -> explicitly linked, whether
+  //     that's a guest whose email matched an account or the booker's own
+  //     slot (confirmRoster links player 0 to booking.user_id as of this
+  //     same date, see actions.ts).
+  //   - hitterName matches roster_names[0] but isn't in roster_links -> a
+  //     booking confirmed before that confirmRoster change went out; still
+  //     the booker, not a guest, so still attributed rather than dropped.
+  //   - anything else -> a named guest with no account link. Dropped.
   const rosterLinks = (booking.roster_links as Record<string, string> | null) ?? {}
-  const attributedUserId = (body.hitterName && rosterLinks[body.hitterName]) || booking.user_id
+  const rosterNames = (booking.roster_names as string[] | null) ?? []
+  const hitterName = body.hitterName ?? null
+
+  let attributedUserId: string | null
+  if (!hitterName) {
+    attributedUserId = booking.user_id
+  } else if (rosterLinks[hitterName]) {
+    attributedUserId = rosterLinks[hitterName]
+  } else if (hitterName === rosterNames[0]) {
+    attributedUserId = booking.user_id
+  } else {
+    attributedUserId = null
+  }
+
+  if (!attributedUserId) {
+    return NextResponse.json({ ok: true, dropped: true })
+  }
 
   const { data: inserted, error } = await serviceClient
     .from("shots")
