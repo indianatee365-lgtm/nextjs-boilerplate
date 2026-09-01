@@ -51,6 +51,7 @@ interface SyncRequestBody {
     selectedHitter?: string
     selectedHitterBookingId?: string
     addPlayerName?: string
+    addPlayerEmail?: string
     addPlayerBookingId?: string
   }
 }
@@ -149,13 +150,15 @@ export async function POST(request: NextRequest) {
     // once roster_confirmed_at is set it never renders the add form again,
     // solo or otherwise (fixed separately for the phone side by actions.ts's
     // new addPlayer export, but the kiosk doesn't depend on that fix at all).
-    // No email/account-link possible from a shared kiosk keyboard, so a
-    // kiosk-typed name always falls back to the booker's own account for
-    // shot attribution, same as an unlinked phone-typed name.
+    // Optional email field added 2026-09-01 (Jerrod's ask, live) - same
+    // admin.listUsers()-and-match lookup as confirmRoster/addPlayer, so a
+    // kiosk-typed name can get properly linked instead of always falling
+    // back to the booker's account (or being dropped outright per
+    // shot/route.ts's unlinked-guest rule) for shot attribution.
     if (status.addPlayerName && status.addPlayerBookingId) {
       const { data: targetBooking } = await serviceClient
         .from("bookings")
-        .select("roster_names")
+        .select("roster_names, roster_links")
         .eq("id", status.addPlayerBookingId)
         .eq("status", "confirmed")
         .single()
@@ -164,9 +167,19 @@ export async function POST(request: NextRequest) {
         const existingNames = (targetBooking.roster_names as string[] | null) ?? []
         const cleanName = status.addPlayerName.trim()
         if (cleanName && !existingNames.includes(cleanName) && existingNames.length < 6) {
+          const rosterLinks = { ...((targetBooking.roster_links as Record<string, string> | null) ?? {}) }
+          const cleanEmail = (status.addPlayerEmail ?? "").trim().toLowerCase()
+          if (cleanEmail) {
+            const { data: usersPage } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+            const match = usersPage?.users.find((u: { email?: string }) => u.email?.toLowerCase() === cleanEmail)
+            if (match) rosterLinks[cleanName] = match.id
+          }
           await serviceClient
             .from("bookings")
-            .update({ roster_names: [...existingNames, cleanName] })
+            .update({
+              roster_names: [...existingNames, cleanName],
+              roster_links: Object.keys(rosterLinks).length > 0 ? rosterLinks : null,
+            })
             .eq("id", status.addPlayerBookingId)
         }
       }
