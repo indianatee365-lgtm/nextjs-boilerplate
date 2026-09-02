@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { logEvent } from "@/lib/observability/notify"
+import { logEvent, logFailure, getAdminSetting } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
@@ -47,6 +47,9 @@ interface SyncRequestBody {
     simRunning?: boolean
     runningProcesses?: string[]
     lastCrashRestartAt?: string
+    lastManualRestartAt?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lastManualRestartDiagnostics?: Record<string, any>
     kioskKill?: { process: string; at: string }
     selectedHitter?: string
     selectedHitterBookingId?: string
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at")
+    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -104,6 +107,7 @@ export async function POST(request: NextRequest) {
       sim_running: status.simRunning ?? null,
       running_processes: status.runningProcesses ?? null,
       last_crash_restart_at: status.lastCrashRestartAt ?? null,
+      last_manual_restart_at: status.lastManualRestartAt ?? null,
       kiosk_kills: kioskKills,
       updated_at: new Date().toISOString(),
     })
@@ -126,6 +130,35 @@ export async function POST(request: NextRequest) {
     const knownCrashMs = existingStatus?.last_crash_restart_at ? new Date(existingStatus.last_crash_restart_at).getTime() : null
     if (incomingCrashMs !== null && incomingCrashMs !== knownCrashMs) {
       await logEvent(serviceClient, "bay-agent-crash-restart", `bay=${bay.name} at=${status.lastCrashRestartAt}`)
+    }
+
+    // Customer-clicked "Simulator issue? Click to restart" - Jerrod's ask
+    // 2026-09-02: know when a real customer hits this and have enough state
+    // to guess why, without adding an extra "what's wrong?" step for them.
+    // Same dedup shape as crash-restart just above (last_manual_restart_at
+    // stays set on every heartbeat until the next click, not a one-shot
+    // flag - only log/alert when it's actually a new timestamp).
+    const incomingManualRestartMs = status.lastManualRestartAt ? new Date(status.lastManualRestartAt).getTime() : null
+    const knownManualRestartMs = existingStatus?.last_manual_restart_at
+      ? new Date(existingStatus.last_manual_restart_at).getTime()
+      : null
+    if (incomingManualRestartMs !== null && incomingManualRestartMs !== knownManualRestartMs) {
+      const diagnostics = status.lastManualRestartDiagnostics ?? {}
+      const detail =
+        `bay=${bay.name} at=${status.lastManualRestartAt} ` +
+        `simRunning=${diagnostics.simRunning} chainConfirmedUp=${diagnostics.chainConfirmedUp} ` +
+        `gsproStartClicked=${diagnostics.gsproStartClicked} currentHitter=${diagnostics.currentHitter ?? "none"} ` +
+        `runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
+      const notifyEnabled = await getAdminSetting(serviceClient, "notify_restart_clicks")
+      await logFailure(
+        serviceClient,
+        "bay-agent-manual-restart-clicked",
+        detail,
+        notifyEnabled
+          ? `${bay.name}: customer clicked "Simulator issue? Click to restart". ` +
+            `Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time. Check admin/logs for details.`
+          : undefined,
+      )
     }
 
     // Kiosk-side hitter selection (companion.py's on-screen selector, see

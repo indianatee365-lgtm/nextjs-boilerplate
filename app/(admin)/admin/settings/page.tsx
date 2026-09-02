@@ -29,6 +29,12 @@ export default async function AdminSettingsPage() {
           description="Sends your phone a text for every new confirmed booking (web, phone, and paid checkout). Turn off if it's a busy day and it's too much."
           initialValue={settingsMap.notify_new_bookings ?? true}
         />
+        <SettingsToggle
+          settingKey="notify_restart_clicks"
+          label="Text me when a customer clicks restart"
+          description={'Sends your phone a text whenever a customer taps the on-screen "Simulator issue? Click to restart" button, with what was actually running at that moment logged for you to review.'}
+          initialValue={settingsMap.notify_restart_clicks ?? true}
+        />
       </div>
     </main>
   )
