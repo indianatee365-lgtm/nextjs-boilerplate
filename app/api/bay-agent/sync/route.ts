@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { logEvent, logFailure, getAdminSetting } from "@/lib/observability/notify"
+import { logFailure, getAdminSetting } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
@@ -47,6 +47,8 @@ interface SyncRequestBody {
     simRunning?: boolean
     runningProcesses?: string[]
     lastCrashRestartAt?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lastCrashRestartDiagnostics?: Record<string, any>
     lastManualRestartAt?: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lastManualRestartDiagnostics?: Record<string, any>
@@ -142,7 +144,30 @@ export async function POST(request: NextRequest) {
     const incomingCrashMs = status.lastCrashRestartAt ? new Date(status.lastCrashRestartAt).getTime() : null
     const knownCrashMs = existingStatus?.last_crash_restart_at ? new Date(existingStatus.last_crash_restart_at).getTime() : null
     if (incomingCrashMs !== null && incomingCrashMs !== knownCrashMs) {
-      await logEvent(serviceClient, "bay-agent-crash-restart", `bay=${bay.name} at=${status.lastCrashRestartAt}`)
+      // Diagnostics added 2026-09-03 after investigating a real Bay 1 crash
+      // with nothing to go on but a bare timestamp - see companion.py's
+      // last_crash_restart_diagnostics. missingProcesses is the one that
+      // actually answers "what crashed". Also: this event used to also get
+      // stamped by every customer-initiated manual restart (see
+      // companion.py's 2026-09-03 fix) - a real crash-restart here now only
+      // ever means the automatic mid-rental detection actually fired.
+      const diagnostics = status.lastCrashRestartDiagnostics ?? {}
+      const detail =
+        `bay=${bay.name} at=${status.lastCrashRestartAt} ` +
+        `missingProcesses=${JSON.stringify(diagnostics.missingProcesses ?? [])} ` +
+        `armClicked=${diagnostics.armClicked} gsproStartClicked=${diagnostics.gsproStartClicked} ` +
+        `currentHitter=${diagnostics.currentHitter ?? "none"} ` +
+        `runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
+      const crashNotifyEnabled = await getAdminSetting(serviceClient, "notify_crash_restarts")
+      await logFailure(
+        serviceClient,
+        "bay-agent-crash-restart",
+        detail,
+        crashNotifyEnabled
+          ? `${bay.name}: simulator crashed mid-rental and auto-recovered. Missing: ` +
+            `${(diagnostics.missingProcesses ?? []).join(", ") || "unknown"}. Check admin/logs for details.`
+          : undefined,
+      )
     }
 
     // Customer-clicked "Simulator issue? Click to restart" - Jerrod's ask

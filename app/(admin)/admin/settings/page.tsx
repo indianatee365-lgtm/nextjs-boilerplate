@@ -35,6 +35,12 @@ export default async function AdminSettingsPage() {
           description={'Sends your phone a text whenever a customer taps the on-screen "Simulator issue? Click to restart" button, with what was actually running at that moment logged for you to review.'}
           initialValue={settingsMap.notify_restart_clicks ?? true}
         />
+        <SettingsToggle
+          settingKey="notify_crash_restarts"
+          label="Text me when the simulator auto-recovers from a crash"
+          description="Sends your phone a text whenever a bay automatically detects and recovers from a mid-rental crash, with which process actually dropped out logged for you to review."
+          initialValue={settingsMap.notify_crash_restarts ?? true}
+        />
       </div>
     </main>
   )
