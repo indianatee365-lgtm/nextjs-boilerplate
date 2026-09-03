@@ -94,7 +94,29 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
 
   if (!booking) throw new Error("No active booking on this bay right now")
 
-  const newEndsAt = new Date(new Date(booking.ends_at).getTime() + minutes * 60000)
+  const currentEnd = new Date(booking.ends_at)
+  const newEndsAt = new Date(currentEnd.getTime() + minutes * 60000)
+
+  // This button had no conflict check at all until 2026-09-03 - unlike the
+  // customer-paid extend flow (app/api/bookings/extend/route.ts), which
+  // already checks both of these before allowing an extension. Jerrod's
+  // ask after realizing this free/admin version could silently run a
+  // customer's session straight into whoever's booked next on the same
+  // bay, with no warning to either side.
+  const [{ data: conflicts }, { data: blocked }] = await Promise.all([
+    serviceClient.from("bookings").select("id")
+      .eq("bay_id", bayId).in("status", ["pending", "confirmed"])
+      .neq("id", booking.id)
+      .lt("starts_at", newEndsAt.toISOString()).gt("ends_at", currentEnd.toISOString()),
+    serviceClient.from("blocked_times").select("id")
+      .or(`bay_id.eq.${bayId},bay_id.is.null`)
+      .lt("starts_at", newEndsAt.toISOString()).gt("ends_at", currentEnd.toISOString()),
+  ])
+
+  if (conflicts?.length || blocked?.length) {
+    throw new Error("Can't extend - the next booking or a blocked time on this bay doesn't leave room")
+  }
+
   const { error } = await serviceClient
     .from("bookings")
     .update({ ends_at: newEndsAt.toISOString() })
