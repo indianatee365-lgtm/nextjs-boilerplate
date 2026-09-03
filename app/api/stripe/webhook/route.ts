@@ -630,9 +630,16 @@ export async function POST(request: NextRequest) {
   // Subscription status changes (renewals, cancellations, recoveries)
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
+    // "trialing" covers both the standard 30-day deferred-billing window every
+    // new membership gets (see payment_intent.succeeded handler above) and a
+    // redeemed giveaway code's longer free period - either way the member is
+    // fully active, not cancelled. Missing this case used to mis-map any
+    // in-trial update event straight to "cancelled" (found 2026-09-03).
     const newStatus = sub.status === "active" ? "active"
+      : sub.status === "trialing" ? "active"
       : sub.status === "canceled" ? "cancelled"
       : sub.status === "past_due" ? "past_due"
+      : sub.status === "unpaid" ? "past_due"
       : "cancelled"
 
     const periodEnd = sub.current_period_end

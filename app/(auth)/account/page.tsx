@@ -6,6 +6,7 @@ import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
 import HourCreditsSection from "./HourCreditsSection"
+import MembershipGiveawaySection from "./MembershipGiveawaySection"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 
@@ -216,6 +217,9 @@ export default async function AccountPage({
           </Link>
         </div>
       )}
+
+      {/* Free-membership giveaway code redemption - only relevant if they don't already have one */}
+      {membershipStatus !== "active" && <MembershipGiveawaySection />}
 
       {/* Free hours balance + code redemption */}
       <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} />

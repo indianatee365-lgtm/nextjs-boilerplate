@@ -965,6 +965,87 @@ export type Database = {
           },
         ]
       }
+      membership_giveaway_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          free_period: string
+          id: string
+          membership_id: string | null
+          note: string | null
+          plan_id: string
+          redeemed_at: string | null
+          redeemed_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          free_period: string
+          id?: string
+          membership_id?: string | null
+          note?: string | null
+          plan_id: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          free_period?: string
+          id?: string
+          membership_id?: string | null
+          note?: string | null
+          plan_id?: string
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_giveaway_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_giveaway_codes_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "member_effective_pricing"
+            referencedColumns: ["membership_id"]
+          },
+          {
+            foreignKeyName: "membership_giveaway_codes_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_giveaway_codes_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_giveaway_codes_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membership_plans: {
         Row: {
           active: boolean
