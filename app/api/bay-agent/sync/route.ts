@@ -106,8 +106,21 @@ export async function POST(request: NextRequest) {
       session_state: status.sessionState ?? null,
       sim_running: status.simRunning ?? null,
       running_processes: status.runningProcesses ?? null,
-      last_crash_restart_at: status.lastCrashRestartAt ?? null,
-      last_manual_restart_at: status.lastManualRestartAt ?? null,
+      // Never write null over an already-stored value here - confirmed live
+      // 2026-09-03: a transient blip (most likely service.py reading
+      // companion_status.json at the exact instant companion.py was
+      // rewriting it) sent one sync call with both of these fields null,
+      // which the old unconditional `?? null` happily wrote straight over
+      // the correct, already-recorded timestamps. The very next tick sent
+      // the real (unchanged) timestamps again, which the dedup check below
+      // then saw as "new" relative to the just-nulled row and re-fired BOTH
+      // a duplicate crash-restart log AND a false "customer clicked
+      // restart" SMS for events that had already happened hours earlier.
+      // These two columns only ever move forward now: an incoming null
+      // can't erase a real stored value, only a genuinely new non-null
+      // timestamp can replace it.
+      last_crash_restart_at: status.lastCrashRestartAt ?? existingStatus?.last_crash_restart_at ?? null,
+      last_manual_restart_at: status.lastManualRestartAt ?? existingStatus?.last_manual_restart_at ?? null,
       kiosk_kills: kioskKills,
       updated_at: new Date().toISOString(),
     })
