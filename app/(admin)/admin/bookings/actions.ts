@@ -318,3 +318,17 @@ export async function blockTime({
     created_by: user.id,
   })
 }
+
+export async function removeBlockedTime(id: string) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  await serviceClient.from("blocked_times").delete().eq("id", id)
+}

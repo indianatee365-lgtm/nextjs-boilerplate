@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange } from "lucide-react"
-import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime } from "./actions"
 
 interface Booking {
   id: string
@@ -31,6 +31,14 @@ interface Booking {
 }
 
 interface Bay { id: string; number: number; name: string }
+
+interface BlockedTime {
+  id: string
+  bay_id: string | null
+  starts_at: string
+  ends_at: string
+  reason: string | null
+}
 
 // Half-hour resolution, not hourly - BookingFlow.tsx snaps every booking to
 // a :00/:30 boundary (confirmed 2026-08-29), so an hour-only grid renders a
@@ -100,11 +108,13 @@ function getAge(createdAt: string): string {
 export default function BookingsManager({
   bookings,
   bays,
+  blockedTimes = [],
   selectedDate,
   pendingMode = false,
 }: {
   bookings: Booking[]
   bays: Bay[]
+  blockedTimes?: BlockedTime[]
   selectedDate: string
   pendingMode?: boolean
 }) {
@@ -198,6 +208,14 @@ export default function BookingsManager({
     })
     setBlocking(false)
     router.refresh()
+  }
+
+  function handleRemoveBlock(blockId: string) {
+    if (!confirm("Remove this block? The time will become bookable again.")) return
+    startTransition(async () => {
+      await removeBlockedTime(blockId)
+      router.refresh()
+    })
   }
 
   const displayDate = new Date(`${selectedDate}T12:00:00`)
@@ -410,6 +428,35 @@ export default function BookingsManager({
               </div>
             </div>
           )}
+
+          {/* Blocked-time cards - a null bay_id means "all bays," rendered as
+              one card spanning every bay column rather than duplicated per
+              bay. Not draggable - these aren't bookings, just an off-limits
+              window - click to remove instead. */}
+          {blockedTimes.map((block) => {
+            const { start, end } = bookingSlotSpan(block.starts_at, block.ends_at)
+            const gridColumn = block.bay_id === null
+              ? "2 / -1"
+              : (() => {
+                  const bi = bays.findIndex((b) => b.id === block.bay_id)
+                  return bi === -1 ? undefined : bi + 2
+                })()
+            if (gridColumn === undefined) return null
+            return (
+              <div
+                key={block.id}
+                style={{ gridColumn, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
+                onClick={() => handleRemoveBlock(block.id)}
+                title="Click to remove this block"
+                className="m-1 flex cursor-pointer flex-col justify-center overflow-hidden rounded border border-neutral-500/50 bg-[repeating-linear-gradient(135deg,rgba(115,115,115,0.25),rgba(115,115,115,0.25)_6px,rgba(115,115,115,0.1)_6px,rgba(115,115,115,0.1)_12px)] px-2 py-1 text-xs text-neutral-300 hover:border-neutral-300"
+              >
+                <div className="flex items-center gap-1 font-medium">
+                  <Lock size={10} /> Blocked
+                </div>
+                {block.reason && <div className="truncate opacity-75">{block.reason}</div>}
+              </div>
+            )
+          })}
 
           {/* Booking cards - spans start-slot to end-slot so the card visually
               blocks out the whole session at its real :00/:30 position, not

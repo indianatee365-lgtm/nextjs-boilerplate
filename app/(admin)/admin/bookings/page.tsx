@@ -75,6 +75,7 @@ export default async function AdminBookingsPage({
   }
 
   let bookings
+  let blockedTimes: { id: string; bay_id: string | null; starts_at: string; ends_at: string; reason: string | null }[] = []
   if (pendingMode) {
     const { data } = await serviceClient
       .from("bookings")
@@ -105,6 +106,17 @@ export default async function AdminBookingsPage({
       .lt("starts_at", end.toISOString())
       .order("starts_at")
     bookings = data
+
+    // Overlap, not containment - a block created for e.g. 11pm-1am should
+    // still show up on both calendar days it actually covers, not just the
+    // one its starts_at happens to fall on.
+    const { data: blocks } = await serviceClient
+      .from("blocked_times")
+      .select("id, bay_id, starts_at, ends_at, reason")
+      .lt("starts_at", end.toISOString())
+      .gt("ends_at", start.toISOString())
+      .order("starts_at")
+    blockedTimes = blocks ?? []
   }
 
   const { data: bays } = await serviceClient
@@ -119,6 +131,7 @@ export default async function AdminBookingsPage({
       <BookingsManager
         bookings={bookings ?? []}
         bays={bays ?? []}
+        blockedTimes={blockedTimes}
         selectedDate={dateStr}
         pendingMode={pendingMode}
       />
