@@ -332,3 +332,30 @@ export async function removeBlockedTime(id: string) {
 
   await serviceClient.from("blocked_times").delete().eq("id", id)
 }
+
+// Used by BookingsManager's drag-to-move (bayId set) and drag-edge-to-resize
+// (bayId omitted, same bay) interactions - no conflict checking against
+// existing bookings, same as blockTime() above, since a block is staff-only
+// and never customer-facing.
+export async function updateBlockedTime(
+  id: string,
+  updates: { bayId?: string | null; startsAt: string; endsAt: string }
+) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  const updateData: { starts_at: string; ends_at: string; bay_id?: string | null } = {
+    starts_at: updates.startsAt,
+    ends_at: updates.endsAt,
+  }
+  if (updates.bayId !== undefined) updateData.bay_id = updates.bayId
+
+  await serviceClient.from("blocked_times").update(updateData).eq("id", id)
+}

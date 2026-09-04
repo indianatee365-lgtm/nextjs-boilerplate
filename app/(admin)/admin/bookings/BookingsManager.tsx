@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange } from "lucide-react"
-import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime } from "./actions"
 
 interface Booking {
   id: string
@@ -159,8 +159,12 @@ export default function BookingsManager({
     })
   }
 
-  function handleDragStart(e: React.DragEvent, bookingId: string) {
-    e.dataTransfer.setData("text/plain", bookingId)
+  // id is prefixed with its type ("booking:<id>" or "block:<id>") so a
+  // single shared drop handler on the grid's background cells can tell the
+  // two apart - both use the same native HTML5 drag-and-drop, just resolve
+  // to different server actions on drop.
+  function handleDragStart(e: React.DragEvent, id: string) {
+    e.dataTransfer.setData("text/plain", id)
     e.dataTransfer.effectAllowed = "move"
     setJustDragged(true)
   }
@@ -175,26 +179,124 @@ export default function BookingsManager({
   function handleDrop(e: React.DragEvent, bay: Bay, slot: number) {
     e.preventDefault()
     setDragOverKey(null)
-    const bookingId = e.dataTransfer.getData("text/plain")
-    if (!bookingId) return
-    if (!confirm(`Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+    const raw = e.dataTransfer.getData("text/plain")
+    if (!raw) return
+    const sep = raw.indexOf(":")
+    if (sep === -1) return
+    const type = raw.slice(0, sep)
+    const id = raw.slice(sep + 1)
 
     // Same-day-only by design - the grid only ever shows one date, so this
-    // is the only time this action can construct. Server recomputes the
+    // is the only time this action can construct. Server recomputes booking
     // duration from the booking's own duration_minutes rather than trusting
-    // a client-sent end time.
+    // a client-sent end time; block duration is preserved the same way below.
     const { hour, minute } = slotToHourMinute(slot)
     const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
 
-    startTransition(async () => {
-      try {
-        await rescheduleBooking(bookingId, bay.id, startsAt.toISOString())
-        router.refresh()
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Could not move that booking.")
-      }
-    })
+    if (type === "booking") {
+      if (!confirm(`Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+      startTransition(async () => {
+        try {
+          await rescheduleBooking(id, bay.id, startsAt.toISOString())
+          router.refresh()
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "Could not move that booking.")
+        }
+      })
+    } else if (type === "block") {
+      const block = blockedTimes.find((b) => b.id === id)
+      if (!block) return
+      const durationMs = new Date(block.ends_at).getTime() - new Date(block.starts_at).getTime()
+      const endsAt = new Date(startsAt.getTime() + durationMs)
+      if (!confirm(`Move this block to ${bay.name} at ${slotLabel(slot)}?`)) return
+      startTransition(async () => {
+        try {
+          await updateBlockedTime(id, { bayId: bay.id, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() })
+          router.refresh()
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "Could not move that block.")
+        }
+      })
+    }
   }
+
+  // Resize-by-dragging-an-edge for blocked-time cards (bookings don't get
+  // this - only blocks, per Jerrod's ask 2026-09-04). resizeRef is the
+  // source of truth read on mouseup; resizePreview is only for the live
+  // visual (grid-row) update while dragging, since a state closure captured
+  // at mousedown-time would go stale across mousemove events otherwise.
+  const resizeRef = useRef<{
+    id: string
+    edge: "start" | "end"
+    origStart: number
+    origEnd: number
+  } | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizePreview, setResizePreview] = useState<{ id: string; start: number; end: number } | null>(null)
+
+  function startResize(e: React.MouseEvent, block: BlockedTime, edge: "start" | "end") {
+    e.preventDefault()
+    e.stopPropagation()
+    const { start, end } = bookingSlotSpan(block.starts_at, block.ends_at)
+    resizeRef.current = { id: block.id, edge, origStart: start, origEnd: end }
+    setResizePreview({ id: block.id, start, end })
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    function slotFromPoint(clientX: number, clientY: number): number | null {
+      const el = document.elementFromPoint(clientX, clientY)
+      const cell = el?.closest("[data-slot]") as HTMLElement | null
+      if (!cell?.dataset.slot) return null
+      return parseInt(cell.dataset.slot, 10)
+    }
+
+    function onMove(e: MouseEvent) {
+      const r = resizeRef.current
+      if (!r) return
+      const slot = slotFromPoint(e.clientX, e.clientY)
+      if (slot === null) return
+      if (r.edge === "start") {
+        const newStart = Math.max(0, Math.min(slot, r.origEnd - 1))
+        setResizePreview({ id: r.id, start: newStart, end: r.origEnd })
+      } else {
+        const newEnd = Math.min(SLOTS.length, Math.max(slot + 1, r.origStart + 1))
+        setResizePreview({ id: r.id, start: r.origStart, end: newEnd })
+      }
+    }
+
+    function onUp() {
+      const r = resizeRef.current
+      resizeRef.current = null
+      setIsResizing(false)
+      setResizePreview((preview) => {
+        if (r && preview && preview.id === r.id && (preview.start !== r.origStart || preview.end !== r.origEnd)) {
+          const { hour: sh, minute: sm } = slotToHourMinute(preview.start)
+          const { hour: eh, minute: em } = slotToHourMinute(preview.end)
+          const newStartsAt = new Date(`${selectedDate}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}:00`)
+          const newEndsAt = new Date(`${selectedDate}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}:00`)
+          startTransition(async () => {
+            try {
+              await updateBlockedTime(r.id, { startsAt: newStartsAt.toISOString(), endsAt: newEndsAt.toISOString() })
+              router.refresh()
+            } catch (err) {
+              alert(err instanceof Error ? err.message : "Could not resize that block.")
+            }
+          })
+        }
+        return null
+      })
+    }
+
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+    return () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+  }, [isResizing, selectedDate, router, startTransition])
 
   async function handleBlock(e: React.FormEvent) {
     e.preventDefault()
@@ -395,6 +497,7 @@ export default function BookingsManager({
               return (
                 <div
                   key={cellKey}
+                  data-slot={slot}
                   style={{ gridColumn: bi + 2, gridRow: slotRow(slot) }}
                   className={`border-l border-t transition-colors ${onHour ? "border-white/5" : "border-white/[0.03]"} ${
                     dragOverKey === cellKey ? "bg-brand/10 ring-1 ring-inset ring-brand/40" : ""
@@ -431,10 +534,15 @@ export default function BookingsManager({
 
           {/* Blocked-time cards - a null bay_id means "all bays," rendered as
               one card spanning every bay column rather than duplicated per
-              bay. Not draggable - these aren't bookings, just an off-limits
-              window - click to remove instead. */}
+              bay. Draggable to a different bay/time same as booking cards;
+              the top/bottom edge handles resize it (drag to change start or
+              end) - both write through updateBlockedTime(). Click the body
+              (not a handle) to remove it instead. */}
           {blockedTimes.map((block) => {
-            const { start, end } = bookingSlotSpan(block.starts_at, block.ends_at)
+            const isBeingResized = resizePreview?.id === block.id
+            const { start, end } = isBeingResized
+              ? { start: resizePreview.start, end: resizePreview.end }
+              : bookingSlotSpan(block.starts_at, block.ends_at)
             const gridColumn = block.bay_id === null
               ? "2 / -1"
               : (() => {
@@ -445,15 +553,26 @@ export default function BookingsManager({
             return (
               <div
                 key={block.id}
-                style={{ gridColumn, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
-                onClick={() => handleRemoveBlock(block.id)}
-                title="Click to remove this block"
-                className="m-1 flex cursor-pointer flex-col justify-center overflow-hidden rounded border border-neutral-500/50 bg-[repeating-linear-gradient(135deg,rgba(115,115,115,0.25),rgba(115,115,115,0.25)_6px,rgba(115,115,115,0.1)_6px,rgba(115,115,115,0.1)_12px)] px-2 py-1 text-xs text-neutral-300 hover:border-neutral-300"
+                style={{ gridColumn, gridRow: `${slotRow(start)} / ${slotRow(end)}`, pointerEvents: isResizing ? "none" : undefined }}
+                draggable
+                onDragStart={(e) => handleDragStart(e, `block:${block.id}`)}
+                onDragEnd={handleDragEnd}
+                onClick={() => { if (!justDragged && !isResizing) handleRemoveBlock(block.id) }}
+                title="Drag to move, drag top/bottom edge to resize, click to remove"
+                className={`relative m-1 flex cursor-grab flex-col justify-center overflow-visible rounded border border-neutral-500/50 bg-[repeating-linear-gradient(135deg,rgba(115,115,115,0.25),rgba(115,115,115,0.25)_6px,rgba(115,115,115,0.1)_6px,rgba(115,115,115,0.1)_12px)] px-2 py-1 text-xs text-neutral-300 hover:border-neutral-300 active:cursor-grabbing ${isBeingResized ? "border-brand/60 ring-1 ring-brand/40" : ""}`}
               >
+                <div
+                  onMouseDown={(e) => startResize(e, block, "start")}
+                  className="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize"
+                />
                 <div className="flex items-center gap-1 font-medium">
                   <Lock size={10} /> Blocked
                 </div>
                 {block.reason && <div className="truncate opacity-75">{block.reason}</div>}
+                <div
+                  onMouseDown={(e) => startResize(e, block, "end")}
+                  className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
+                />
               </div>
             )
           })}
@@ -476,7 +595,7 @@ export default function BookingsManager({
                     key={booking.id}
                     style={{ gridColumn: bi + 2, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
                     draggable={booking.status !== "cancelled" && !isCompleted}
-                    onDragStart={(e) => handleDragStart(e, booking.id)}
+                    onDragStart={(e) => handleDragStart(e, `booking:${booking.id}`)}
                     onDragEnd={handleDragEnd}
                     onClick={() => { if (!justDragged) setDetailBooking(booking) }}
                     className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" && !isCompleted ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
