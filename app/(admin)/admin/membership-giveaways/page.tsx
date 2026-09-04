@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { createGiveawayCodes, toggleGiveawayCode } from "./actions"
+import GrantMembershipForm from "./GrantMembershipForm"
 
 export const metadata = { title: "Membership Giveaways | Tee365 Admin" }
 
@@ -50,39 +51,43 @@ export default async function AdminMembershipGiveawaysPage() {
         </div>
       </div>
 
-      <form action={createGiveawayCodes} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3 max-w-md">
-        <h2 className="text-sm font-semibold text-white">Generate codes</h2>
-        <div>
-          <label className="label" htmlFor="gen-plan">Plan</label>
-          <select id="gen-plan" name="plan_id" required className="input mt-1 w-full">
-            {activePlans.map((p) => (
-              <option key={p.id} value={p.id}>{p.display_name ?? p.name} (${Number(p.price_monthly).toFixed(2)}/mo after free period)</option>
-            ))}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-6 md:grid-cols-2">
+        <form action={createGiveawayCodes} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-white">Generate codes</h2>
           <div>
-            <label className="label" htmlFor="gen-period">Free period</label>
-            <select id="gen-period" name="free_period" required className="input mt-1 w-full">
-              <option value="month">1 month</option>
-              <option value="year">1 year</option>
+            <label className="label" htmlFor="gen-plan">Plan</label>
+            <select id="gen-plan" name="plan_id" required className="input mt-1 w-full">
+              {activePlans.map((p) => (
+                <option key={p.id} value={p.id}>{p.display_name ?? p.name} (${Number(p.price_monthly).toFixed(2)}/mo after free period)</option>
+              ))}
             </select>
           </div>
-          <div>
-            <label className="label" htmlFor="gen-count">Number of codes</label>
-            <input id="gen-count" name="count" type="number" min="1" max="50" defaultValue="1" required className="input mt-1" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="gen-period">Free period</label>
+              <select id="gen-period" name="free_period" required className="input mt-1 w-full">
+                <option value="month">1 month</option>
+                <option value="year">1 year</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="gen-count">Number of codes</label>
+              <input id="gen-count" name="count" type="number" min="1" max="50" defaultValue="1" required className="input mt-1" />
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="label" htmlFor="gen-note">Note <span className="text-neutral-500 font-normal">(internal)</span></label>
-          <input id="gen-note" name="note" type="text" placeholder="e.g. Grand Opening giveaway" className="input mt-1 w-full" />
-        </div>
-        <div>
-          <label className="label" htmlFor="gen-expires">Code expires <span className="text-neutral-500 font-normal">(optional - if not redeemed by this date)</span></label>
-          <input id="gen-expires" name="expires_at" type="date" className="input mt-1 w-full" />
-        </div>
-        <button type="submit" className="btn-primary w-full">Generate</button>
-      </form>
+          <div>
+            <label className="label" htmlFor="gen-note">Note <span className="text-neutral-500 font-normal">(internal)</span></label>
+            <input id="gen-note" name="note" type="text" placeholder="e.g. Grand Opening giveaway" className="input mt-1 w-full" />
+          </div>
+          <div>
+            <label className="label" htmlFor="gen-expires">Code expires <span className="text-neutral-500 font-normal">(optional - if not redeemed by this date)</span></label>
+            <input id="gen-expires" name="expires_at" type="date" className="input mt-1 w-full" />
+          </div>
+          <button type="submit" className="btn-primary w-full">Generate</button>
+        </form>
+
+        <GrantMembershipForm plans={activePlans} />
+      </div>
 
       <h2 className="mt-10 mb-3 text-sm font-semibold text-white">All codes</h2>
       {allCodes.length > 0 ? (

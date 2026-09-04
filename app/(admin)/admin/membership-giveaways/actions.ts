@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
+import { grantFreeMembership } from "@/lib/membership/giveaway"
 
 function generateGiveawayCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -69,4 +70,50 @@ export async function toggleGiveawayCode(id: string, active: boolean): Promise<v
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (serviceClient as any).from("membership_giveaway_codes").update({ active }).eq("id", id)
   revalidatePath("/admin/membership-giveaways")
+}
+
+/**
+ * Grant a free membership directly to an existing account by email - no
+ * code involved at all. Same real Stripe subscription/trial mechanism as
+ * a redeemed code (see lib/membership/giveaway.ts), just skipping the
+ * code table entirely since Jerrod is entering the recipient himself.
+ */
+export async function grantMembershipByEmail(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const { serviceClient } = await requireAdmin()
+
+  const email = ((formData.get("email") as string) || "").trim().toLowerCase()
+  const planId = formData.get("plan_id") as string
+  const freePeriod = formData.get("free_period") as string
+
+  if (!email) throw new Error("Email is required")
+  if (!planId) throw new Error("Plan is required")
+  if (!["month", "year"].includes(freePeriod)) throw new Error("Free period must be month or year")
+
+  const { data: usersPage, error: listError } =
+    await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  if (listError) throw new Error("Failed to look up accounts")
+  const target = usersPage.users.find(
+    (u: { email?: string }) => u.email?.toLowerCase() === email
+  )
+  if (!target) throw new Error(`No account found for ${email}`)
+
+  const { data: plan } = await serviceClient
+    .from("membership_plans")
+    .select("id, slug, display_name, name, price_monthly, joining_fee, stripe_price_id")
+    .eq("id", planId)
+    .eq("active", true)
+    .maybeSingle()
+  if (!plan) throw new Error("Plan not found")
+
+  const result = await grantFreeMembership(serviceClient, {
+    userId: target.id,
+    userEmail: target.email ?? email,
+    plan,
+    freePeriod: freePeriod as "month" | "year",
+    sourceLabel: "admin-direct-grant",
+  })
+
+  revalidatePath("/admin/membership-giveaways")
+  revalidatePath("/admin/members")
+  return result
 }
