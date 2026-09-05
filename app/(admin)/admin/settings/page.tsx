@@ -41,6 +41,12 @@ export default async function AdminSettingsPage() {
           description="Sends your phone a text whenever a bay automatically detects and recovers from a mid-rental crash, with which process actually dropped out logged for you to review."
           initialValue={settingsMap.notify_crash_restarts ?? true}
         />
+        <SettingsToggle
+          settingKey="notify_no_shot_alert"
+          label="Text me when a ready customer isn't getting shots read"
+          description="Sends your phone a text the moment a bay's been ready for several minutes with zero shots captured - catches a stuck customer while it's happening, not after they've already given up."
+          initialValue={settingsMap.notify_no_shot_alert ?? true}
+        />
       </div>
     </main>
   )

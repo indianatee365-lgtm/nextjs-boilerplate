@@ -52,6 +52,9 @@ interface SyncRequestBody {
     lastManualRestartAt?: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lastManualRestartDiagnostics?: Record<string, any>
+    lastNoShotAlertAt?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lastNoShotAlertDiagnostics?: Record<string, any>
     kioskKill?: { process: string; at: string }
     selectedHitter?: string
     selectedHitterBookingId?: string
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at")
+    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -123,6 +126,7 @@ export async function POST(request: NextRequest) {
       // timestamp can replace it.
       last_crash_restart_at: status.lastCrashRestartAt ?? existingStatus?.last_crash_restart_at ?? null,
       last_manual_restart_at: status.lastManualRestartAt ?? existingStatus?.last_manual_restart_at ?? null,
+      last_no_shot_alert_at: status.lastNoShotAlertAt ?? existingStatus?.last_no_shot_alert_at ?? null,
       kiosk_kills: kioskKills,
       updated_at: new Date().toISOString(),
     })
@@ -182,19 +186,53 @@ export async function POST(request: NextRequest) {
       : null
     if (incomingManualRestartMs !== null && incomingManualRestartMs !== knownManualRestartMs) {
       const diagnostics = status.lastManualRestartDiagnostics ?? {}
+      const restartCount = diagnostics.restartCountThisBooking as number | undefined
       const detail =
-        `bay=${bay.name} at=${status.lastManualRestartAt} ` +
+        `bay=${bay.name} at=${status.lastManualRestartAt} restartCountThisBooking=${restartCount ?? "?"} ` +
         `simRunning=${diagnostics.simRunning} chainConfirmedUp=${diagnostics.chainConfirmedUp} ` +
         `gsproStartClicked=${diagnostics.gsproStartClicked} currentHitter=${diagnostics.currentHitter ?? "none"} ` +
         `runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
       const notifyEnabled = await getAdminSetting(serviceClient, "notify_restart_clicks")
+      // Escalated wording once a SECOND (or later) restart happens in the
+      // same booking - Jerrod's ask 2026-09-05: a repeat click for the same
+      // customer is a much bigger deal than a one-off and shouldn't read
+      // identically in the alert.
+      const alertMsg = restartCount && restartCount >= 2
+        ? `${bay.name}: customer's ${restartCount}${restartCount === 2 ? "nd" : restartCount === 3 ? "rd" : "th"} restart click THIS SESSION - ` +
+          `likely needs real attention, not just a blip. Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time.`
+        : `${bay.name}: customer clicked "Simulator issue? Click to restart". ` +
+          `Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time. Check admin/logs for details.`
       await logFailure(
         serviceClient,
         "bay-agent-manual-restart-clicked",
         detail,
+        notifyEnabled ? alertMsg : undefined,
+      )
+    }
+
+    // Proactive "customer's been ready for a while with zero shots" alert -
+    // see companion.py's NO_SHOT_ALERT_SECONDS. The whole point is catching
+    // this WHILE it's happening instead of finding out after a customer
+    // gives up - same dedup shape as the other two alerts above (the
+    // timestamp stays set until the next dead stretch, not a one-shot flag).
+    const incomingNoShotMs = status.lastNoShotAlertAt ? new Date(status.lastNoShotAlertAt).getTime() : null
+    const knownNoShotMs = existingStatus?.last_no_shot_alert_at
+      ? new Date(existingStatus.last_no_shot_alert_at).getTime()
+      : null
+    if (incomingNoShotMs !== null && incomingNoShotMs !== knownNoShotMs) {
+      const diagnostics = status.lastNoShotAlertDiagnostics ?? {}
+      const detail =
+        `bay=${bay.name} at=${status.lastNoShotAlertAt} ` +
+        `secondsSinceReady=${diagnostics.secondsSinceReady} secondsSinceLastShot=${diagnostics.secondsSinceLastShot ?? "never"} ` +
+        `currentHitter=${diagnostics.currentHitter ?? "none"} runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
+      const notifyEnabled = await getAdminSetting(serviceClient, "notify_no_shot_alert")
+      await logFailure(
+        serviceClient,
+        "bay-agent-no-shot-alert",
+        detail,
         notifyEnabled
-          ? `${bay.name}: customer clicked "Simulator issue? Click to restart". ` +
-            `Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time. Check admin/logs for details.`
+          ? `${bay.name}: customer's been ready for ${Math.round((diagnostics.secondsSinceReady ?? 0) / 60)} min with ZERO shots read. ` +
+            `They may be stuck right now - check in or call them.`
           : undefined,
       )
     }
