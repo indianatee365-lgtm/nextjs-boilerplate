@@ -1,7 +1,8 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { setBayOverride, startTestBooking, extendActiveBooking, requestBayRestart } from "./actions"
+import { setBayOverride, startTestBooking, requestBayRestart } from "./actions"
 import BayStatusRefresher from "./BayStatusRefresher"
+import ExtendBookingButton from "./ExtendBookingButton"
 
 export const metadata = { title: "Bays | Tee365 Admin" }
 
@@ -117,11 +118,7 @@ export default async function AdminBaysPage() {
                       </button>
                     </form>
                   )}
-                  <form action={async () => { "use server"; await extendActiveBooking(bay.id, 15) }}>
-                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                      Extend +15 min
-                    </button>
-                  </form>
+                  <ExtendBookingButton bayId={bay.id} />
                   <form action={async () => { "use server"; await requestBayRestart(bay.id) }}>
                     <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
                       Restart simulator

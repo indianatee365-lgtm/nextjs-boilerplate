@@ -124,6 +124,7 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
   if (error) throw new Error("Failed to extend booking")
 
   revalidatePath("/admin/bays")
+  return { newEndsAt: newEndsAt.toISOString() }
 }
 
 // Remote equivalent of the customer's on-screen "Restart Simulator" button -
