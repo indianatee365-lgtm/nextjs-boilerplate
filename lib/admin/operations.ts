@@ -11,7 +11,7 @@ import { computePeriodBoundaries } from "@/lib/admin/revenue"
 export type OperationsStats = {
   bookingsWeek: number
   bookingsMonth: number
-  avgDollarPerBooking: number // month-to-date
+  avgDollarPerBooking: number // month-to-date, paid bookings only (excludes $0 hour-credit bookings)
   utilizationWeek: number   // 0-100
   utilizationMonth: number  // 0-100
 }
@@ -41,6 +41,7 @@ export async function computeOperationsStats(serviceClient: any): Promise<Operat
   let hoursWeek = 0
   let hoursMonth = 0
   let monthDollarSum = 0
+  let monthPaidBookings = 0 // total > 0 only - excludes hour-credit-covered ($0) bookings from the avg
 
   for (const b of rows) {
     const startsAt = new Date(b.starts_at)
@@ -54,7 +55,11 @@ export async function computeOperationsStats(serviceClient: any): Promise<Operat
     if (startsAt >= monthStart) {
       bookingsMonth += 1
       hoursMonth += hours
-      monthDollarSum += Number(b.total)
+      const total = Number(b.total)
+      if (total > 0) {
+        monthDollarSum += total
+        monthPaidBookings += 1
+      }
     }
   }
 
@@ -68,7 +73,7 @@ export async function computeOperationsStats(serviceClient: any): Promise<Operat
   return {
     bookingsWeek,
     bookingsMonth,
-    avgDollarPerBooking: bookingsMonth > 0 ? monthDollarSum / bookingsMonth : 0,
+    avgDollarPerBooking: monthPaidBookings > 0 ? monthDollarSum / monthPaidBookings : 0,
     utilizationWeek: (hoursWeek / weekCapacityHours) * 100,
     utilizationMonth: (hoursMonth / monthCapacityHours) * 100,
   }

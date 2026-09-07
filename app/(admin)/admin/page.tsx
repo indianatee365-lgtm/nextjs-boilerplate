@@ -130,7 +130,7 @@ export default async function AdminPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <SalesCell label="Bookings this week" value={String(operations.bookingsWeek)} />
           <SalesCell label="Bookings this month" value={String(operations.bookingsMonth)} />
-          <SalesCell label="Avg $ / booking" value={fmtMoney(operations.avgDollarPerBooking)} />
+          <SalesCell label="Avg $ / paid booking" value={fmtMoney(operations.avgDollarPerBooking)} />
           <SalesCell label="Utilization (week)" value={`${operations.utilizationWeek.toFixed(1)}%`} />
           <SalesCell label="Utilization (month)" value={`${operations.utilizationMonth.toFixed(1)}%`} />
         </div>
