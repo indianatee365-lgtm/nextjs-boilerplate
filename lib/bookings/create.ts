@@ -7,6 +7,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
+import { pickBestBay } from "@/lib/bookings/bay-selection"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -150,39 +151,80 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     }
   }
 
-  // Check bay exists
-  const { data: bay } = await serviceClient
+  // Which bay this booking actually lands in is decided here, fresh, off a
+  // live query - the incoming `bayId` is never trusted for the assignment
+  // itself (only used above for the has-a-bay-at-all gate checks). The
+  // client's own pick (BookingFlow.tsx's findBayForSlot) runs off an
+  // `/api/availability` snapshot fetched whenever the customer entered the
+  // time step, which can be minutes stale by the time they hit Reserve. A
+  // stale pick can't create an actual double-booking (the conflict check
+  // below still catches that), but it silently defeats bay spacing -
+  // confirmed live 2026-09-07: two customers landed in adjacent bays 1 and
+  // 2 within three minutes of each other while bays 3 and 4 sat completely
+  // open the whole time, because the second customer's snapshot predated
+  // the first customer's booking and so never saw bay 1 as busy. Mirrors
+  // findOpenBay's already-correct fresh-query pattern in the voice webhook.
+  const { data: allBays } = await serviceClient
     .from("bays")
     .select("id, number, name")
-    .eq("id", bayId)
     .eq("active", true)
-    .single()
+    .order("number")
 
-  if (!bay) return { ok: false, status: 404, error: "Bay not found" }
+  if (!allBays || allBays.length === 0) {
+    return { ok: false, status: 404, error: "No bays configured" }
+  }
 
-  // Check for conflicts
   const { data: conflicts } = await serviceClient
     .from("bookings")
-    .select("id")
-    .eq("bay_id", bayId)
+    .select("bay_id")
     .in("status", ["pending", "confirmed"])
     .lt("starts_at", endDate.toISOString())
     .gt("ends_at", startDate.toISOString())
 
-  if (conflicts && conflicts.length > 0) {
-    return { ok: false, status: 409, error: "Bay is not available for this time" }
-  }
-
-  // Check blocked times
   const { data: blocked } = await serviceClient
     .from("blocked_times")
-    .select("id")
-    .or(`bay_id.eq.${bayId},bay_id.is.null`)
+    .select("bay_id")
     .lt("starts_at", endDate.toISOString())
     .gt("ends_at", startDate.toISOString())
 
-  if (blocked && blocked.length > 0) {
+  if ((blocked ?? []).some((b: { bay_id: string | null }) => b.bay_id === null)) {
     return { ok: false, status: 409, error: "Bay is blocked during this time" }
+  }
+
+  const unavailableBayIds = new Set<string>([
+    ...(conflicts ?? []).map((c: { bay_id: string }) => c.bay_id),
+    ...(blocked ?? []).map((b: { bay_id: string }) => b.bay_id as string),
+  ])
+
+  type BayRow = { id: string; number: number; name: string }
+  const candidates = (allBays as BayRow[]).filter((b) => !unavailableBayIds.has(b.id))
+  const busyBayNumbers = (allBays as BayRow[])
+    .filter((b) => unavailableBayIds.has(b.id))
+    .map((b) => b.number)
+
+  if (candidates.length === 0) {
+    return { ok: false, status: 409, error: "Bay is not available for this time" }
+  }
+
+  // Today's load per bay, same tiebreak as findOpenBay - keeps a quiet day
+  // from always handing out the same low-numbered bay once spacing itself
+  // ties (e.g. nothing else booked yet).
+  const dayStart = new Date(startDate); dayStart.setUTCHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+  const { data: todaysBookings } = await serviceClient
+    .from("bookings")
+    .select("bay_id")
+    .in("status", ["pending", "confirmed"])
+    .gte("starts_at", dayStart.toISOString())
+    .lt("starts_at", dayEnd.toISOString())
+  const loadByBayId = new Map<string, number>()
+  for (const b of (todaysBookings ?? []) as { bay_id: string }[]) {
+    loadByBayId.set(b.bay_id, (loadByBayId.get(b.bay_id) ?? 0) + 1)
+  }
+
+  const bay = pickBestBay(candidates, busyBayNumbers, loadByBayId)
+  if (!bay) {
+    return { ok: false, status: 409, error: "Bay is not available for this time" }
   }
 
   // Get pricing rules
@@ -302,7 +344,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       .from("bookings")
       .insert({
         user_id: userId,
-        bay_id: bayId,
+        bay_id: bay.id,
         starts_at: startDate.toISOString(),
         ends_at: endDate.toISOString(),
         duration_minutes: durationMinutes,
@@ -495,7 +537,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     setup_future_usage: "off_session",
     metadata: {
       userId,
-      bayId,
+      bayId: bay.id,
       startsAt: startDate.toISOString(),
       endsAt: endDate.toISOString(),
       durationMinutes: String(durationMinutes),
@@ -507,7 +549,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     .from("bookings")
     .insert({
       user_id: userId,
-      bay_id: bayId,
+      bay_id: bay.id,
       starts_at: startDate.toISOString(),
       ends_at: endDate.toISOString(),
       duration_minutes: durationMinutes,
