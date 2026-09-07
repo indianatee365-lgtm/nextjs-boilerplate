@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
 import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START, PUBLIC_BOOKING_OPENS, PUBLIC_EARLIEST_BOOKABLE_START } from "@/lib/bookings/launch-gate"
+import { isInFirstYear } from "@/lib/membership/first-year"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -37,17 +38,29 @@ export default async function BookPage({
   // itself now needs to know the plan slug - see below.
   let membershipSlug: string | null = null
   let advanceDays = 7
+  let membershipDiscountPercent = 0
 
   {
     const { data: membership } = await supabase
       .from("memberships")
-      .select("id, started_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+      .select("id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
       .eq("user_id", user.id)
       .eq("status", "active")
       .single()
 
-    membershipSlug = (membership?.membership_plans as { slug: string } | null)?.slug ?? null
-    advanceDays = (membership?.membership_plans as { advance_booking_days: number } | null)?.advance_booking_days ?? 7
+    const plan = membership?.membership_plans as
+      { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
+
+    membershipSlug = plan?.slug ?? null
+    advanceDays = plan?.advance_booking_days ?? 7
+
+    if (plan) {
+      const isFirstYear = isInFirstYear(
+        membership as { started_at: string; year_one_discount_expires_at?: string | null }
+      )
+      membershipDiscountPercent =
+        isFirstYear && plan.first_year_discount != null ? plan.first_year_discount : plan.discount_percent
+    }
   }
 
   // Admin gate: bookings not open to public until launch, with four
@@ -160,6 +173,7 @@ export default async function BookPage({
         bays={bays ?? []}
         advanceDays={advanceDays}
         membershipSlug={membershipSlug}
+        membershipDiscountPercent={membershipDiscountPercent}
         userName={userName}
         disclosures={disclosures ?? []}
         isAuthenticated={!!user}

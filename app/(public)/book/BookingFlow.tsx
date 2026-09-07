@@ -88,6 +88,7 @@ export default function BookingFlow({
   bays,
   advanceDays,
   membershipSlug,
+  membershipDiscountPercent = 0,
   userName,
   disclosures,
   isAuthenticated,
@@ -98,6 +99,7 @@ export default function BookingFlow({
   bays: Bay[]
   advanceDays: number
   membershipSlug: string | null
+  membershipDiscountPercent?: number
   userName: string
   disclosures: Disclosure[]
   isAuthenticated: boolean
@@ -416,6 +418,7 @@ export default function BookingFlow({
     ? calculateBookingPrice({
         pricePerHour: selectedStart.pricePerHour,
         durationMinutes: selectedDuration,
+        membershipDiscountPercent,
         creditHours: useFreeHours ? availableCreditHours : 0,
         context: getPricingContext(new Date(selectedStart.startsAt)),
       })
