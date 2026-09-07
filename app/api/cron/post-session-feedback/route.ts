@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         ctaText: "Leave us a review",
         ctaUrl: GOOGLE_REVIEW_URL,
         replyTo: FEEDBACK_REPLY_TO,
+        kind: "feedback",
       })
       await serviceClient
         .from("bookings")

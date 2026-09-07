@@ -1014,6 +1014,7 @@ export async function sendFounderMessage({
   ctaText,
   ctaUrl,
   replyTo,
+  kind = "founder-message",
 }: {
   to: string
   firstName: string
@@ -1023,6 +1024,11 @@ export async function sendFounderMessage({
   ctaText?: string
   ctaUrl?: string
   replyTo?: string
+  // Overrides the admin Communications log "type" - this template is
+  // reused for more than literal founder messages (e.g. post-session
+  // feedback), so callers that aren't a founder message should pass their
+  // own kind rather than showing up mislabeled.
+  kind?: string
 }) {
   const bodyParagraphs = [
     `Hi ${firstName},`,
@@ -1061,6 +1067,6 @@ ${cta}
     replyTo,
     subject,
     html,
-    kind: "founder-message",
+    kind,
   })
 }

@@ -23,8 +23,11 @@ const OPT_OUT_EXEMPT_KINDS = new Set([
 
 // Every SMS template funnels through here, so every send - success or
 // failure - gets one admin_logs row without relying on each call site to
-// remember to log it. `kind` identifies which template sent it.
-async function sendSms(to: string, body: string, kind: string) {
+// remember to log it. `kind` identifies which template sent it. `subject`
+// is optional extra context for the admin Communications view (mirrors
+// email's subject= field there) - e.g. the access code reminder passes the
+// actual PIN so it shows up in the "what it is" column, not just "n/a".
+async function sendSms(to: string, body: string, kind: string, subject?: string) {
   const supabase = await createServiceClient()
 
   if (!OPT_OUT_EXEMPT_KINDS.has(kind)) {
@@ -67,7 +70,7 @@ async function sendSms(to: string, body: string, kind: string) {
 
   // Deferred: this is pure observability, doesn't need to hold up the
   // response the admin is waiting on.
-  after(() => logEvent(supabase, "sms-sent", `kind=${kind} to=${to}`))
+  after(() => logEvent(supabase, "sms-sent", `kind=${kind} to=${to}${subject ? ` subject=${subject}` : ""}`))
 }
 
 // Free-form send for the admin SMS inbox reply box - unlike every other
@@ -224,7 +227,8 @@ export async function sendAccessCodeReminder({
       "\n2️⃣ Enter your code" +
       "\n3️⃣ Press the checkmark" +
       "\n\nReply STOP to opt out.",
-    "access-code-reminder"
+    "access-code-reminder",
+    `PIN ${accessCode}`
   )
 }
 export async function sendInfoSms(to: string) {
