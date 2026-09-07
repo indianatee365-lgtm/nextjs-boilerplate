@@ -1,8 +1,9 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle, Settings, Ticket } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle, Settings, Ticket, Activity } from "lucide-react"
 import { computeRevenue } from "@/lib/admin/revenue"
+import { computeOperationsStats } from "@/lib/admin/operations"
 
 export const metadata = { title: "Admin | Tee365" }
 export const dynamic = "force-dynamic"
@@ -40,6 +41,7 @@ export default async function AdminPage() {
     { count: activeCouponCount },
     { count: userCount },
     revenue,
+    operations,
   ] = await Promise.all([
     serviceClient.from("bookings").select("id", { count: "exact", head: true })
       .gte("starts_at", todayUTC.toISOString()).lt("starts_at", tomorrowUTC.toISOString()).in("status", ["confirmed"]),
@@ -66,6 +68,7 @@ export default async function AdminPage() {
       .eq("active", true),
     serviceClient.from("profiles").select("id", { count: "exact", head: true }),
     computeRevenue(serviceClient),
+    computeOperationsStats(serviceClient),
   ])
 
   const liability = ((giftCardBalances ?? []) as Array<{ balance: number; active: boolean }>)
@@ -117,6 +120,21 @@ export default async function AdminPage() {
           <SalesCell label="Year to date" value={fmtMoney(revenue.total.ytd)} />
         </div>
       </Link>
+
+      {/* Operations card: full width, same size/style as Sales */}
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex items-center gap-2 mb-4 text-neutral-300">
+          <Activity size={18} />
+          <span className="text-sm font-semibold uppercase tracking-widest">Operations</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <SalesCell label="Bookings this week" value={String(operations.bookingsWeek)} />
+          <SalesCell label="Bookings this month" value={String(operations.bookingsMonth)} />
+          <SalesCell label="Avg $ / booking" value={fmtMoney(operations.avgDollarPerBooking)} />
+          <SalesCell label="Utilization (week)" value={`${operations.utilizationWeek.toFixed(1)}%`} />
+          <SalesCell label="Utilization (month)" value={`${operations.utilizationMonth.toFixed(1)}%`} />
+        </div>
+      </div>
 
       {/* Nav */}
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
