@@ -18,10 +18,6 @@ export type OperationsStats = {
 
 const BAY_HOURS_PER_DAY = 96 // 4 bays x 24 hours
 
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate()
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeOperationsStats(serviceClient: any): Promise<OperationsStats> {
   const { weekStart, monthStart } = computePeriodBoundaries()
@@ -62,10 +58,11 @@ export async function computeOperationsStats(serviceClient: any): Promise<Operat
     }
   }
 
-  // monthStart is midnight ET on the 1st, converted to a UTC instant - since
-  // ET is always behind UTC, that instant's UTC calendar date is still the
-  // 1st, so reading the month/year off it directly (no further TZ dance) is safe.
-  const monthCapacityHours = BAY_HOURS_PER_DAY * daysInMonth(monthStart.getUTCFullYear(), monthStart.getUTCMonth())
+  // Pace-adjusted: capacity is 96 hrs/day x days actually elapsed so far
+  // this month (a fractional day, e.g. 5.3), not the full month length -
+  // otherwise MTD utilization reads artificially low early in the month.
+  const elapsedDaysInMonth = (now.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)
+  const monthCapacityHours = BAY_HOURS_PER_DAY * elapsedDaysInMonth
   const weekCapacityHours = BAY_HOURS_PER_DAY * 7
 
   return {
