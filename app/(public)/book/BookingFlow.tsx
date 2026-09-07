@@ -189,7 +189,6 @@ export default function BookingFlow({
         let bestTime: string | null = null
         let bestSlot: SlotData | null = null
         let tiedCandidates: Bay[] = []
-        const busyBayNumbers: number[] = []
         const loadByBayId = new Map<string, number>()
 
         for (const bayAvail of data) {
@@ -200,7 +199,7 @@ export default function BookingFlow({
             const next = bayAvail.slots[i + 1]
             if (slot.available && next.available) { firstOpenSlot = slot; break }
           }
-          if (!firstOpenSlot) { busyBayNumbers.push(bayAvail.bay.number); continue }
+          if (!firstOpenSlot) continue
 
           if (!bestTime || new Date(firstOpenSlot.startsAt) < new Date(bestTime)) {
             bestTime = firstOpenSlot.startsAt
@@ -208,6 +207,26 @@ export default function BookingFlow({
             tiedCandidates = [bayAvail.bay]
           } else if (firstOpenSlot.startsAt === bestTime) {
             tiedCandidates.push(bayAvail.bay)
+          }
+        }
+
+        // A bay only counts as "busy" for spacing purposes if it's actually
+        // occupied AT bestTime - not "has zero openings for the rest of the
+        // entire day", which the old busyBayNumbers (built in the loop
+        // above) actually checked. That's nearly always empty (bays rarely
+        // stay fully booked all day), so spacing silently never applied on
+        // this "Book now" shortcut - confirmed live 2026-09-06: a customer
+        // landed in bay 3 immediately next to an already-occupied bay 4
+        // even with bay 1 and bay 2 both wide open the whole time, because
+        // bay 4 still had later-in-the-day openings and so never registered
+        // as busy here. findBayForSlot (the manual time-picker) never had
+        // this bug - it already checks availability at the specific
+        // requested time, not "ever available today".
+        const busyBayNumbers: number[] = []
+        if (bestTime) {
+          for (const bayAvail of data) {
+            const slotAtBestTime = bayAvail.slots.find((s) => s.startsAt === bestTime)
+            if (!slotAtBestTime?.available) busyBayNumbers.push(bayAvail.bay.number)
           }
         }
 
