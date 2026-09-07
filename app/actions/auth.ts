@@ -182,15 +182,61 @@ export async function requestPasswordReset(
   if (!email) return { message: "Email is required" }
 
   const supabase = await createClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://tee365.org"
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
-  })
+  // No redirectTo/link here on purpose - a clickable reset link is a
+  // single-use code embedded in a URL, and mail providers that auto-scan
+  // links before delivery (Yahoo, Outlook/Microsoft Defender, several
+  // corporate gateways) burn that single use themselves, before the
+  // customer ever clicks it. The customer then hits a dead code and bounces
+  // back to sign-in with nothing to go on - confirmed live 2026-09-07
+  // (Chase Coen, chasecoen319@yahoo.com). A 6-digit code the customer types
+  // in themselves (resetPasswordWithCode below) has nothing for a scanner
+  // to consume - the Reset Password email template in the Supabase
+  // dashboard needs to show {{ .Token }} instead of {{ .ConfirmationURL }}
+  // for this to actually reach customers as a code instead of a link.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {})
 
   if (error) return { message: error.message }
 
-  return { message: "Check your email for a password reset link." }
+  return { message: "Check your email for a password reset code." }
+}
+
+const ResetWithCodeSchema = z.object({
+  email: z.string().email("Valid email required"),
+  code: z.string().trim().length(6, "Enter the 6-digit code from your email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
+
+export async function resetPasswordWithCode(
+  prevState: SignupState,
+  formData: FormData
+): Promise<SignupState> {
+  const parsed = ResetWithCodeSchema.safeParse({
+    email: formData.get("email"),
+    code: formData.get("code"),
+    password: formData.get("password"),
+  })
+  if (!parsed.success) return { message: parsed.error.issues[0].message }
+  const { email, code, password } = parsed.data
+
+  if (password !== formData.get("confirm")) {
+    return { message: "Passwords do not match" }
+  }
+
+  const supabase = await createClient()
+
+  // verifyOtp establishes the session directly from the code the customer
+  // typed in - no redirect, no link, no PKCE cookie to have gone missing
+  // across devices/browsers. type: "recovery" matches the OTP a
+  // resetPasswordForEmail() call actually sends.
+  const { error: otpError } = await supabase.auth.verifyOtp({ email, token: code, type: "recovery" })
+  if (otpError) return { message: "That code is invalid or expired - request a new one." }
+
+  const { error: updateError } = await supabase.auth.updateUser({ password })
+  if (updateError) return { message: updateError.message }
+
+  revalidatePath("/", "layout")
+  redirect("/account")
 }
 
 export async function updatePassword(
