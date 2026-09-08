@@ -5,6 +5,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/revoke-access",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/membership-audit",
       "schedule": "0 14 * * *"
     },

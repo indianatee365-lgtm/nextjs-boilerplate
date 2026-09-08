@@ -1,0 +1,12 @@
+-- revokeBayAccess() (lib/access-control/index.ts) has existed since the
+-- original UniFi integration but was never actually called anywhere in the
+-- app - every booking's UniFi User/Access Policy/Schedule has stayed live
+-- forever, recurring weekly (schedules are keyed by weekday, not a specific
+-- date). Confirmed live 2026-09-07: a real customer's own valid PIN was
+-- rejected at the door, and the door's activity log showed a THREE-WEEK-OLD
+-- customer's still-live credential also firing on the same door around the
+-- same time. The revocation cron (app/api/cron/revoke-access/route.ts) needs
+-- a marker to know what it's already cleaned up without destroying the
+-- unifi_visitor_id/unifi_access_policy_id/unifi_schedule_id columns
+-- themselves, which are useful forensic history exactly like tonight.
+alter table bookings add column if not exists access_revoked_at timestamptz;
