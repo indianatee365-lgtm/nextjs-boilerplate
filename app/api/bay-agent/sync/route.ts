@@ -226,14 +226,25 @@ export async function POST(request: NextRequest) {
         `secondsSinceReady=${diagnostics.secondsSinceReady} secondsSinceLastShot=${diagnostics.secondsSinceLastShot ?? "never"} ` +
         `currentHitter=${diagnostics.currentHitter ?? "none"} runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
       const notifyEnabled = await getAdminSetting(serviceClient, "notify_no_shot_alert")
+      // Text the actual gap that triggered this alert (secondsSinceLastShot),
+      // not secondsSinceReady - that one only ever grows for the whole
+      // session, so a customer who played for two hours and paused for 8
+      // minutes got a text claiming ZERO shots for 133 minutes. Confirmed
+      // live 2026-09-07: real shots (198 of them) were captured the whole
+      // session, the alert just reported the wrong number. Only fall back to
+      // secondsSinceReady when there's truly been no shot yet this booking.
+      const goneQuietSeconds = diagnostics.secondsSinceLastShot ?? diagnostics.secondsSinceReady ?? 0
+      const goneQuietMessage =
+        diagnostics.secondsSinceLastShot != null
+          ? `${bay.name}: customer's had no new shots in ${Math.round(goneQuietSeconds / 60)} min. ` +
+            `They may be stuck right now - check in or call them.`
+          : `${bay.name}: customer's been ready for ${Math.round(goneQuietSeconds / 60)} min with ZERO shots read yet. ` +
+            `They may be stuck right now - check in or call them.`
       await logFailure(
         serviceClient,
         "bay-agent-no-shot-alert",
         detail,
-        notifyEnabled
-          ? `${bay.name}: customer's been ready for ${Math.round((diagnostics.secondsSinceReady ?? 0) / 60)} min with ZERO shots read. ` +
-            `They may be stuck right now - check in or call them.`
-          : undefined,
+        notifyEnabled ? goneQuietMessage : undefined,
       )
     }
 
