@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
+import SendPastDueNudgeButton from "./SendPastDueNudgeButton"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -65,6 +66,9 @@ export default async function AdminUserDetailPage({
       {/* Memberships */}
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Memberships</h2>
+        {memberships?.some((m) => m.status === "past_due") && (
+          <SendPastDueNudgeButton userId={t.id} />
+        )}
         {memberships && memberships.length > 0 ? (
           <div className="rounded-xl border border-white/10 overflow-hidden">
             <table className="w-full text-sm">
