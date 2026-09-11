@@ -1,5 +1,22 @@
 import type { MetadataRoute } from "next"
 
+// Hand-maintained on purpose (only a dozen indexable pages, and priority
+// ordering is an editorial call), but it had silently drifted: /join - the
+// membership conversion page - and /terms were both indexable with their own
+// canonical tags yet missing here, found during the 2026-09-11 audit.
+//
+// When adding a public marketing page, add it here too.
+//
+// Deliberately NOT listed, so the next person can tell "omitted on purpose"
+// from "forgotten":
+//   /guide, /guide/courses          ship robots noindex,nofollow - customer
+//                                   reference material, not search content
+//   /join/checkout(/return),        transactional dead ends
+//   /gift-cards/success,
+//   /unsubscribed
+//   /book, /login, /signup,         auth-gated or app surfaces
+//   /account, /admin, /display
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://tee365.org"
 
@@ -9,6 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
+    },
+    {
+      url: `${base}/join`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     {
       url: `${base}/indoor-golf-simulator-south-bend`,
@@ -60,6 +83,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${base}/terms`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,

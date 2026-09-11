@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Section from "../ui/Section";
 
 const EMAIL_LIST_URL = "/#waitlist";
@@ -55,13 +56,17 @@ export default function FeatureBand() {
         {/* Right: image */}
         <div className="md:col-span-6">
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40">
-            <img
+            {/* Below the fold, so no priority - but still routed through
+                next/image for the AVIF/WebP + per-device sizing. Capped at
+                half the viewport on desktop where this sits in a 6/12 column. */}
+            <Image
               src="/hero.jpg"
               alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
               className="h-[320px] w-full object-cover md:h-[420px]"
-              width="1920"
-              height="1080"
-              loading="lazy"
+              width={1920}
+              height={1080}
+              sizes="(max-width: 768px) 100vw, 50vw"
+              quality={82}
             />
           </div>
         </div>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { timingSafeEqual } from "crypto"
 import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
-import { notifyOwner, logEvent, getAdminSetting, formatDuration } from "@/lib/observability/notify"
+import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
 import { pickBestBay } from "@/lib/bookings/bay-selection"
 import {
@@ -657,7 +658,43 @@ async function forwardToN8n(payload: unknown): Promise<void> {
   }
 }
 
+// Vapi sends this header on every server message when a Server Secret is set
+// on the assistant/org (Vapi dashboard -> Server URL Secret). Verified with a
+// length-safe constant-time compare so the check itself can't leak the secret.
+function vapiRequestIsAuthentic(request: NextRequest): boolean {
+  const expected = process.env.VAPI_WEBHOOK_SECRET
+  // Fail CLOSED when unset. This route can look up customers by phone number,
+  // create accounts and bookings, and send SMS, so an unset secret must not
+  // silently mean "allow everyone" - that was the state until 2026-09-11,
+  // when the env var existed in Vercel but nothing in the code ever read it.
+  if (!expected) return false
+  const provided = request.headers.get("x-vapi-secret") ?? request.headers.get("x-vapi-signature") ?? ""
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
+
+// Alert at most once per warm instance. A rejected request is either a
+// misconfiguration (the phone agent is down - Jerrod needs to know NOW) or
+// someone probing the endpoint (worth knowing once, not once per request).
+let rejectionAlerted = false
+
 export async function POST(request: NextRequest) {
+  if (!vapiRequestIsAuthentic(request)) {
+    if (!rejectionAlerted) {
+      rejectionAlerted = true
+      try {
+        const sc = await createServiceClient()
+        await logFailure(sc, "voice-webhook-UNAUTHORIZED",
+          `secret_configured=${Boolean(process.env.VAPI_WEBHOOK_SECRET)} has_header=${Boolean(request.headers.get("x-vapi-secret"))}`,
+          "ALERT /api/voice/webhook rejected a request as unauthorized. If the phone agent just stopped working, " +
+          "the Server URL Secret in Vapi does not match VAPI_WEBHOOK_SECRET in Vercel. Otherwise someone is probing the endpoint.")
+      } catch { /* best-effort */ }
+    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const body = await request.json()
   const msg = body?.message
 

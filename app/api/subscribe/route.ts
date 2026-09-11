@@ -42,7 +42,7 @@ function buildWelcomeHtml(displayName: string, unsubscribeToken: string): string
   <div class="email-wrapper">
     <table class="email-container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
       <tr><td class="header" style="text-align:center;">
-        <img src="https://tee365.org/logo.png" width="120" height="120" alt="Tee365" style="display:inline-block;">
+        <img src="https://tee365.org/email-logo-v3.png" width="120" height="120" alt="Tee365" style="display:inline-block;">
       </td></tr>
       <tr><td class="hero-strip">
         <div class="hero-eyebrow">A note from Jerrod</div>

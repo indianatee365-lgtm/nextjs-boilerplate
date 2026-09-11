@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { createServiceClient } from "@/lib/supabase/server"
+import { checkoutRatelimit } from "@/lib/ratelimit"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -11,6 +12,10 @@ function getStripe() {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+    const { success } = await checkoutRatelimit.limit(ip)
+    if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+
     const { amountCents, recipientName, recipientEmail, senderName } = await request.json()
 
     if (!amountCents || !recipientName || !recipientEmail || !senderName) {

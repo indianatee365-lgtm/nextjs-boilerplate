@@ -1,15 +1,22 @@
+import Image from "next/image"
+
 export default function HeroFull() {
   return (
     <section className="relative overflow-hidden bg-black min-h-[100svh] md:h-[720px] md:min-h-0">
       {/* Background */}
       <div className="absolute inset-0">
-        <img
+        {/* LCP element on the homepage. `fill` + `sizes="100vw"` lets Next
+            serve an AVIF/WebP variant scaled to the device instead of shipping
+            the full 1920x1080 JPEG (~360KB) to every phone. `priority` emits
+            the preload + fetchpriority=high that a hero image wants. */}
+        <Image
           src="/hero.jpg"
           alt="Indoor golf simulator bay at Tee365 in Mishawaka, Indiana near Notre Dame"
-          className="h-full w-full object-cover object-[center_72%]"
-          width="1920"
-          height="1080"
-          loading="eager"
+          className="object-cover object-[center_72%]"
+          fill
+          sizes="100vw"
+          priority
+          quality={82}
         />
         <div
           className="absolute inset-0"
