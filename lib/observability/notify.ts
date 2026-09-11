@@ -62,6 +62,9 @@ export function formatDuration(minutes: number): string {
   return `${hours % 1 === 0 ? hours : hours.toFixed(1)}hr`
 }
 
+// Jerrod's cell. Every owner alert in the system lands here.
+const OWNER_PHONE = "+15749990622"
+
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""
@@ -75,7 +78,7 @@ export async function notifyOwner(msg: string): Promise<void> {
       },
       body: JSON.stringify({
         from: process.env.TELNYX_PHONE_NUMBER,
-        to: "+15749990622",
+        to: OWNER_PHONE,
         text: msg,
       }),
     })
@@ -106,9 +109,14 @@ export async function notifyOwner(msg: string): Promise<void> {
     // customer arrival. This row is the difference between the two.
     try {
       const sc = await createServiceClient()
+      // Deliberately the same kind= / to= / subject= shape that sendSmsMessage
+      // and sendResendEmail use, because /admin/logs?filter=communications
+      // parses exactly that and can then render owner alerts in the same
+      // table as everything else, with no special case. subject MUST stay
+      // last: that parser reads it as (.+)$ to the end of the line.
       const { error } = await sc.from("admin_logs").insert({
         event: "notify-owner-sent",
-        detail: `telnyx_id=${messageId || "unknown"} | msg=${msg.slice(0, 140)}`,
+        detail: `kind=owner-alert to=${OWNER_PHONE} telnyx_id=${messageId || "unknown"} subject=${msg.slice(0, 160)}`,
       })
       if (error) console.error("admin_logs insert failed (notify-owner-sent):", error, { msg })
     } catch (err) {

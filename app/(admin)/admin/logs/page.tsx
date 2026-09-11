@@ -11,7 +11,7 @@ const FILTERS = [
   { key: "all", label: "All events" },
   { key: "communications", label: "Communications (sent emails/SMS)" },
   { key: "failures", label: "Failures only" },
-  { key: "alerts", label: "Alerts (owner SMS)" },
+  { key: "alerts", label: "Owner alerts (texts to you)" },
   { key: "membership", label: "Membership" },
   { key: "booking", label: "Booking" },
   { key: "gift-card", label: "Gift card" },
@@ -36,8 +36,8 @@ export default async function AdminLogsPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (serviceClient as any).from("admin_logs").select("event, detail, created_at").order("created_at", { ascending: false }).limit(200)
   if (filter === "failures") query = query.ilike("event", "%FAILED%")
-  else if (filter === "communications") query = query.in("event", ["sms-sent", "email-sent"])
-  else if (filter === "alerts") query = query.ilike("detail", "%ALERT%")
+  else if (filter === "communications") query = query.in("event", ["sms-sent", "email-sent", "notify-owner-sent"])
+  else if (filter === "alerts") query = query.in("event", ["notify-owner-sent", "notify-owner-FAILED"])
   else if (filter === "membership") query = query.ilike("event", "%membership%")
   else if (filter === "booking") query = query.ilike("event", "%booking%")
   else if (filter === "gift-card") query = query.ilike("event", "%gift%")
@@ -53,7 +53,7 @@ export default async function AdminLogsPage({
   // filter mixes too many different detail formats to parse the same way,
   // so they keep the raw view below.
   let commRows: { when: string; what: string; to: string; subject: string | null; name: string | null }[] = []
-  if (filter === "communications" && rows.length > 0) {
+  if ((filter === "communications" || filter === "alerts") && rows.length > 0) {
     const parsed = rows.map((r) => {
       const kind = r.detail.match(/kind=(\S+)/)?.[1] ?? "unknown"
       const to = r.detail.match(/to=(\S+)/)?.[1] ?? ""
@@ -122,7 +122,7 @@ export default async function AdminLogsPage({
 
       {rows.length === 0 ? (
         <p className="text-sm text-neutral-500 py-10 text-center">No events match this filter.</p>
-      ) : filter === "communications" ? (
+      ) : filter === "communications" || filter === "alerts" ? (
         <div className="overflow-hidden rounded-xl border border-white/10 divide-y divide-white/5">
           {commRows.map((row, i) => (
             <div key={i} className="px-4 py-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">

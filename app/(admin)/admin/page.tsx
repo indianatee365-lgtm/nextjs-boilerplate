@@ -55,7 +55,7 @@ export default async function AdminPage() {
       .gte("created_at", twentyFourHoursAgo).ilike("event", "%FAILED%"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
-      .gte("created_at", twentyFourHoursAgo).in("event", ["sms-sent", "email-sent"]),
+      .gte("created_at", twentyFourHoursAgo).in("event", ["sms-sent", "email-sent", "notify-owner-sent"]),
     serviceClient.from("bookings").select("id", { count: "exact", head: true })
       .eq("status", "cancelled").gte("cancelled_at", thirtyDaysAgo),
     serviceClient.from("gift_cards").select("balance, active"),
