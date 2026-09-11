@@ -46,6 +46,16 @@ export default async function AdminSalesPage() {
     { key: "ytd" as const, label: "Year to date" },
   ]
 
+  // Every cell links to /admin/sales/[source] so a number that looks wrong can
+  // be opened to see the individual rows behind it, including the ones
+  // deliberately excluded from revenue and why.
+  const sourceRows = [
+    { source: "bookings" as const, label: "Bay bookings" },
+    { source: "giftCards" as const, label: "Gift cards sold" },
+    { source: "memberships" as const, label: "Membership sign-ups" },
+    { source: "renewals" as const, label: "Membership renewals" },
+  ]
+
   const statusBadge = (s: string) => {
     if (s === "active") return "bg-green-500/20 text-green-400"
     if (s === "past_due") return "bg-yellow-500/20 text-yellow-400"
@@ -87,22 +97,22 @@ export default async function AdminSalesPage() {
             </tr>
           </thead>
           <tbody className="text-neutral-300">
-            <tr className="border-t border-white/5">
-              <td className="px-4 py-3">Bay bookings</td>
-              {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.bookings[p.key])}</td>)}
-            </tr>
-            <tr className="border-t border-white/5">
-              <td className="px-4 py-3">Gift cards sold</td>
-              {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.giftCards[p.key])}</td>)}
-            </tr>
-            <tr className="border-t border-white/5">
-              <td className="px-4 py-3">Membership sign-ups</td>
-              {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.memberships[p.key])}</td>)}
-            </tr>
-            <tr className="border-t border-white/5">
-              <td className="px-4 py-3">Membership renewals</td>
-              {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.renewals[p.key])}</td>)}
-            </tr>
+            {sourceRows.map(row => (
+              <tr key={row.source} className="border-t border-white/5 hover:bg-white/[0.02]">
+                <td className="px-4 py-3">{row.label}</td>
+                {periods.map(p => (
+                  <td key={p.key} className="px-4 py-0 text-right">
+                    <Link
+                      href={`/admin/sales/${row.source}?period=${p.key}`}
+                      className="block px-0 py-3 hover:text-white hover:underline"
+                      title={`See what makes up ${row.label} for ${p.label.toLowerCase()}`}
+                    >
+                      {fmt(revenue[row.source][p.key])}
+                    </Link>
+                  </td>
+                ))}
+              </tr>
+            ))}
             <tr className="border-t border-white/10 font-semibold text-white bg-white/[0.03]">
               <td className="px-4 py-3">Total</td>
               {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.total[p.key])}</td>)}
@@ -158,8 +168,10 @@ export default async function AdminSalesPage() {
       )}
 
       <p className="mt-6 text-xs text-neutral-500">
+        Click any amount above to see the individual rows behind it.
         Bay bookings shown as cash received (total minus gift-card applied minus refunds).
-        Gift cards shown at face value. Membership sign-ups include first month + joining fee. Renewals pulled from Stripe webhook events.
+        Gift cards shown at face value, excluding admin-issued comps. Membership sign-ups include first month + joining fee,
+        excluding free grants. Renewals pulled from Stripe webhook events.
       </p>
     </main>
   )

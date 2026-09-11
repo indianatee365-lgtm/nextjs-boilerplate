@@ -133,6 +133,14 @@ export async function grantFreeMembership(
     started_at: now.toISOString(),
     current_period_end: trialEndIso,
     comped: false,
+    // Marks this as granted rather than bought, so revenue reporting doesn't
+    // book the plan's sticker price as money we never collected. Separate
+    // from comped above on purpose: comped tells the membership-audit cron to
+    // skip drift checks for memberships with no Stripe subscription, and a
+    // giveaway DOES have a real (trialing) subscription that should stay
+    // audited. Added 2026-09-11 after /admin/sales reported $88 of September
+    // signups when $78 of it was two year-long free grants.
+    granted_free: true,
     // No card is collected up front (by design - lower friction). Founder's
     // joining fee is waived, not charged, but still marked paid so this
     // member correctly counts against the 100 cap the same as everyone
