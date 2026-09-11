@@ -328,8 +328,43 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
   return { openBay, facilityClosed: false, noBaysConfigured: false }
 }
 
+// The caller speaks Eastern wall-clock time ("ten in the morning") and the
+// agent hands us a bare YYYY-MM-DD + HH:MM with no zone. `new Date("2026-09-11
+// T10:00:00")` with no offset is parsed in the RUNTIME's zone, and Vercel runs
+// in UTC - so every phone booking was silently landing 4-5 hours early.
+//
+// Found live 2026-09-11: a same-day call failed with "Booking start time must
+// be in the future" (10am ET became 10:00 UTC = 6am ET, already past). The
+// quieter half of the bug was worse - a request far enough ahead wouldn't
+// error at all, it would just book the wrong slot, and check_availability was
+// answering about that same wrong slot.
+//
+// Derive the zone's real offset for that calendar date so DST is handled
+// (EDT -04:00 vs EST -05:00), then pin it explicitly. Same approach as
+// easternDayBoundsUtc in app/(admin)/admin/bookings/page.tsx.
+const BOOKING_TIMEZONE = "America/Indiana/Indianapolis"
+
 function parseSlotDate(date: string, startTime: string): Date | null {
-  const d = new Date(`${date}T${startTime}:00`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  // Tolerate "9:00" as well as "09:00" - the schema asks for HH:MM but a model
+  // can drop the leading zero, and that shouldn't fail a real caller's booking.
+  const timeMatch = startTime?.match(/^(\d{1,2}):(\d{2})$/)
+  if (!timeMatch) return null
+  const hours = Number(timeMatch[1])
+  const minutes = Number(timeMatch[2])
+  if (hours > 23 || minutes > 59) return null
+  const hhmm = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+
+  const noonUtc = new Date(`${date}T12:00:00Z`)
+  if (isNaN(noonUtc.getTime())) return null
+  const offsetPart = new Intl.DateTimeFormat("en-US", {
+    timeZone: BOOKING_TIMEZONE,
+    timeZoneName: "shortOffset",
+  }).formatToParts(noonUtc).find((p) => p.type === "timeZoneName")?.value ?? "GMT-5"
+  const offsetHours = parseInt(offsetPart.replace("GMT", ""), 10) || -5
+  const offsetStr = `${offsetHours >= 0 ? "+" : "-"}${String(Math.abs(offsetHours)).padStart(2, "0")}:00`
+
+  const d = new Date(`${date}T${hhmm}:00${offsetStr}`)
   return isNaN(d.getTime()) ? null : d
 }
 
