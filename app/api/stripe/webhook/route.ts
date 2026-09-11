@@ -139,6 +139,10 @@ export async function POST(request: NextRequest) {
         current_period_end: new Date(trialEnd * 1000).toISOString(),
         joining_fee_paid: plan_slug === "founder",
         joining_fee_paid_at: plan_slug === "founder" ? now.toISOString() : null,
+        // What Stripe actually collected, rather than the plan's list price.
+        // Revenue reporting reads this so a discounted signup is counted at
+        // what it earned, not at sticker.
+        signup_amount_paid: (_pi.amount_received ?? _pi.amount ?? 0) / 100,
       }
       if (plan_slug === "eagle") {
         insertData.signup_bonus_hours = 2

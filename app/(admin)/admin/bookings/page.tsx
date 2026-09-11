@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingsManager from "./BookingsManager"
 import MonthCalendar from "./MonthCalendar"
+import BookingsRealtimeRefresher from "./BookingsRealtimeRefresher"
 
 export const metadata = { title: "Manage Bookings | Tee365 Admin" }
 
@@ -127,6 +128,7 @@ export default async function AdminBookingsPage({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
+      <BookingsRealtimeRefresher />
       <h1 className="text-2xl font-semibold text-white">Manage Bookings</h1>
       <BookingsManager
         bookings={bookings ?? []}

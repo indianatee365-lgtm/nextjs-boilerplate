@@ -141,6 +141,9 @@ export async function grantFreeMembership(
     // audited. Added 2026-09-11 after /admin/sales reported $88 of September
     // signups when $78 of it was two year-long free grants.
     granted_free: true,
+    // Collected nothing, and saying so explicitly keeps revenue reporting from
+    // falling back to the plan's list price for these.
+    signup_amount_paid: 0,
     // No card is collected up front (by design - lower friction). Founder's
     // joining fee is waived, not charged, but still marked paid so this
     // member correctly counts against the 100 cap the same as everyone

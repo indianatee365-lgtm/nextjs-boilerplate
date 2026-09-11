@@ -2,6 +2,7 @@ import * as React from "react"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import LogsRealtimeRefresher from "./LogsRealtimeRefresher"
 
 export const metadata = { title: "Activity Log | Tee365" }
 export const dynamic = "force-dynamic"
@@ -94,6 +95,7 @@ export default async function AdminLogsPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
+      <LogsRealtimeRefresher />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-white">Activity Log</h1>

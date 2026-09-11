@@ -61,11 +61,12 @@ export async function proxy(request: NextRequest) {
     return redirect
   }
 
-  if (pathname.startsWith("/gift-cards") && !user) {
-    const redirect = NextResponse.redirect(new URL("/login", request.url))
-    redirect.headers.set("Content-Security-Policy", csp)
-    return redirect
-  }
+  // /gift-cards is deliberately NOT gated. It was login-only while Stripe was
+  // still in test mode, and that gate outlived its reason: the page is in the
+  // header nav and the sitemap, yet every anonymous visitor and every crawler
+  // got a 307 to /login instead (confirmed live 2026-09-11). Nothing behind it
+  // needs a session - /api/gift-cards/payment-intent takes recipient and sender
+  // details in the request body and is rate limited by IP.
 
   if ((pathname === "/login" || pathname === "/signup") && user) {
     const redirect = NextResponse.redirect(new URL("/account", request.url))

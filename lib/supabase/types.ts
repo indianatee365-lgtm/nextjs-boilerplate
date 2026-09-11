@@ -1134,6 +1134,7 @@ export type Database = {
           plan_id: string
           plan_type: string
           reactivation_count: number | null
+          signup_amount_paid: number | null
           signup_bonus_expires_at: string | null
           signup_bonus_hours: number | null
           started_at: string
@@ -1164,6 +1165,7 @@ export type Database = {
           plan_id: string
           plan_type?: string
           reactivation_count?: number | null
+          signup_amount_paid?: number | null
           signup_bonus_expires_at?: string | null
           signup_bonus_hours?: number | null
           started_at?: string
@@ -1194,6 +1196,7 @@ export type Database = {
           plan_id?: string
           plan_type?: string
           reactivation_count?: number | null
+          signup_amount_paid?: number | null
           signup_bonus_expires_at?: string | null
           signup_bonus_hours?: number | null
           started_at?: string

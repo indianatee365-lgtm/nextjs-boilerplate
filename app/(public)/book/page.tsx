@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
-import { hasFoundersDayCredit, FOUNDERS_CLUB_DEADLINE, hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE, FOUNDERS_DAY_START, PUBLIC_BOOKING_OPENS, PUBLIC_EARLIEST_BOOKABLE_START } from "@/lib/bookings/launch-gate"
+import { hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 import { isInFirstYear } from "@/lib/membership/first-year"
 
 export const metadata = {
@@ -32,10 +32,7 @@ export default async function BookPage({
     .eq("id", user.id)
     .single()
 
-  const isAdmin = (profile as { role: string } | null)?.role === "admin"
-
-  // Membership fetched up front (not just after the gate) because the gate
-  // itself now needs to know the plan slug - see below.
+  // Drives how far ahead the calendar opens and what discount the quote shows.
   let membershipSlug: string | null = null
   let advanceDays = 7
   let membershipDiscountPercent = 0
@@ -63,73 +60,18 @@ export default async function BookPage({
     }
   }
 
-  // Admin gate: bookings not open to public until launch, with four
-  // carve-outs - (1) a founder with an active Founders Day credit can get
-  // through starting 8/18 to book their Friends & Founders Day (8/29) slot,
-  // even after that credit is fully redeemed (hasFoundersDayCredit alone
-  // would go back to false once hours_remaining hits 0, wrongly locking a
-  // founder back out), (2) starting 8/19 00:01 EDT (FOUNDERS_CLUB_DEADLINE),
-  // any active founder can get through to book anything from 8/29 onward,
-  // (3) a non-founder guest holding the shared Friends Day coupon link
-  // (?code=FRIENDSDAY) can get through too - checked here just to admit
-  // them to the page; the coupon's own validity/usage rules are enforced
-  // for real at checkout in create.ts, same as any other coupon - and (4)
-  // starting 8/23 (PUBLIC_BOOKING_OPENS, 7 days ahead of the 8/30 public
-  // opening), literally anyone can get through, since create.ts's own
-  // isPublicBookingOpen() check already accepts any session from 8/30
-  // onward for a non-founder - this fourth carve-out was missing entirely
-  // until 2026-08-24, which meant Birdie/Eagle members and the general
-  // public were stuck on "Coming Soon" even though the backend was fully
-  // ready to book them.
-  // The backend (lib/bookings/create.ts) enforces the actual date
-  // restriction per-session; this just decides whether to show the booking
-  // UI at all, and has to mirror all of create.ts's carve-outs or someone
-  // eligible gets wrongly stuck on the "Coming Soon" screen.
-  const isEarlyAccessOpen = Date.now() >= FOUNDERS_CLUB_DEADLINE.getTime()
-  const isFounderPlan = membershipSlug === "founder"
-  const isPublicOpen = Date.now() >= PUBLIC_BOOKING_OPENS.getTime()
+  // The pre-launch gate that used to live here (a "Bookings Open August 30"
+  // screen plus founder / Friends Day carve-outs around it) came out on
+  // 2026-09-11. Every one of its dates is in the past, so it had been letting
+  // everyone straight through for two weeks while still costing two DB reads
+  // per page load. The real per-session eligibility checks never lived here
+  // anyway, they're in lib/bookings/create.ts, and they stay.
+  //
+  // The Friends Day code is still honored to the extent of prefilling the
+  // coupon field, since /account can still redirect someone here with it.
+  // Whether it actually applies is create.ts's call, same as any coupon.
   const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
-  const hasFounderDayCredit = await hasFoundersDayCredit(serviceClient, user.id)
-
-  // The calendar's own clickable-date ceiling is today + advanceDays
-  // (BookingFlow.tsx), completely separate from the launch gate above - a
-  // guest's default 7-day cap falls one day short of 8/29 as we get closer
-  // to it, so getting through the gate above isn't enough on its own; the
-  // one date this whole feature exists for has to actually be selectable.
-  if (hasGuestCode) {
-    const daysUntilFoundersDay = Math.ceil((FOUNDERS_DAY_START.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
-    advanceDays = Math.max(advanceDays, daysUntilFoundersDay)
-  }
-
-  if (!isAdmin && !hasFounderDayCredit && !(isEarlyAccessOpen && isFounderPlan) && !hasGuestCode && !isPublicOpen) {
-    return (
-      <main className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-        <p className="text-xs font-semibold uppercase tracking-widest text-[#00A651] mb-4">Coming Soon</p>
-        <h1 className="text-3xl font-bold text-white mb-3">Bookings Open August 30</h1>
-        <p className="text-neutral-400 max-w-sm">
-          We&apos;re getting the bays ready. Online booking opens August 30, 2026.
-        </p>
-      </main>
-    )
-  }
-
-  // Calendar floor: which dates the calendar itself lets you click at all,
-  // mirroring create.ts's eligibility check exactly (isEarlyAccessEligibleSession
-  // /isPublicBookingOpen). Without this the calendar had a ceiling
-  // (advanceDays) but no floor, so a non-founder could select and pay for
-  // 8/24 and only get rejected at the very last step - found live 2026-08-24.
-  // Admin gets no floor (needs to test any date). Founder-tier access
-  // (active founder, a Founders Day credit holder, or the Friends Day
-  // guest code) floors at Founders Day itself (8/29). Everyone else who
-  // made it past the gate above only did so via isPublicOpen, so they floor
-  // at the real public opening (8/30).
-  const isFounderTierAccess = hasFounderDayCredit || (isEarlyAccessOpen && isFounderPlan) || hasGuestCode
-  const minBookableDate = isAdmin
-    ? null
-    : isFounderTierAccess
-      ? FOUNDERS_DAY_START
-      : PUBLIC_EARLIEST_BOOKABLE_START
 
   // Minor consent gate
   const p = profile as { role: string; first_name: string; last_name: string; is_minor: boolean; parental_consent_verified: boolean } | null
@@ -179,7 +121,6 @@ export default async function BookPage({
         isAuthenticated={!!user}
         availableCreditHours={availableCreditHours}
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
-        minBookableDate={minBookableDate ? minBookableDate.toISOString() : null}
       />
     </main>
   )

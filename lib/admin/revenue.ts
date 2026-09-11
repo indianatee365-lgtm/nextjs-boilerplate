@@ -50,6 +50,25 @@ export function computePeriodBoundaries(): {
   }
 }
 
+// What a signup actually earned. Prefer memberships.signup_amount_paid, which
+// the Stripe webhook fills in with what the PaymentIntent really collected, so
+// a discounted or partially-paid signup is counted at its real value instead of
+// the plan's list price. Rows from before that column existed (2026-09-11) have
+// it null, and those fall back to sticker so historical YTD totals don't shift
+// under us. Returns null when neither is available, which the caller skips
+// rather than booking a guessed number.
+function membershipSignupRevenue(m: {
+  signup_amount_paid: number | null
+  membership_plans: { price_monthly: number; joining_fee: number | null } | null
+}): number | null {
+  if (m.signup_amount_paid !== null && m.signup_amount_paid !== undefined) {
+    return Number(m.signup_amount_paid)
+  }
+  const plan = m.membership_plans
+  if (!plan) return null
+  return Number(plan.price_monthly) + Number(plan.joining_fee ?? 0)
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdown> {
   const { todayStart, weekStart, monthStart, yearStart } = computePeriodBoundaries()
@@ -67,7 +86,7 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
       .gte("created_at", yearStart.toISOString()),
     serviceClient
       .from("memberships")
-      .select("started_at, plan_type, granted_free, membership_plans(price_monthly, joining_fee)")
+      .select("started_at, plan_type, granted_free, signup_amount_paid, membership_plans(price_monthly, joining_fee)")
       .gte("started_at", yearStart.toISOString()),
     serviceClient
       .from("admin_logs")
@@ -99,17 +118,17 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
 
   for (const m of (memberships ?? []) as Array<{
     started_at: string; plan_type: string; granted_free: boolean | null
+    signup_amount_paid: number | null
     membership_plans: { price_monthly: number; joining_fee: number | null } | null
   }>) {
-    const plan = m.membership_plans
-    if (!plan) continue
     // Free grants (admin direct grant / giveaway code) collect nothing at
     // signup - see memberships.granted_free. Counting their sticker price is
     // what put $88 of "September signups" on /admin/sales when $78 of it was
     // two year-long free grants. Their eventual paid renewals still land in
     // the renewals bucket below once Stripe actually charges them.
     if (m.granted_free) continue
-    const signupRevenue = Number(plan.price_monthly) + Number(plan.joining_fee ?? 0)
+    const signupRevenue = membershipSignupRevenue(m)
+    if (signupRevenue === null) continue
     addToBuckets(memBuckets, signupRevenue, new Date(m.started_at), boundaries)
   }
 
@@ -184,6 +203,7 @@ type GiftCardDetailRow = {
 
 type MembershipDetailRow = {
   user_id: string; started_at: string; plan_type: string; granted_free: boolean | null
+  signup_amount_paid: number | null
   membership_plans: { name: string; price_monthly: number; joining_fee: number | null } | null
   profiles: PersonRef
 }
@@ -241,21 +261,27 @@ export async function getRevenueLineItems(serviceClient: any, source: RevenueSou
   if (source === "memberships") {
     const { data } = await serviceClient
       .from("memberships")
-      .select("id, user_id, started_at, plan_type, granted_free, membership_plans(name, price_monthly, joining_fee), profiles!user_id(first_name, last_name)")
+      .select("id, user_id, started_at, plan_type, granted_free, signup_amount_paid, membership_plans(name, price_monthly, joining_fee), profiles!user_id(first_name, last_name)")
       .gte("started_at", since)
       .order("started_at", { ascending: false })
     return ((data ?? []) as MembershipDetailRow[]).map(m => {
       const plan = m.membership_plans
       const sticker = Number(plan?.price_monthly ?? 0) + Number(plan?.joining_fee ?? 0)
+      const collected = membershipSignupRevenue(m) ?? 0
       const bits = [plan?.name ?? m.plan_type]
       if (plan && Number(plan.joining_fee ?? 0) > 0) {
         bits.push(`$${Number(plan.price_monthly).toFixed(2)}/mo + $${Number(plan.joining_fee).toFixed(2)} joining fee`)
+      }
+      // Worth calling out when the charge came in under list price, since the
+      // row otherwise looks like the plan was simply priced differently.
+      if (!m.granted_free && m.signup_amount_paid !== null && collected < sticker) {
+        bits.push(`charged $${collected.toFixed(2)} of $${sticker.toFixed(2)}`)
       }
       return {
         when: m.started_at,
         who: name(m.profiles),
         detail: bits.join(" · "),
-        amount: m.granted_free ? 0 : sticker,
+        amount: m.granted_free ? 0 : collected,
         excludedReason: m.granted_free ? `free grant, sticker price $${sticker.toFixed(2)} not collected` : undefined,
         href: `/admin/users/${m.user_id}`,
       }
