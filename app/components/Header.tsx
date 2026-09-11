@@ -26,7 +26,12 @@ export default async function Header() {
           <Link href="/about" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">About</Link>
           <Link href="/events" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Events</Link>
           <Link href="/gift-cards" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Gift Cards</Link>
-          <Link href="/join" className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-sm font-semibold tracking-wide text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Join</Link>
+          {/* The one highlighted item in the nav, so it should be the thing we
+              most want a visitor to do. That was "Join" while memberships were
+              the only thing on sale pre-opening; now that the bays are bookable
+              it's "Book". Membership is still reachable from the footer, the
+              homepage card, and /join itself. */}
+          <Link href="/book" className="inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-sm font-semibold tracking-wide text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Book</Link>
           {user ? (
             <Link
               href="/account"
