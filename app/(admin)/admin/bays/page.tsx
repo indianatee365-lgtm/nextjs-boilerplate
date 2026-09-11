@@ -1,8 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { setBayOverride, startTestBooking, requestBayRestart } from "./actions"
 import BayStatusRefresher from "./BayStatusRefresher"
-import ExtendBookingButton from "./ExtendBookingButton"
+import BayCard, { type BayCardData } from "./BayCard"
 
 export const metadata = { title: "Bays | Tee365 Admin" }
 
@@ -47,108 +46,50 @@ export default async function AdminBaysPage() {
       <h1 className="text-2xl font-semibold text-white mb-8">Bays &amp; Block Times</h1>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-white mb-3">Live Status</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-white">Live Status</h2>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            The big word on each card is what the bay is actually doing, reported by the agent itself.
+            Everything else explains why.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
           {(bays ?? []).map((bay) => {
             const status = bay.bay_agent_status as unknown as AgentStatus | null
-            const online = Boolean(
-              status?.last_heartbeat_at &&
-              now - new Date(status.last_heartbeat_at).getTime() < HEARTBEAT_STALE_AFTER_MS
-            )
-            const override = status?.override_state ?? null
-            const effectiveState = override ?? status?.session_state ?? null
-            const simShouldRun = effectiveState === "occupied"
-            const simTrouble = online && simShouldRun && status?.sim_running === false
-            const recentKills = (status?.kiosk_kills ?? []).slice(-3).reverse()
+            const heartbeatMs = status?.last_heartbeat_at
+              ? now - new Date(status.last_heartbeat_at).getTime()
+              : null
+            const online = heartbeatMs !== null && heartbeatMs < HEARTBEAT_STALE_AFTER_MS
 
-            return (
-              <div key={bay.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-white">{bay.name}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${online ? "bg-green-500/20 text-green-400" : "bg-neutral-500/20 text-neutral-400"}`}>
-                    {online ? "Agent online" : "Agent offline"}
-                  </span>
-                </div>
+            const data: BayCardData = {
+              bayId: bay.id,
+              name: bay.name,
+              online,
+              heartbeatAgo: heartbeatMs === null
+                ? null
+                : heartbeatMs < 60_000
+                  ? `heard ${Math.max(1, Math.round(heartbeatMs / 1000))}s ago`
+                  : `heard ${Math.round(heartbeatMs / 60_000)}m ago`,
+              // session_state is what the agent reports it is really doing, and
+              // it already folds in the bay's own local maintenance flag.
+              // override_state is only what this page has asked for. Showing
+              // the agent's value as the headline (rather than the old
+              // `override ?? session_state`) is what makes a disagreement
+              // between the two visible instead of hidden.
+              actual: status?.session_state ?? null,
+              override: status?.override_state ?? null,
+              simRunning: status?.sim_running ?? null,
+              lastCrashRestartAt: status?.last_crash_restart_at
+                ? new Date(status.last_crash_restart_at).toLocaleString("en-US", {
+                    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                    timeZone: "America/Indiana/Indianapolis",
+                  })
+                : null,
+              recentKills: (status?.kiosk_kills ?? []).slice(-3).reverse().map((k) => k.process),
+              enforcementMode: status?.enforcement_mode ?? null,
+            }
 
-                <p className="text-sm text-neutral-400">
-                  {override
-                    ? `Override: ${override}`
-                    : effectiveState
-                      ? `Booking state: ${effectiveState}`
-                      : "No status yet"}
-                  {status?.enforcement_mode && <span className="ml-2 text-xs text-neutral-600">({status.enforcement_mode})</span>}
-                </p>
-
-                {simTrouble && (
-                  <p className="text-sm font-medium text-red-400">
-                    Should be running during an active rental but isn&apos;t reporting as running.
-                  </p>
-                )}
-                {status?.last_crash_restart_at && (
-                  <p className="text-xs text-neutral-500">
-                    Last crash-restart: {new Date(status.last_crash_restart_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                  </p>
-                )}
-                {recentKills.length > 0 && (
-                  <p className="text-xs text-neutral-500">
-                    Recently blocked: {recentKills.map((k) => k.process).join(", ")}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <form action={async () => { "use server"; await setBayOverride(bay.id, "occupied") }}>
-                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                      Turn on
-                    </button>
-                  </form>
-                  <form action={async () => { "use server"; await setBayOverride(bay.id, "maintenance") }}>
-                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                      Maintenance mode
-                    </button>
-                  </form>
-                  <form action={async () => { "use server"; await setBayOverride(bay.id, "available") }}>
-                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                      Force available
-                    </button>
-                  </form>
-                  {override && (
-                    <form action={async () => { "use server"; await setBayOverride(bay.id, null) }}>
-                      <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                        Clear override
-                      </button>
-                    </form>
-                  )}
-                  <ExtendBookingButton bayId={bay.id} />
-                  <form action={async () => { "use server"; await requestBayRestart(bay.id) }}>
-                    <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                      Restart simulator
-                    </button>
-                  </form>
-                </div>
-
-                <form action={startTestBooking} className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
-                  <input type="hidden" name="bayId" value={bay.id} />
-                  <select
-                    name="durationMinutes"
-                    defaultValue="15"
-                    className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-neutral-300"
-                  >
-                    <option value="15">15 min</option>
-                    <option value="30">30 min</option>
-                    <option value="60">1 hour</option>
-                  </select>
-                  <input
-                    type="email"
-                    name="customerEmail"
-                    placeholder="Customer email (blank = you)"
-                    className="w-48 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-neutral-300 placeholder:text-neutral-600"
-                  />
-                  <button type="submit" className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 hover:border-white/30">
-                    Start test booking
-                  </button>
-                </form>
-              </div>
-            )
+            return <BayCard key={bay.id} data={data} />
           })}
         </div>
       </section>
