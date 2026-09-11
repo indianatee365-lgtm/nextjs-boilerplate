@@ -65,6 +65,7 @@ export function formatDuration(minutes: number): string {
 export async function notifyOwner(msg: string): Promise<void> {
   let ok = false
   let errDetail = ""
+  let messageId = ""
   try {
     const res = await fetch("https://api.telnyx.com/v2/messages", {
       method: "POST",
@@ -80,12 +81,40 @@ export async function notifyOwner(msg: string): Promise<void> {
     })
     if (res.ok) {
       ok = true
+      // Capture Telnyx's message id so a message that was accepted here but
+      // never arrived on the phone can actually be traced in their portal.
+      // On 2026-09-11 a real customer booking (Kolton Parnell, Bay 4) sent no
+      // owner notification, and it was impossible to tell whether this
+      // function was even called, because success was silent: only failures
+      // were ever logged. Owner alerts sent minutes later did arrive, so the
+      // Telnyx path itself was working. Without an accepted-message id there
+      // is nothing to chase.
+      const body = await res.json().catch(() => ({}))
+      messageId = (body as { data?: { id?: string } })?.data?.id ?? ""
     } else {
       const body = await res.json().catch(() => ({}))
       errDetail = `status=${res.status} body=${JSON.stringify(body).slice(0, 200)}`
     }
   } catch (err) {
     errDetail = String(err).slice(0, 200)
+  }
+
+  if (ok) {
+    // Deliberately logged on SUCCESS too, not just failure. An owner alert
+    // that silently never fires is indistinguishable from one that fired and
+    // was dropped by the carrier, and that ambiguity cost a real missed
+    // customer arrival. This row is the difference between the two.
+    try {
+      const sc = await createServiceClient()
+      const { error } = await sc.from("admin_logs").insert({
+        event: "notify-owner-sent",
+        detail: `telnyx_id=${messageId || "unknown"} | msg=${msg.slice(0, 140)}`,
+      })
+      if (error) console.error("admin_logs insert failed (notify-owner-sent):", error, { msg })
+    } catch (err) {
+      console.error("notifyOwner success logging threw:", err, { msg })
+    }
+    return
   }
 
   if (!ok) {

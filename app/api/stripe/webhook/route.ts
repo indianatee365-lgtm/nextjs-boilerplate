@@ -399,13 +399,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (profile && bay && await getAdminSetting(supabase, "notify_new_bookings")) {
+    // Every branch here logs, including the skips. On 2026-09-11 a real
+    // customer booking produced no owner notification and there was no way to
+    // tell whether this gate had been false or notifyOwner had failed
+    // silently, because only the success case sent anything and nothing at
+    // all was recorded. Owner is unreachable is a customer-arrival problem,
+    // so "we chose not to send" has to be as visible as "we tried and failed".
+    const notifyNewBookings = await getAdminSetting(supabase, "notify_new_bookings")
+    if (profile && bay && notifyNewBookings) {
       const durationMinutes = Math.round((new Date(booking.ends_at).getTime() - new Date(booking.starts_at).getTime()) / 60000)
       await notifyOwner(
         `New booking: ${profile.first_name} ${profile.last_name}, ${bay.name}, ` +
         `${new Date(booking.starts_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}, ` +
         `${formatDuration(durationMinutes)}, $${Number(b.total ?? 0).toFixed(2)}`
       )
+    } else {
+      await logEvent(supabase, "owner-booking-notify-SKIPPED",
+        `booking=${booking.id} profile=${!!profile} bay=${!!bay} setting=${notifyNewBookings}`)
     }
 
     // If booking starts within 15 minutes, generate + send the access code
