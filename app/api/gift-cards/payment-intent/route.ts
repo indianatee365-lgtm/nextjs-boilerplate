@@ -3,6 +3,7 @@ import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { createServiceClient } from "@/lib/supabase/server"
 import { checkoutRatelimit } from "@/lib/ratelimit"
+import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -25,9 +26,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Amount must be between $10 and $500" }, { status: 400 })
     }
 
-    // 20% pre-launch discount through Aug 31 2026; amountCents stays as face value for the gift card
-    const prelaunchEnd = new Date("2026-09-01T00:00:00Z")
-    const chargeAmount = new Date() < prelaunchEnd ? Math.round(amountCents * 0.8) : amountCents
+    // Admin-controlled sale (see /admin/discounts). amountCents stays the
+    // card's face value, only what we charge moves - a discounted $100 card
+    // still loads $100 of balance. Was a hardcoded "before Sept 1 2026" date
+    // check, which expired silently while the site kept advertising 20% off.
+    const serviceClient = await createServiceClient()
+    const giftCardDiscount = await getDiscount(serviceClient, "gift_card")
+    const percentOff = effectivePercent(giftCardDiscount)
+    const chargeAmount = percentOff > 0
+      ? Math.round(amountCents * (1 - percentOff / 100))
+      : amountCents
 
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: chargeAmount,

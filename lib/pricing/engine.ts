@@ -45,6 +45,7 @@ export interface BookingPrice {
   subtotal: number
   creditHoursApplied: number
   creditDiscount: number
+  promoDiscount: number
   membershipDiscount: number
   couponDiscount: number
   taxableAmount: number
@@ -98,6 +99,7 @@ export function calculateBookingPrice({
   pricePerHour,
   durationMinutes,
   membershipDiscountPercent = 0,
+  promoDiscountPercent = 0,
   couponDiscountType,
   couponDiscountValue = 0,
   giftCardBalance = 0,
@@ -107,6 +109,7 @@ export function calculateBookingPrice({
   pricePerHour: number
   durationMinutes: number
   membershipDiscountPercent?: number
+  promoDiscountPercent?: number
   couponDiscountType?: "percent" | "fixed"
   couponDiscountValue?: number
   giftCardBalance?: number
@@ -124,11 +127,21 @@ export function calculateBookingPrice({
   )
   const afterCredits = subtotal - creditDiscount
 
-  // Membership discount applied first
-  const membershipDiscount = parseFloat(
-    ((afterCredits * membershipDiscountPercent) / 100).toFixed(2)
+  // Site-wide sale (admin-controlled, see /admin/discounts) comes off before
+  // the membership discount, so the two stack sequentially rather than being
+  // added together: a 20% sale plus a 20% member rate is 36% off, not 40%.
+  // Jerrod's call 2026-09-11, matching how membership and coupons already
+  // compound in this same chain.
+  const promoDiscount = parseFloat(
+    ((afterCredits * promoDiscountPercent) / 100).toFixed(2)
   )
-  const afterMembership = afterCredits - membershipDiscount
+  const afterPromo = afterCredits - promoDiscount
+
+  // Membership discount applied next
+  const membershipDiscount = parseFloat(
+    ((afterPromo * membershipDiscountPercent) / 100).toFixed(2)
+  )
+  const afterMembership = afterPromo - membershipDiscount
 
   // Coupon discount applied after membership
   let couponDiscount = 0
@@ -158,6 +171,7 @@ export function calculateBookingPrice({
     subtotal,
     creditHoursApplied,
     creditDiscount,
+    promoDiscount,
     membershipDiscount,
     couponDiscount,
     taxableAmount,

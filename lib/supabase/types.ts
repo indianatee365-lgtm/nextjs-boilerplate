@@ -188,6 +188,7 @@ export type Database = {
         Row: {
           access_code: string | null
           access_code_issued_at: string | null
+          access_revoked_at: string | null
           access_sent_at: string | null
           bay_id: string
           bay_powered_off_at: string | null
@@ -214,6 +215,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           price_per_hour: number
+          promo_discount: number
           rate_type: string | null
           refund_amount: number | null
           refunded_at: string | null
@@ -238,6 +240,7 @@ export type Database = {
         Insert: {
           access_code?: string | null
           access_code_issued_at?: string | null
+          access_revoked_at?: string | null
           access_sent_at?: string | null
           bay_id: string
           bay_powered_off_at?: string | null
@@ -264,6 +267,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           price_per_hour: number
+          promo_discount?: number
           rate_type?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
@@ -288,6 +292,7 @@ export type Database = {
         Update: {
           access_code?: string | null
           access_code_issued_at?: string | null
+          access_revoked_at?: string | null
           access_sent_at?: string | null
           bay_id?: string
           bay_powered_off_at?: string | null
@@ -314,6 +319,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           price_per_hour?: number
+          promo_discount?: number
           rate_type?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
@@ -1117,6 +1123,7 @@ export type Database = {
           current_period_end: string | null
           founder_number: number | null
           founder_status_active: boolean | null
+          granted_free: boolean
           id: string
           is_annual: boolean
           joining_fee_paid: boolean | null
@@ -1146,6 +1153,7 @@ export type Database = {
           current_period_end?: string | null
           founder_number?: number | null
           founder_status_active?: boolean | null
+          granted_free?: boolean
           id?: string
           is_annual?: boolean
           joining_fee_paid?: boolean | null
@@ -1175,6 +1183,7 @@ export type Database = {
           current_period_end?: string | null
           founder_number?: number | null
           founder_status_active?: boolean | null
+          granted_free?: boolean
           id?: string
           is_annual?: boolean
           joining_fee_paid?: boolean | null
@@ -1324,6 +1333,27 @@ export type Database = {
           role?: string
           sms_consent?: boolean
           stripe_customer_id?: string | null
+        }
+        Relationships: []
+      }
+      promo_discounts: {
+        Row: {
+          active: boolean
+          kind: string
+          percent_off: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          kind: string
+          percent_off?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          kind?: string
+          percent_off?: number
+          updated_at?: string
         }
         Relationships: []
       }

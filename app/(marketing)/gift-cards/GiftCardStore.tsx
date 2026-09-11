@@ -17,7 +17,7 @@ interface GiftCardDetails {
   senderName: string
 }
 
-function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: () => void }) {
+function PaymentStep({ details, onBack, discountPercent }: { details: GiftCardDetails; onBack: () => void; discountPercent: number }) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
@@ -48,13 +48,25 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
   }
 
   const amount = details.amountCents / 100
+  // What they actually pay. Mirrors the same calculation the payment-intent
+  // route does off promo_discounts, so the button never promises a price the
+  // charge won't match.
+  const youPay = discountPercent > 0
+    ? Math.round(details.amountCents * (1 - discountPercent / 100)) / 100
+    : amount
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors">
         <ArrowLeft size={14} /> Back
       </button>
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2 text-sm">
-        <div className="flex justify-between"><span className="text-neutral-400">Amount</span><span className="text-white font-semibold">{fmt(amount)}</span></div>
+        <div className="flex justify-between"><span className="text-neutral-400">Card value</span><span className="text-white font-semibold">{fmt(amount)}</span></div>
+        {discountPercent > 0 && (
+          <div className="flex justify-between">
+            <span className="text-neutral-400">You pay ({discountPercent}% off)</span>
+            <span className="font-semibold" style={{ color: "var(--brand)" }}>{fmt(youPay)}</span>
+          </div>
+        )}
         <div className="flex justify-between"><span className="text-neutral-400">To</span><span className="text-white">{details.recipientName}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">Delivered to</span><span className="text-white">{details.recipientEmail}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">From</span><span className="text-white">{details.senderName}</span></div>
@@ -68,14 +80,14 @@ function PaymentStep({ details, onBack }: { details: GiftCardDetails; onBack: ()
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={!stripe || submitting} className="btn-primary w-full py-3 text-base">
-        {submitting ? "Processing..." : `Purchase ${fmt(amount)} gift card`}
+        {submitting ? "Processing..." : `Pay ${fmt(youPay)} for a ${fmt(amount)} gift card`}
       </button>
       <p className="text-center text-xs text-neutral-500">Payment processed securely by Stripe. Gift cards never expire.</p>
     </form>
   )
 }
 
-export function PurchaseForm() {
+export function PurchaseForm({ discountPercent = 0 }: { discountPercent?: number }) {
   const [step, setStep] = useState<"form" | "payment">("form")
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [details, setDetails] = useState<GiftCardDetails | null>(null)
@@ -121,7 +133,7 @@ export function PurchaseForm() {
   if (step === "payment" && clientSecret && details) {
     return (
       <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-        <PaymentStep details={details} onBack={() => setStep("form")} />
+        <PaymentStep details={details} onBack={() => setStep("form")} discountPercent={discountPercent} />
       </Elements>
     )
   }

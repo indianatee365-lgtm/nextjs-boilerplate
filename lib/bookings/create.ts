@@ -1,3 +1,4 @@
+import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
@@ -323,11 +324,18 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     creditHours = Math.min(sumCreditHours(credits), durationMinutes / 60)
   }
 
+  // Site-wide sale, if one is running (see /admin/discounts). Read here rather
+  // than passed in by the caller so every booking path gets the same price:
+  // the web flow, the phone agent, and admin-created bookings all land here.
+  const bookingPromo = await getDiscount(serviceClient, "booking_hours")
+  const promoDiscountPercent = effectivePercent(bookingPromo)
+
   // Calculate price
   const pricing = calculateBookingPrice({
     pricePerHour,
     durationMinutes,
     membershipDiscountPercent,
+    promoDiscountPercent,
     couponDiscountType,
     couponDiscountValue,
     giftCardBalance,
@@ -351,6 +359,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         status: "confirmed",
         price_per_hour: pricePerHour,
         subtotal: pricing.subtotal,
+        promo_discount: pricing.promoDiscount,
         membership_discount: pricing.membershipDiscount,
         coupon_discount: pricing.couponDiscount,
         tax: pricing.tax,
@@ -556,7 +565,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       status: "pending",
       price_per_hour: pricePerHour,
       subtotal: pricing.subtotal,
-      membership_discount: pricing.membershipDiscount,
+      promo_discount: pricing.promoDiscount,
+        membership_discount: pricing.membershipDiscount,
       coupon_discount: pricing.couponDiscount,
       tax: pricing.tax,
       gift_card_applied: pricing.giftCardApplied,

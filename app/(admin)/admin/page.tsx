@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle, Settings, Ticket, Activity } from "lucide-react"
+import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle, Settings, Ticket, Activity, Percent } from "lucide-react"
 import { computeRevenue } from "@/lib/admin/revenue"
 import { computeOperationsStats } from "@/lib/admin/operations"
 
@@ -144,6 +144,7 @@ export default async function AdminPage() {
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
           { href: "/admin/users", icon: <UserCircle size={16} />, label: `Users (${userCount ?? 0})` },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
+          { href: "/admin/discounts", icon: <Percent size={16} />, label: "Discounts" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
           { href: "/admin/membership-giveaways", icon: <Ticket size={16} />, label: "Membership Giveaways" },
           { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },

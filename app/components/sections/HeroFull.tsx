@@ -35,7 +35,7 @@ export default function HeroFull() {
             className="inline-flex items-center rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-black sm:text-sm"
             style={{ backgroundColor: "var(--brand)" }}
           >
-            Booking now open · Aug 30 &amp; beyond
+            Yes! We&apos;re open · Book any time, 24/7
           </span>
 
           <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-6xl leading-[1.05]">
