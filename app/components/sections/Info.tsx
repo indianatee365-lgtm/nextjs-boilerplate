@@ -1,9 +1,13 @@
-import { Instagram, Facebook, Music2, MapPin } from "lucide-react"
 import { createServiceClient } from "@/lib/supabase/server"
+import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
 import WaitlistForm from "@/app/components/sections/WaitlistForm"
 
 export default async function Info() {
   const serviceClient = await createServiceClient()
+  // Same row the gift card checkout charges off (see /admin/discounts).
+  // This block used to hardcode "20% off through opening day", which kept
+  // advertising a sale for 11 days after it ended.
+  const giftCardPercent = effectivePercent(await getDiscount(serviceClient, "gift_card"))
   const { data: plans } = await serviceClient
     .from("membership_plans")
     .select("slug, price_monthly, discount_percent, advance_booking_days, max_active_reservations")
@@ -35,9 +39,9 @@ export default async function Info() {
         </h2>
 
         <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-300">
-          Tee365 is building a 24/7 indoor golf space designed for quick sessions,
-          late-night practice, competition with your buddies, or in a league. Full
-          details, pricing, and address will be posted as soon as possible.
+          Tee365 is a 24/7 indoor golf space designed for quick sessions,
+          late-night practice, competition with your buddies, or league play.
+          We&apos;re at 4615 Grape Rd in Mishawaka, open every hour of every day.
         </p>
 
         <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
@@ -93,61 +97,13 @@ export default async function Info() {
           <div
             className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
-            <h3 className="text-lg font-semibold text-white">Get Early Access</h3>
+            <h3 className="text-lg font-semibold text-white">Stay in the loop</h3>
             <p className="mt-2 text-sm text-neutral-300">
-              Be first to hear about launch updates, founding memberships, and early
-              booking access.
+              Occasional email about leagues, events, and member deals. No spam,
+              unsubscribe any time.
             </p>
 
             <WaitlistForm />
-
-            <div className="mt-5 border-t border-white/10 pt-4">
-              <h3 className="mt-4 text-lg font-semibold text-white">
-                Follow For Launch Updates
-              </h3>
-
-              <div className="mt-3 flex items-center gap-4">
-                <a
-                  href="https://www.instagram.com/tee365.mishawaka"
-                  target="_blank"
-                  rel="nofollow noreferrer noopener"
-                  aria-label="Tee365 on Instagram"
-                  className="text-white/70 transition hover:text-white/90"
-                >
-                  <Instagram size={16} />
-                </a>
-
-                <a
-                  href="https://www.facebook.com/people/Tee365/61578292102933/"
-                  target="_blank"
-                  rel="nofollow noreferrer noopener"
-                  aria-label="Tee365 on Facebook"
-                  className="text-white/70 transition hover:text-white/90"
-                >
-                  <Facebook size={16} />
-                </a>
-
-                <a
-                  href="https://www.tiktok.com/@tee36568?_t=ZT-8ybYXacTg5X&_r=1"
-                  target="_blank"
-                  rel="nofollow noreferrer noopener"
-                  aria-label="Tee365 on TikTok"
-                  className="text-white/70 transition hover:text-white/90"
-                >
-                  <Music2 size={16} />
-                </a>
-
-                <a
-                  href="https://share.google/d8bNieAsQUqaYomQZ"
-                  target="_blank"
-                  rel="nofollow noreferrer noopener"
-                  aria-label="Tee365 on Google Maps"
-                  className="text-white/70 transition hover:text-white/90"
-                >
-                  <MapPin size={16} />
-                </a>
-              </div>
-            </div>
 
             <p className="mt-2 text-xs text-neutral-400"></p>
           </div>
@@ -158,7 +114,11 @@ export default async function Info() {
         >
           <h3 className="text-lg font-semibold text-white">Gift Cards</h3>
           <p className="mt-2 text-sm text-neutral-300">
-            Give the gift of golf. Buy now at 20% off through opening day, the recipient gets the full value.
+            Give the gift of golf. Delivered instantly by email, redeemable on any
+            bay booking, and they never expire.
+            {giftCardPercent > 0 && (
+              <> Right now they&apos;re {giftCardPercent}% off, and the recipient still gets the full value.</>
+            )}
           </p>
 
           <a

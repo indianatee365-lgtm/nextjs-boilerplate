@@ -71,11 +71,11 @@ export default function AboutPage() {
           </p>
 
           <p className="text-sm leading-relaxed text-neutral-300">
-            Whether you're a beginner just trying to hit the ball with some consistency, or a +2 handicapper prepping for your next tournament, we'll be here. We'll be open. 365 days a year.
+            Whether you&apos;re a beginner just trying to hit the ball with some consistency, or a +2 handicapper prepping for your next tournament, we&apos;re here. We&apos;re open. 365 days a year.
           </p>
 
           <p className="text-sm leading-relaxed text-neutral-300">
-            The doors aren't open yet, but they will be soon. You'll be among the first to know when we're ready. Your game has been waiting long enough.
+            The doors are open. Book a bay any hour of any day, and bring your game. It&apos;s been waiting long enough.
           </p>
 
           <div className="pt-4 border-t border-white/10">

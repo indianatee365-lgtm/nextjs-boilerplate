@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Section from "../ui/Section";
 
-const EMAIL_LIST_URL = "/#waitlist";
+const BOOK_URL = "/book";
 
 export default function FeatureBand() {
   return (
@@ -45,10 +45,10 @@ export default function FeatureBand() {
 
           <div className="mt-8">
             <a
-              href={EMAIL_LIST_URL}
+              href={BOOK_URL}
               className="inline-flex items-center justify-center rounded-xl border border-[color:var(--brandLine)] bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Get Early Access
+              Book a Bay
             </a>
           </div>
         </div>

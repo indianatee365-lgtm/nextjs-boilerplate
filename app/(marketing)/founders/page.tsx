@@ -6,14 +6,14 @@ import { CountdownClock } from "@/app/components/ui/CountdownClock"
 
 export const metadata: Metadata = {
   title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-  description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+  description: "Founder's Club enrollment closed August 18, 2026. Founding members keep 30% off year one and 20% off forever. Birdie and Eagle memberships are open now at Tee365 in Mishawaka.",
   alternates: {
     canonical: "https://tee365.org/founders",
   },
   openGraph: {
     type: "website",
     title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    description: "Founder's Club enrollment closed August 18, 2026. Founding members keep 30% off year one and 20% off forever. Birdie and Eagle memberships are open now at Tee365 in Mishawaka.",
     url: "https://tee365.org/founders",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Founder's Club | Tee365 Indoor Golf Simulator South Bend",
-    description: "Lock in lifetime pricing at South Bend's first 24/7 indoor golf simulator. 100 founding memberships, closing August 18, 2026. 30% off year one, 20% off forever.",
+    description: "Founder's Club enrollment closed August 18, 2026. Founding members keep 30% off year one and 20% off forever. Birdie and Eagle memberships are open now at Tee365 in Mishawaka.",
     images: ["https://tee365.org/hero.jpg"],
   },
   robots: { index: true, follow: true },

@@ -56,7 +56,7 @@ export default function IndoorGolfSimulatorSouthBendPage() {
         <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-6xl leading-[1.05]">Indoor Golf Simulator in Mishawaka Near Notre Dame</h1>
         <p className="mt-5 text-base leading-7 text-neutral-200">Tee365 is a 24/7 indoor golf simulator facility in Mishawaka, Indiana, serving golfers across Granger, Mishawaka, and the greater Michiana region. Reserve a private bay online, practice year-round, play real courses, and compete with friends no matter the weather.</p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <a href="/#waitlist" className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Get Early Access</a>
+          <a href="/book" className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Book a Bay</a>
           <a href="/#info" className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15">See Details</a>
         </div>
       </header>
@@ -114,10 +114,10 @@ export default function IndoorGolfSimulatorSouthBendPage() {
       </section>
 
       <section className="mt-16 rounded-3xl border border-white/10 bg-white/5 p-10">
-        <h2 className="text-2xl font-semibold tracking-tight text-white">Get launch updates</h2>
-        <p className="mt-3 text-neutral-200">Get early access to founding memberships, pricing, and launch updates.</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-white">Ready to play?</h2>
+        <p className="mt-3 text-neutral-200">Bays are open 24/7. Reserve online in about a minute, any hour of the day.</p>
         <div className="mt-6">
-          <a href="/#waitlist" className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Get Early Access</a>
+          <a href="/book" className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-black transition hover:brightness-95" style={{ backgroundColor: "var(--brand)" }}>Book a Bay</a>
         </div>
       </section>
     </main>
