@@ -5,6 +5,8 @@ import { randomUUID } from "crypto"
 import { sendIndividualMessage, sendGroupMessage } from "../actions"
 import { SubmitButton } from "../SubmitButton"
 import { GROUP_LABELS, getGroupRecipients, isSmsGroup, type SmsGroup } from "@/lib/admin/sms-groups"
+import { getSmsContacts } from "@/lib/admin/sms-contacts"
+import RecipientPicker from "./RecipientPicker"
 
 export const metadata = { title: "New Message | Tee365 Admin" }
 export const maxDuration = 60
@@ -28,6 +30,8 @@ export default async function NewSmsMessagePage({
 
   const showPreview = mode === "group" && group && body?.trim()
   const recipients = showPreview ? await getGroupRecipients(group) : []
+  // Only needed for the individual form's name lookup.
+  const contacts = mode === "individual" ? await getSmsContacts(serviceClient) : []
   const nonce = showPreview ? randomUUID() : ""
 
   return (
@@ -56,16 +60,7 @@ export default async function NewSmsMessagePage({
 
       {mode === "individual" && (
         <form action={sendIndividualMessage} className="mt-8 space-y-4">
-          <div>
-            <label className="text-sm text-neutral-400">Phone number</label>
-            <input
-              type="tel"
-              name="phone"
-              required
-              placeholder="574-555-0100"
-              className="input mt-1 w-full"
-            />
-          </div>
+          <RecipientPicker contacts={contacts} />
           <div>
             <label className="text-sm text-neutral-400">Message</label>
             <textarea
