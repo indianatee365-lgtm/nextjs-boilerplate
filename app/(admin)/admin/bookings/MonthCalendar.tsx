@@ -11,6 +11,7 @@ interface MonthBooking {
   paid_at: string | null
   gift_card_applied: number | null
   refund_amount: number | null
+  extension_revenue?: number | null
 }
 
 function money(n: number): string {
@@ -59,7 +60,14 @@ export default function MonthCalendar({
       // confirmed live 2026-08-31, $200 of fake "revenue" on the 26th from
       // exactly that.
       if (b.paid_at) {
-        entry.revenue += Number(b.total ?? 0) - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
+        // extension_revenue included so a day where someone paid to add time
+        // is not reported as quieter than it was. This calculation is a
+        // deliberate mirror of lib/admin/revenue.ts, and when extensions
+        // became their own revenue source on 2026-09-12 this copy was briefly
+        // left behind - exactly the drift that mirroring invites.
+        entry.revenue +=
+          Number(b.total ?? 0) + Number(b.extension_revenue ?? 0)
+          - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
       }
     }
     else if (b.status === "pending") entry.pending++
