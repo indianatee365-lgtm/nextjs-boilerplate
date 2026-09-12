@@ -30,7 +30,7 @@ export default async function AdminCouponsPage() {
       </div>
 
       {coupons && coupons.length > 0 ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">

@@ -96,7 +96,7 @@ export default async function AdminBaysPage() {
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-white mb-3">Bays</h2>
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
@@ -125,7 +125,7 @@ export default async function AdminBaysPage() {
       <section>
         <h2 className="text-lg font-semibold text-white mb-3">Upcoming Block Times</h2>
         {blocked && blocked.length > 0 ? (
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-neutral-500">

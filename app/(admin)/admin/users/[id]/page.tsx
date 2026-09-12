@@ -70,7 +70,7 @@ export default async function AdminUserDetailPage({
           <SendPastDueNudgeButton userId={t.id} />
         )}
         {memberships && memberships.length > 0 ? (
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-neutral-500"><tr>
                 <th className="px-4 py-2">Plan</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Started</th><th className="px-4 py-2">Period end</th><th className="px-4 py-2">Founder #</th><th className="px-4 py-2">Subscription</th>
@@ -105,7 +105,7 @@ export default async function AdminUserDetailPage({
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Recent bookings</h2>
         {bookings && bookings.length > 0 ? (
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-neutral-500"><tr>
                 <th className="px-4 py-2">When</th><th className="px-4 py-2">Bay</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Total</th><th className="px-4 py-2">Code</th>
@@ -133,7 +133,7 @@ export default async function AdminUserDetailPage({
       {giftCards && giftCards.length > 0 && (
         <section className="mt-8">
           <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Gift cards purchased</h2>
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-neutral-500"><tr>
                 <th className="px-4 py-2">Code</th><th className="px-4 py-2">Recipient</th><th className="px-4 py-2">Amount</th><th className="px-4 py-2">Balance</th><th className="px-4 py-2">When</th>
@@ -158,7 +158,7 @@ export default async function AdminUserDetailPage({
       <section className="mt-8 mb-12">
         <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Recent events</h2>
         {logs && logs.length > 0 ? (
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {(logs as Array<{ event: string; detail: string; created_at: string }>).map((row, i) => {

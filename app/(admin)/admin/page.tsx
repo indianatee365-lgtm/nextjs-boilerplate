@@ -235,7 +235,7 @@ export default async function AdminPage() {
       <div className="mt-8">
         <h2 className="mb-3 text-lg font-semibold text-white">Upcoming bookings</h2>
         {recentBookings && recentBookings.length > 0 ? (
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-neutral-500">

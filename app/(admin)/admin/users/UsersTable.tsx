@@ -104,7 +104,37 @@ export default function UsersTable({ profiles }: { profiles: Profile[] }) {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <>
+        {/* Phone: a four-column table cannot fit a portrait screen, and the
+            rounded wrapper's overflow-hidden silently CLIPPED the overflow
+            rather than letting it scroll, so the right-hand columns were
+            simply unreachable without turning the phone sideways. Cards
+            instead - the same information, stacked, each one tappable. */}
+        <div className="space-y-2 md:hidden">
+          {filtered.map((p) => (
+            <Link
+              key={p.id}
+              href={`/admin/users/${p.id}`}
+              className="block rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-brand/40 hover:bg-brand/5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium text-white">
+                  {p.first_name} {p.last_name}
+                </p>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                  p.role === "admin" ? "bg-brand/20 text-brand" : "bg-white/10 text-neutral-400"
+                }`}>{p.role ?? "user"}</span>
+              </div>
+              <p className="mt-1 text-sm text-neutral-300">{p.phone ?? "No phone"}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Joined {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            </Link>
+          ))}
+        </div>
+
+        <div className="hidden rounded-xl border border-white/10 md:block">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
@@ -131,7 +161,9 @@ export default function UsersTable({ profiles }: { profiles: Profile[] }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
+        </>
       ) : (
         <p className="text-sm text-neutral-500">{query ? "No users match your search." : "No users yet."}</p>
       )}

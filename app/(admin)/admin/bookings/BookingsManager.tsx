@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, X, Lock, CalendarRange } from "lucide-react"
+import Link from "next/link"
+import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight } from "lucide-react"
 import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime } from "./actions"
 
 interface Booking {
@@ -373,7 +374,7 @@ export default function BookingsManager({
           {bookings.length === 0 ? (
             <p className="text-sm text-neutral-500">No pending payments.</p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-white/10">
+            <div className="overflow-x-auto rounded-xl border border-white/10">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
@@ -726,11 +727,24 @@ export default function BookingsManager({
           >
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">
-                  {detailBooking.profiles
-                    ? `${detailBooking.profiles.first_name} ${detailBooking.profiles.last_name}`
-                    : "Unknown customer"}
-                </h2>
+                {/* The customer's name opens their profile. Everything else
+                    about a booking is on this card already, so the one question
+                    it could not answer was "who is this person" - membership,
+                    history, whether they have been in before. */}
+                {detailBooking.profiles ? (
+                  <Link
+                    href={`/admin/users/${detailBooking.profiles.id}`}
+                    className="group inline-flex items-center gap-1.5 text-lg font-semibold text-white transition hover:text-brand"
+                  >
+                    {detailBooking.profiles.first_name} {detailBooking.profiles.last_name}
+                    <ArrowUpRight
+                      size={16}
+                      className="text-neutral-500 transition group-hover:text-brand"
+                    />
+                  </Link>
+                ) : (
+                  <h2 className="text-lg font-semibold text-white">Unknown customer</h2>
+                )}
                 <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
                   detailBooking.status === "confirmed" ? "bg-brand/20 text-brand"
                   : detailBooking.status === "cancelled" ? "bg-red-500/20 text-red-400"

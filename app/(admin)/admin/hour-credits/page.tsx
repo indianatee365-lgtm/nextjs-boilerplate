@@ -114,7 +114,7 @@ export default async function AdminHourCreditsPage() {
 
       <h2 className="mt-10 mb-3 text-sm font-semibold text-white">All credits</h2>
       {credits && credits.length > 0 ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
@@ -165,7 +165,7 @@ export default async function AdminHourCreditsPage() {
 
       <h2 className="mt-10 mb-3 text-sm font-semibold text-white">Recent redemptions</h2>
       {uses && uses.length > 0 ? (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">

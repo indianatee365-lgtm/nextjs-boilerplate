@@ -81,7 +81,7 @@ export default async function AdminSalesSourcePage({
       {counted.length === 0 ? (
         <p className="text-sm text-neutral-500">Nothing in this period.</p>
       ) : (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
@@ -116,7 +116,7 @@ export default async function AdminSalesSourcePage({
           <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
             Not counted as revenue ({excluded.length})
           </h2>
-          <div className="rounded-xl border border-white/10 overflow-hidden">
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="text-neutral-400">
                 {excluded.map((i, idx) => (

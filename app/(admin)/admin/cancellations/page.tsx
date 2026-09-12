@@ -155,7 +155,7 @@ export default async function AdminCancellationsPage({
       {cancellations.length === 0 ? (
         <p className="text-sm text-neutral-500 py-10 text-center">No paid bookings were cancelled in this window.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
@@ -224,7 +224,7 @@ export default async function AdminCancellationsPage({
             No money was involved and nobody cancelled anything. Worth watching as lost conversions,
             not lost revenue.
           </p>
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-white/10">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">

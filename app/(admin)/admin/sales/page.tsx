@@ -88,7 +88,7 @@ export default async function AdminSalesPage() {
       </div>
 
       {/* Revenue breakdown */}
-      <div className="rounded-xl border border-white/10 overflow-hidden mb-10">
+      <div className="rounded-xl border border-white/10 overflow-x-auto mb-10">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
@@ -131,7 +131,7 @@ export default async function AdminSalesPage() {
       {subs.length === 0 ? (
         <p className="text-sm text-neutral-500">No active subscriptions.</p>
       ) : (
-        <div className="rounded-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
