@@ -5,6 +5,20 @@ import Link from "next/link"
 export const metadata = { title: "Cancellations | Tee365 Admin" }
 export const dynamic = "force-dynamic"
 
+type Row = {
+  id: string; user_id: string; starts_at: string; ends_at: string
+  total: number; refund_amount: number | null; refunded_at: string | null
+  paid_at: string | null; cancelled_at: string; credit_hours_applied: number | null
+  bays: { name: string } | null
+  profiles: { first_name: string; last_name: string } | null
+}
+
+const fmtWhen = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+
 export default async function AdminCancellationsPage({
   searchParams,
 }: {
@@ -21,36 +35,42 @@ export default async function AdminCancellationsPage({
 
   const since = new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data: cancellations } = await serviceClient
+  const { data } = await serviceClient
     .from("bookings")
-    .select("id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, paid_at, cancelled_at, bays(name), profiles!user_id(first_name, last_name)")
+    .select("id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, paid_at, cancelled_at, credit_hours_applied, bays(name), profiles!user_id(first_name, last_name)")
     .eq("status", "cancelled")
     .not("cancelled_at", "is", null)
     .gte("cancelled_at", since)
     .order("cancelled_at", { ascending: false })
 
-  const rows = (cancellations ?? []) as Array<{
-    id: string; user_id: string; starts_at: string; ends_at: string;
-    total: number; refund_amount: number | null; paid_at: string | null; cancelled_at: string;
-    bays: { name: string } | null;
-    profiles: { first_name: string; last_name: string } | null;
-  }>
+  const all = (data ?? []) as Row[]
 
-  // Forfeited means the customer actually paid and did not get it back. This
-  // used to sum the price of EVERY unrefunded cancellation regardless of
-  // whether a cent was ever collected, so abandoned checkouts (a slot picked,
-  // payment never completed, then auto-cancelled) were reported as forfeited
-  // revenue. On 2026-09-12 that inflated the figure to $522.50 when the true
-  // amount was $0.00 - every row in it had paid_at null.
-  const paidRows = rows.filter((b) => b.paid_at !== null)
-  const abandonedRows = rows.filter((b) => b.paid_at === null && Number(b.total) > 0)
+  // A booking that never completed payment was never a cancellation - nobody
+  // cancelled anything, the customer just did not finish checking out and the
+  // held slot was released. Keeping those in the same list made the count, the
+  // forfeited figure and the refunded figure all wrong, and buried the handful
+  // of real cancellations among thirteen abandoned carts.
+  const cancellations = all.filter((b) => b.paid_at !== null)
+  const abandoned = all.filter((b) => b.paid_at === null)
 
-  const totalForfeited = paidRows.reduce(
-    (sum, b) => sum + (Number(b.refund_amount ?? 0) === 0 ? Number(b.total) : 0), 0)
-  const totalRefunded = rows.reduce((sum, b) => sum + Number(b.refund_amount ?? 0), 0)
-  // Not money lost, but worth seeing: people who got as far as choosing a
-  // slot and never finished paying.
-  const totalAbandoned = abandonedRows.reduce((sum, b) => sum + Number(b.total), 0)
+  const forfeited = (b: Row) => Number(b.total) > 0 && Number(b.refund_amount ?? 0) === 0
+  const totalForfeited = cancellations.filter(forfeited).reduce((s, b) => s + Number(b.total), 0)
+
+  // Only money that was actually taken can be given back, so this counts paid
+  // bookings only. One row carries refund_amount 30.00 against paid_at null
+  // and refunded_at null - a refund recorded for a payment that never
+  // happened. It is surfaced as a data problem below rather than quietly
+  // inflating this figure, which is what made the card disagree with the list.
+  const totalRefunded = cancellations.reduce((s, b) => s + Number(b.refund_amount ?? 0), 0)
+
+  // Hour-credit bookings cancel at $0 because no cash was ever involved.
+  // Reporting those as "Forfeited $0.00" says nothing: what they actually
+  // forfeit is credit hours, so they are counted in their own unit.
+  const creditHoursForfeited = cancellations
+    .filter((b) => Number(b.total) === 0 && Number(b.credit_hours_applied ?? 0) > 0)
+    .reduce((s, b) => s + Number(b.credit_hours_applied ?? 0), 0)
+
+  const phantomRefunds = abandoned.filter((b) => Number(b.refund_amount ?? 0) > 0)
 
   const FILTERS = [
     { days: 7, label: "Last 7 days" },
@@ -65,8 +85,8 @@ export default async function AdminCancellationsPage({
         <div>
           <h1 className="text-2xl font-semibold text-white">Cancellations</h1>
           <p className="text-xs text-neutral-500 mt-1">
-            Forfeited counts only bookings that were actually paid for. A cancelled booking that never
-            completed payment is an abandoned checkout, not lost revenue.
+            Bookings that were paid for and then cancelled. Checkouts that were never completed are
+            listed separately at the bottom, because nobody cancelled those.
           </p>
         </div>
         <Link href="/admin" className="text-xs text-neutral-400 hover:text-white">&larr; Back to dashboard</Link>
@@ -75,11 +95,17 @@ export default async function AdminCancellationsPage({
       <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Cancellations</p>
-          <p className="mt-1 text-2xl font-semibold text-white">{rows.length}</p>
+          <p className="mt-1 text-2xl font-semibold text-white">{cancellations.length}</p>
+          <p className="mt-0.5 text-[11px] text-neutral-600">paid, then cancelled</p>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Total forfeited</p>
           <p className="mt-1 text-2xl font-semibold text-red-400">${totalForfeited.toFixed(2)}</p>
+          {creditHoursForfeited > 0 && (
+            <p className="mt-0.5 text-[11px] text-neutral-600">
+              plus {creditHoursForfeited} credit {creditHoursForfeited === 1 ? "hour" : "hours"}
+            </p>
+          )}
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Total refunded</p>
@@ -87,8 +113,8 @@ export default async function AdminCancellationsPage({
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Abandoned checkouts</p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-300">${totalAbandoned.toFixed(2)}</p>
-          <p className="mt-0.5 text-[11px] text-neutral-600">{abandonedRows.length} never paid, no money lost</p>
+          <p className="mt-1 text-2xl font-semibold text-neutral-300">{abandoned.length}</p>
+          <p className="mt-0.5 text-[11px] text-neutral-600">not cancellations</p>
         </div>
       </div>
 
@@ -105,8 +131,30 @@ export default async function AdminCancellationsPage({
         ))}
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-neutral-500 py-10 text-center">No cancellations in this window.</p>
+      {phantomRefunds.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="text-sm font-medium text-amber-300">
+            {phantomRefunds.length === 1 ? "A booking has" : `${phantomRefunds.length} bookings have`}{" "}
+            a refund recorded against a payment that never happened
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-amber-200/80">
+            {phantomRefunds.map((b) => (
+              <li key={b.id}>
+                {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "Unknown"} &middot;{" "}
+                {b.bays?.name ?? "Bay ?"} &middot; refund_amount ${Number(b.refund_amount).toFixed(2)}, no payment
+                {b.refunded_at ? "" : ", no refund timestamp"}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-amber-200/60">
+            Not counted as refunded above. No money left the account, but the stored figure is wrong
+            and is what made the refunded total disagree with the list.
+          </p>
+        </div>
+      )}
+
+      {cancellations.length === 0 ? (
+        <p className="text-sm text-neutral-500 py-10 text-center">No paid bookings were cancelled in this window.</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-white/10">
           <table className="w-full text-sm">
@@ -115,15 +163,31 @@ export default async function AdminCancellationsPage({
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Bay</th>
                 <th className="px-4 py-3">Booked slot</th>
-                <th className="px-4 py-3">Price</th>
+                <th className="px-4 py-3">Paid</th>
                 <th className="px-4 py-3">Outcome</th>
                 <th className="px-4 py-3">Cancelled at</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((b) => {
-                const neverPaid = b.paid_at === null
-                const forfeit = !neverPaid && Number(b.refund_amount ?? 0) === 0
+              {cancellations.map((b) => {
+                const refundAmt = Number(b.refund_amount ?? 0)
+                const credits = Number(b.credit_hours_applied ?? 0)
+                const zeroCash = Number(b.total) === 0
+
+                let badge: { text: string; cls: string }
+                if (refundAmt > 0) {
+                  badge = { text: `$${refundAmt.toFixed(2)} refunded`, cls: "bg-green-500/20 text-green-400" }
+                } else if (zeroCash && credits > 0) {
+                  badge = {
+                    text: `${credits} credit ${credits === 1 ? "hour" : "hours"} forfeited`,
+                    cls: "bg-amber-500/20 text-amber-400",
+                  }
+                } else if (zeroCash) {
+                  badge = { text: "No charge", cls: "bg-neutral-500/20 text-neutral-400" }
+                } else {
+                  badge = { text: `$${Number(b.total).toFixed(2)} forfeited`, cls: "bg-red-500/20 text-red-400" }
+                }
+
                 return (
                   <tr key={b.id} className="border-b border-white/5 text-neutral-300 hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
@@ -132,31 +196,64 @@ export default async function AdminCancellationsPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3">{b.bays?.name ?? "N/A"}</td>
-                    <td className="px-4 py-3 text-xs">
-                      {new Date(b.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" "}
-                      {new Date(b.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                    <td className="px-4 py-3 text-xs">{fmtWhen(b.starts_at)}</td>
+                    <td className="px-4 py-3 tabular-nums">
+                      ${Number(b.total).toFixed(2)}
+                      {zeroCash && credits > 0 && (
+                        <span className="ml-1 text-xs text-neutral-500">({credits} hr credit)</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        neverPaid
-                          ? "bg-neutral-500/20 text-neutral-400"
-                          : forfeit
-                            ? "bg-red-500/20 text-red-400"
-                            : "bg-green-500/20 text-green-400"
-                      }`}>
-                        {neverPaid ? "Never paid" : forfeit ? "Forfeited" : `$${Number(b.refund_amount).toFixed(2)}`}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
+                        {badge.text}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-neutral-500">
-                      {new Date(b.cancelled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                    </td>
+                    <td className="px-4 py-3 text-xs text-neutral-500">{fmtWhen(b.cancelled_at)}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
+      )}
+
+      {abandoned.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-white">Abandoned checkouts</h2>
+          <p className="mt-1 mb-4 text-xs text-neutral-500">
+            A slot was held, payment was never completed, and the hold was released automatically.
+            No money was involved and nobody cancelled anything. Worth watching as lost conversions,
+            not lost revenue.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-white/10">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Bay</th>
+                  <th className="px-4 py-3">Slot they were holding</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Released at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {abandoned.map((b) => (
+                  <tr key={b.id} className="border-b border-white/5 text-neutral-400 hover:bg-white/[0.03]">
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/users/${b.user_id}`} className="hover:text-brand">
+                        {b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "N/A"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{b.bays?.name ?? "N/A"}</td>
+                    <td className="px-4 py-3 text-xs">{fmtWhen(b.starts_at)}</td>
+                    <td className="px-4 py-3 tabular-nums text-neutral-500">${Number(b.total).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-xs text-neutral-500">{fmtWhen(b.cancelled_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </main>
   )
