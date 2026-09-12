@@ -4,7 +4,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
-import { pickBestBay } from "@/lib/bookings/bay-selection"
+import { pickBestBay, easternDayWindow } from "@/lib/bookings/bay-selection"
 import {
   isFoundersDaySession,
   hasFoundersDayCredit,
@@ -311,8 +311,7 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
   // easternDayBoundsUtc in admin/bookings/page.tsx), computed with a plain
   // offset here since this is a short-lived voice call, not worth pulling
   // in that helper for one query.
-  const dayStart = new Date(startDate); dayStart.setUTCHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+  const { dayStart, dayEnd } = easternDayWindow(startDate)
   const { data: todaysBookings } = await supabase
     .from("bookings")
     .select("bay_id")

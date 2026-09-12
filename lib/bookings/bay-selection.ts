@@ -13,6 +13,65 @@
 // webhook) - only the caller differs in how it gathers `busyBayNumbers`
 // and `loadByBayId`.
 
+export const BOOKING_TIMEZONE = "America/Indiana/Indianapolis"
+
+function easternYmd(at: Date): { y: number; m: number; d: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BOOKING_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(at)
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+  return { y: get("year"), m: get("month"), d: get("day") }
+}
+
+function offsetHoursAt(instant: Date): number {
+  const name = new Intl.DateTimeFormat("en-US", {
+    timeZone: BOOKING_TIMEZONE, timeZoneName: "shortOffset",
+  }).formatToParts(instant).find((p) => p.type === "timeZoneName")?.value ?? "GMT-5"
+  return parseInt(name.replace("GMT", ""), 10) || -5
+}
+
+// Midnight local time on a given Eastern calendar date, as a real instant.
+//
+// Reading the offset at noon and applying it to midnight is wrong on the two
+// DST transition days a year: on spring-forward, noon is already EDT (-4)
+// while midnight was still EST (-5), which places midnight an hour late. So
+// the noon offset is only a first guess, then re-read AT that guessed instant
+// and applied again. One refinement is enough, since the guess is never more
+// than an hour off and the transition happens at 2am, not midnight.
+function easternMidnight(y: number, m: number, d: number): Date {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const ymd = `${y}-${pad(m)}-${pad(d)}`
+  const withOffset = (hours: number) =>
+    new Date(`${ymd}T00:00:00${hours < 0 ? "-" : "+"}${pad(Math.abs(hours))}:00`)
+
+  const guess = withOffset(offsetHoursAt(new Date(`${ymd}T12:00:00Z`)))
+  return withOffset(offsetHoursAt(guess))
+}
+
+/**
+ * The calendar day, in Indiana local time, that contains `at`.
+ *
+ * This replaces `setUTCHours(0,0,0,0)`, which silently split a single
+ * Indiana evening across two UTC days: anything from 8pm local onward is
+ * already tomorrow in UTC. Found live 2026-09-11 - the day's only two
+ * bookings, 5:30pm and 10pm, both auto-assigned to Bay 4, because the 10pm
+ * booking's "load today" window started at 8pm local and so could not see
+ * the 5:30pm one. Every bay looked equally unused and the tie broke at
+ * random onto the bay that was already the day's busiest.
+ *
+ * Both ends are computed from their own date rather than as start + 24h,
+ * so a DST transition day is 23 or 25 hours, not always 24.
+ */
+export function easternDayWindow(at: Date): { dayStart: Date; dayEnd: Date } {
+  const { y, m, d } = easternYmd(at)
+  const dayStart = easternMidnight(y, m, d)
+  const nextUtc = new Date(Date.UTC(y, m - 1, d) + 24 * 60 * 60 * 1000)
+  const dayEnd = easternMidnight(
+    nextUtc.getUTCFullYear(), nextUtc.getUTCMonth() + 1, nextUtc.getUTCDate()
+  )
+  return { dayStart, dayEnd }
+}
+
 export interface BaySelectable {
   id: string
   number: number

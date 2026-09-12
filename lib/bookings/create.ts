@@ -8,7 +8,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
-import { pickBestBay } from "@/lib/bookings/bay-selection"
+import { pickBestBay, easternDayWindow } from "@/lib/bookings/bay-selection"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -210,8 +210,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // Today's load per bay, same tiebreak as findOpenBay - keeps a quiet day
   // from always handing out the same low-numbered bay once spacing itself
   // ties (e.g. nothing else booked yet).
-  const dayStart = new Date(startDate); dayStart.setUTCHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+  const { dayStart, dayEnd } = easternDayWindow(startDate)
   const { data: todaysBookings } = await serviceClient
     .from("bookings")
     .select("bay_id")
