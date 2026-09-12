@@ -23,7 +23,7 @@ export default async function AdminCancellationsPage({
 
   const { data: cancellations } = await serviceClient
     .from("bookings")
-    .select("id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, cancelled_at, bays(name), profiles!user_id(first_name, last_name)")
+    .select("id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, paid_at, cancelled_at, bays(name), profiles!user_id(first_name, last_name)")
     .eq("status", "cancelled")
     .not("cancelled_at", "is", null)
     .gte("cancelled_at", since)
@@ -31,13 +31,26 @@ export default async function AdminCancellationsPage({
 
   const rows = (cancellations ?? []) as Array<{
     id: string; user_id: string; starts_at: string; ends_at: string;
-    total: number; refund_amount: number | null; cancelled_at: string;
+    total: number; refund_amount: number | null; paid_at: string | null; cancelled_at: string;
     bays: { name: string } | null;
     profiles: { first_name: string; last_name: string } | null;
   }>
 
-  const totalForfeited = rows.reduce((sum, b) => sum + (Number(b.refund_amount ?? 0) === 0 ? Number(b.total) : 0), 0)
+  // Forfeited means the customer actually paid and did not get it back. This
+  // used to sum the price of EVERY unrefunded cancellation regardless of
+  // whether a cent was ever collected, so abandoned checkouts (a slot picked,
+  // payment never completed, then auto-cancelled) were reported as forfeited
+  // revenue. On 2026-09-12 that inflated the figure to $522.50 when the true
+  // amount was $0.00 - every row in it had paid_at null.
+  const paidRows = rows.filter((b) => b.paid_at !== null)
+  const abandonedRows = rows.filter((b) => b.paid_at === null && Number(b.total) > 0)
+
+  const totalForfeited = paidRows.reduce(
+    (sum, b) => sum + (Number(b.refund_amount ?? 0) === 0 ? Number(b.total) : 0), 0)
   const totalRefunded = rows.reduce((sum, b) => sum + Number(b.refund_amount ?? 0), 0)
+  // Not money lost, but worth seeing: people who got as far as choosing a
+  // slot and never finished paying.
+  const totalAbandoned = abandonedRows.reduce((sum, b) => sum + Number(b.total), 0)
 
   const FILTERS = [
     { days: 7, label: "Last 7 days" },
@@ -52,13 +65,14 @@ export default async function AdminCancellationsPage({
         <div>
           <h1 className="text-2xl font-semibold text-white">Cancellations</h1>
           <p className="text-xs text-neutral-500 mt-1">
-            Watch for refund_amount &gt; 0 on bookings cancelled shortly after creation &mdash; may indicate the reschedule-to-escape-forfeit pattern.
+            Forfeited counts only bookings that were actually paid for. A cancelled booking that never
+            completed payment is an abandoned checkout, not lost revenue.
           </p>
         </div>
         <Link href="/admin" className="text-xs text-neutral-400 hover:text-white">&larr; Back to dashboard</Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Cancellations</p>
           <p className="mt-1 text-2xl font-semibold text-white">{rows.length}</p>
@@ -70,6 +84,11 @@ export default async function AdminCancellationsPage({
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs text-neutral-500">Total refunded</p>
           <p className="mt-1 text-2xl font-semibold text-green-400">${totalRefunded.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <p className="text-xs text-neutral-500">Abandoned checkouts</p>
+          <p className="mt-1 text-2xl font-semibold text-neutral-300">${totalAbandoned.toFixed(2)}</p>
+          <p className="mt-0.5 text-[11px] text-neutral-600">{abandonedRows.length} never paid, no money lost</p>
         </div>
       </div>
 
@@ -96,14 +115,15 @@ export default async function AdminCancellationsPage({
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Bay</th>
                 <th className="px-4 py-3">Booked slot</th>
-                <th className="px-4 py-3">Paid</th>
-                <th className="px-4 py-3">Refunded</th>
+                <th className="px-4 py-3">Price</th>
+                <th className="px-4 py-3">Outcome</th>
                 <th className="px-4 py-3">Cancelled at</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((b) => {
-                const forfeit = Number(b.refund_amount ?? 0) === 0
+                const neverPaid = b.paid_at === null
+                const forfeit = !neverPaid && Number(b.refund_amount ?? 0) === 0
                 return (
                   <tr key={b.id} className="border-b border-white/5 text-neutral-300 hover:bg-white/[0.03]">
                     <td className="px-4 py-3">
@@ -118,8 +138,14 @@ export default async function AdminCancellationsPage({
                     </td>
                     <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${forfeit ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
-                        {forfeit ? "Forfeited" : `$${Number(b.refund_amount).toFixed(2)}`}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        neverPaid
+                          ? "bg-neutral-500/20 text-neutral-400"
+                          : forfeit
+                            ? "bg-red-500/20 text-red-400"
+                            : "bg-green-500/20 text-green-400"
+                      }`}>
+                        {neverPaid ? "Never paid" : forfeit ? "Forfeited" : `$${Number(b.refund_amount).toFixed(2)}`}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-500">

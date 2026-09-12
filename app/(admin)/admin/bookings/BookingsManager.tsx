@@ -12,6 +12,9 @@ interface Booking {
   status: string
   total: number
   duration_minutes: number
+  extension_minutes?: number | null
+  extension_count?: number | null
+  extension_revenue?: number | null
   access_code: string | null
   notes: string | null
   cancelled_at: string | null
@@ -756,7 +759,20 @@ export default function BookingsManager({
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Duration</span>
-                <span className="text-white">{detailBooking.duration_minutes} min</span>
+                <span className="text-white">
+                  {detailBooking.duration_minutes} min
+                  {Number(detailBooking.extension_minutes ?? 0) > 0 && (
+                    <>
+                      {" "}
+                      <span className="text-amber-400">
+                        + {detailBooking.extension_minutes} min extended
+                      </span>
+                      <span className="text-neutral-500">
+                        {" "}= {detailBooking.duration_minutes + Number(detailBooking.extension_minutes)} min total
+                      </span>
+                    </>
+                  )}
+                </span>
               </div>
               {detailBooking.profiles?.phone && (
                 <div className="flex justify-between">

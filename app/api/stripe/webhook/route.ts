@@ -73,9 +73,13 @@ export async function POST(request: NextRequest) {
       // succeed. Only covers the case where the customer's phone drops connection
       // right after paying - idempotent, so it's a no-op if finalizeExtend already ran.
       const { bookingId, newEndsAt } = _pi.metadata
-      await supabase.from("bookings").update({
-        ends_at: newEndsAt,
-      }).eq("id", bookingId).eq("status", "confirmed").lt("ends_at", newEndsAt)
+      // Same guarded RPC finalizeExtend uses, so whichever path runs second
+      // is a genuine no-op rather than double-counting the extension.
+      await supabase.rpc("apply_booking_extension", {
+        p_booking_id: bookingId,
+        p_new_ends_at: newEndsAt,
+        p_amount: (_pi.amount_received ?? _pi.amount ?? 0) / 100,
+      })
       return NextResponse.json({ received: true })
     }
 

@@ -30,6 +30,12 @@ export default async function AdminSettingsPage() {
           initialValue={settingsMap.notify_new_bookings ?? true}
         />
         <SettingsToggle
+          settingKey="notify_extensions"
+          label="Text me when a customer extends their session"
+          description="Sends your phone a text whenever someone pays to add time mid-session, with how long they added and what they paid. Until 2026-09-12 extensions happened silently - the only way to notice was the cameras."
+          initialValue={settingsMap.notify_extensions ?? true}
+        />
+        <SettingsToggle
           settingKey="notify_restart_clicks"
           label="Text me when a customer clicks restart"
           description={'Sends your phone a text whenever a customer taps the on-screen "Simulator issue? Click to restart" button, with what was actually running at that moment logged for you to review.'}

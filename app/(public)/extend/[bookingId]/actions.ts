@@ -2,7 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
-import { logEvent, logFailure } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -32,7 +32,7 @@ export async function finalizeExtend({
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, ends_at, extend_token")
+    .select("id, user_id, status, starts_at, ends_at, extend_token, duration_minutes, bays(name), profiles!user_id(first_name, last_name)")
     .eq("id", bookingId)
     .single()
 
@@ -62,18 +62,45 @@ export async function finalizeExtend({
     return { newEndsAt: booking.ends_at }
   }
 
-  const { error } = await serviceClient
-    .from("bookings")
-    .update({ ends_at: newEndsAt })
-    .eq("id", bookingId)
-    .eq("status", "confirmed")
+  // One guarded statement rather than a bare ends_at update, because this
+  // and the Stripe webhook's backstop can both run for the same payment.
+  // Moving ends_at twice was harmless; incrementing counters twice is not.
+  const amountPaid = (pi.amount_received ?? pi.amount ?? 0) / 100
+  const { data: applied, error } = await serviceClient.rpc("apply_booking_extension", {
+    p_booking_id: bookingId,
+    p_new_ends_at: newEndsAt,
+    p_amount: amountPaid,
+  })
 
   if (error) {
     await logFailure(serviceClient, "booking-extend-FAILED", `booking=${bookingId} pi=${paymentIntentId} err=${error.message.slice(0, 200)}`)
     throw new Error("Failed to apply extension")
   }
 
-  await logEvent(serviceClient, "booking-extended", `booking=${bookingId} pi=${paymentIntentId} newEndsAt=${newEndsAt}`)
+  const result = (Array.isArray(applied) ? applied[0] : applied) as
+    { applied: boolean; added_minutes: number; new_extension_total: number } | null
+
+  // Only announce an extension that this call actually applied. If the
+  // webhook backstop got there first the RPC is a no-op and the customer has
+  // already been told once.
+  if (result?.applied) {
+    await logEvent(serviceClient, "booking-extended",
+      `booking=${bookingId} pi=${paymentIntentId} addedMinutes=${result.added_minutes} ` +
+      `amount=$${amountPaid.toFixed(2)} newEndsAt=${newEndsAt}`)
+
+    if (await getAdminSetting(serviceClient, "notify_extensions")) {
+      const bay = (booking as unknown as { bays: { name: string } | null }).bays
+      const who = (booking as unknown as { profiles: { first_name: string; last_name: string } | null }).profiles
+      const name = who ? `${who.first_name} ${who.last_name}` : "A customer"
+      const endsLocal = new Date(newEndsAt).toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis",
+      })
+      await notifyOwner(
+        `Session extended: ${name}, ${bay?.name ?? "a bay"}, ` +
+        `+${formatDuration(result.added_minutes)} for $${amountPaid.toFixed(2)}. Now ends ${endsLocal}.`
+      )
+    }
+  }
 
   return { newEndsAt }
 }

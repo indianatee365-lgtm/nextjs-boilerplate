@@ -205,6 +205,9 @@ export type Database = {
           duration_minutes: number
           ends_at: string
           extend_token: string | null
+          extension_count: number
+          extension_minutes: number
+          extension_revenue: number
           feedback_email_sent_at: string | null
           gift_card_applied: number
           gift_card_id: string | null
@@ -257,6 +260,9 @@ export type Database = {
           duration_minutes: number
           ends_at: string
           extend_token?: string | null
+          extension_count?: number
+          extension_minutes?: number
+          extension_revenue?: number
           feedback_email_sent_at?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
@@ -309,6 +315,9 @@ export type Database = {
           duration_minutes?: number
           ends_at?: string
           extend_token?: string | null
+          extension_count?: number
+          extension_minutes?: number
+          extension_revenue?: number
           feedback_email_sent_at?: string | null
           gift_card_applied?: number
           gift_card_id?: string | null
@@ -1609,6 +1618,14 @@ export type Database = {
       }
     }
     Functions: {
+      apply_booking_extension: {
+        Args: { p_amount?: number; p_booking_id: string; p_new_ends_at: string }
+        Returns: {
+          added_minutes: number
+          applied: boolean
+          new_extension_total: number
+        }[]
+      }
       assign_founder_number: { Args: { member_id: string }; Returns: number }
       check_reservation_cap: { Args: { p_user_id: string }; Returns: boolean }
       validate_booking_window: {

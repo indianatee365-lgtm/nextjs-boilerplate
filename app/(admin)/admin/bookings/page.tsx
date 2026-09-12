@@ -81,7 +81,7 @@ export default async function AdminBookingsPage({
     const { data } = await serviceClient
       .from("bookings")
       .select(`
-        id, starts_at, ends_at, status, total, duration_minutes,
+        id, starts_at, ends_at, status, total, duration_minutes, extension_minutes, extension_count, extension_revenue,
         access_code, notes, cancelled_at, refund_amount,
         created_at, stripe_payment_intent_id,
         bays(id, name, number),
@@ -95,7 +95,7 @@ export default async function AdminBookingsPage({
     const { data } = await serviceClient
       .from("bookings")
       .select(`
-        id, starts_at, ends_at, status, total, duration_minutes,
+        id, starts_at, ends_at, status, total, duration_minutes, extension_minutes, extension_count, extension_revenue,
         access_code, notes, cancelled_at, refund_amount,
         created_at, stripe_payment_intent_id,
         subtotal, membership_discount, coupon_discount, tax,

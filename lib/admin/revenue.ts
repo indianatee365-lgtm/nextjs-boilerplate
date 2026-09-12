@@ -77,7 +77,7 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   const [{ data: bookings }, { data: giftCards }, { data: memberships }, { data: renewalLogs }] = await Promise.all([
     serviceClient
       .from("bookings")
-      .select("total, gift_card_applied, refund_amount, paid_at, status")
+      .select("total, gift_card_applied, refund_amount, extension_revenue, paid_at, status")
       .gte("paid_at", yearStart.toISOString())
       .not("paid_at", "is", null),
     serviceClient
@@ -101,9 +101,19 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   const renewalBuckets = emptyBuckets()
 
   for (const b of (bookings ?? []) as Array<{
-    total: number; gift_card_applied: number | null; refund_amount: number | null; paid_at: string; status: string
+    total: number; gift_card_applied: number | null; refund_amount: number | null
+    extension_revenue: number | null; paid_at: string; status: string
   }>) {
-    const cash = Number(b.total) - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
+    // extension_revenue is added on top of total rather than folded into it.
+    // Extensions are charged on their own PaymentIntent and never touched
+    // total, so every dollar customers paid to add time was missing from
+    // revenue entirely until 2026-09-12. Keeping total as the original sale
+    // means the booking still reports what it was sold for, and the added
+    // time is still counted. Historical extensions predate the column and
+    // stay at 0 - that money was never recorded anywhere to recover.
+    const cash =
+      Number(b.total) + Number(b.extension_revenue ?? 0)
+      - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
     if (cash > 0) addToBuckets(bookingBuckets, cash, new Date(b.paid_at), boundaries)
   }
 

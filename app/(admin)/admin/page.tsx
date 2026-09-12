@@ -121,18 +121,48 @@ export default async function AdminPage() {
         </div>
       </Link>
 
-      {/* Operations card: full width, same size/style as Sales */}
+      {/* Operations card: full width, same size/style as Sales. Not wrapped in
+          a single Link like Sales is, because each number here has its own
+          answer to "which ones?" and they are different pages. */}
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
-        <div className="flex items-center gap-2 mb-4 text-neutral-300">
-          <Activity size={18} />
-          <span className="text-sm font-semibold uppercase tracking-widest">Operations</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-neutral-300">
+            <Activity size={18} />
+            <span className="text-sm font-semibold uppercase tracking-widest">Operations</span>
+          </div>
+          <span className="text-xs text-neutral-600">Every number opens what is behind it</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <SalesCell label="Bookings this week" value={String(operations.bookingsWeek)} />
-          <SalesCell label="Bookings this month" value={String(operations.bookingsMonth)} />
-          <SalesCell label="Avg $ / paid booking" value={fmtMoney(operations.avgDollarPerBooking)} />
-          <SalesCell label="Utilization (week)" value={`${operations.utilizationWeek.toFixed(1)}%`} />
-          <SalesCell label="Utilization (month)" value={`${operations.utilizationMonth.toFixed(1)}%`} />
+          <SalesCell
+            label="Bookings this week"
+            value={String(operations.bookingsWeek)}
+            href="/admin/sales/bookings?period=week"
+            hint="List them"
+          />
+          <SalesCell
+            label="Bookings this month"
+            value={String(operations.bookingsMonth)}
+            href="/admin/sales/bookings?period=mtd"
+            hint="List them"
+          />
+          <SalesCell
+            label="Avg $ / paid booking"
+            value={fmtMoney(operations.avgDollarPerBooking)}
+            href="/admin/sales/bookings?period=mtd"
+            hint="See the maths"
+          />
+          <SalesCell
+            label="Utilization (week)"
+            value={`${operations.utilizationWeek.toFixed(1)}%`}
+            href="/admin/bookings?view=month"
+            hint="Open calendar"
+          />
+          <SalesCell
+            label="Utilization (month)"
+            value={`${operations.utilizationMonth.toFixed(1)}%`}
+            href="/admin/bookings?view=month"
+            hint="Open calendar"
+          />
         </div>
       </div>
 
@@ -249,12 +279,37 @@ function StatCard({ icon, label, value, href }: { icon: React.ReactNode; label: 
   return inner
 }
 
-function SalesCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-neutral-500 uppercase tracking-widest">{label}</p>
+// A stat with an optional destination. The Operations card used to be five
+// dead numbers in a plain div while Sales right above it was a full link, so
+// there was no way to ask "which bookings?" of any of them. A linked cell
+// looks interactive (hover, arrow) rather than hoping someone tries clicking.
+function SalesCell({ label, value, href, hint }: {
+  label: string
+  value: string
+  href?: string
+  hint?: string
+}) {
+  const body = (
+    <>
+      <p className="text-xs uppercase tracking-widest text-neutral-500 group-hover:text-neutral-400">
+        {label}
+      </p>
       <p className="mt-1 text-2xl font-bold text-white">{value}</p>
-    </div>
+      {href && (
+        <p className="mt-0.5 text-[11px] text-neutral-600 group-hover:text-brand">
+          {hint ?? "View"} &rarr;
+        </p>
+      )}
+    </>
+  )
+  if (!href) return <div>{body}</div>
+  return (
+    <Link
+      href={href}
+      className="group -m-2 block rounded-lg p-2 transition hover:bg-white/5"
+    >
+      {body}
+    </Link>
   )
 }
 
