@@ -4,6 +4,7 @@ import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendAccessCodeEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure } from "@/lib/observability/notify"
+import { DOOR_OPENS_EARLY_MINUTES } from "@/lib/access-control/constants"
 
 export const runtime = "nodejs"
 
@@ -20,7 +21,26 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   // Backward tail catches last-minute bookings the cron previously missed
   const windowStart = new Date(now.getTime() - 10 * 60 * 1000)  // 10 min ago
-  const windowEnd = new Date(now.getTime() + 20 * 60 * 1000)    // 20 min from now
+  // Forward reach matches exactly when the door unlocks, rather than being a
+  // separate hardcoded 20 minutes. It used to run ahead of the door, so a
+  // customer could be holding a code that would not work for another five
+  // minutes with nothing telling them so - Travis Branch, code sent 16:10 for
+  // a 16:30 booking whose door opened at 16:15, found live 2026-09-12.
+  //
+  // A failed run is still covered. A booking stays eligible from
+  // starts_at - DOOR_OPENS_EARLY_MINUTES through to starts_at + 10 (that is
+  // windowStart's backward tail), so 25 minutes rather than the 30 a
+  // twenty-minute reach gave. At a five-minute cadence that is 5 or 6
+  // attempts depending on how the schedule lines up, against 6 or 7 before:
+  // exactly one fewer retry. Losing a code entirely still takes every one of
+  // those runs failing in a row.
+  //
+  // The half that actually protects a customer standing at the door is the
+  // backward tail, and it is untouched: someone who has already arrived is
+  // still issued a code up to 10 minutes AFTER their start time. The query
+  // is also idempotent (reminder_sent_at and access_code must both be null),
+  // so a retry after a partial failure cannot double-send or re-grant.
+  const windowEnd = new Date(now.getTime() + DOOR_OPENS_EARLY_MINUTES * 60 * 1000)
 
   const { data: bookings, error } = await supabase
     .from("bookings")

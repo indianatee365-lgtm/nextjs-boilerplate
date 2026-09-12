@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server"
 import { logEvent } from "@/lib/observability/notify"
+import { doorOpensAt } from "@/lib/access-control/constants"
 
 function fmt(amount: number): string {
   return `$${amount.toFixed(2)}`
@@ -340,6 +341,13 @@ export async function sendAccessCodeEmail({
     minute: "2-digit",
     timeZone: "America/Indiana/Indianapolis",
   })
+  // Same as the SMS: the code can arrive before the door unlocks, so say when
+  // it starts working rather than leaving someone at a locked door.
+  const worksFromStr = doorOpensAt(startsAt).toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
@@ -354,6 +362,7 @@ export async function sendAccessCodeEmail({
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px;">
 <span style="display:inline-block;padding:16px 32px;border-radius:8px;background:#0f1f0f;border:1px solid #1a3a1a;font-size:32px;font-weight:700;letter-spacing:6px;color:#4ade80;">${accessCode}</span>
 </td></tr></table>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">The door unlocks at <strong style="color:#fff;">${worksFromStr}</strong>, fifteen minutes before you start.</p>
 <p style="margin:0;color:#a3a3a3;font-size:15px;line-height:1.6;">You can also find this code any time on your <a href="https://tee365.org/account/bookings" style="color:#4ade80;text-decoration:none;">account bookings page</a>.</p>
 </td></tr>
 <tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">

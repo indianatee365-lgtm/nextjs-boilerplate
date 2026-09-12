@@ -11,6 +11,7 @@
 // a locally-generated random PIN so the rest of the booking flow is unaffected.
 
 import { randomInt } from "crypto"
+import { DOOR_OPENS_EARLY_MINUTES } from "./constants"
 
 export interface AccessControlGrant {
   bookingId: string
@@ -36,7 +37,7 @@ const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "frida
 // in the Stripe webhook, the free-booking path, and the reminders cron) -
 // customers should be walking in and playing at their start time, not
 // standing outside until the second it hits.
-const DOOR_OPENS_EARLY_MINUTES = 15
+
 
 // Business timezone, matching the rest of the booking system.
 function localTimeParts(date: Date) {

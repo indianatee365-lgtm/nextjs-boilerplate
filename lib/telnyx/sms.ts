@@ -1,6 +1,7 @@
 import { after } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { logEvent } from "@/lib/observability/notify"
+import { doorOpensAt } from "@/lib/access-control/constants"
 
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "")
@@ -146,7 +147,7 @@ export async function sendBookingConfirmation({
     "Hi " + firstName + "! Your Tee365 booking is confirmed.",
     "🕒 " + startStr + " – " + endStr,
     "🏌️ Bay: " + bayName,
-    "✅ Access code sent 10–20 min before your session.",
+    "✅ Access code sent about 15 min before your session.",
     "👀 Want to check out our system before you arrive? tee365.org/guide",
     "Questions? info@tee365.org",
     "Reply STOP to opt out, HELP for info. Msg & data rates may apply.",
@@ -213,16 +214,23 @@ export async function sendAccessCodeReminder({
   accessCode: string
   startsAt: Date
 }) {
-  const timeStr = startsAt.toLocaleString("en-US", {
+  const fmt = (d: Date) => d.toLocaleString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "America/Indiana/Indianapolis",
   })
+  const timeStr = fmt(startsAt)
+  // Say when the code starts working. This reminder can reach someone before
+  // the door actually unlocks, and a code that silently does not work yet
+  // sends a customer to a locked door at an unmanned facility with nobody to
+  // ask. Derived from the same constant the door schedule uses.
+  const worksFrom = fmt(doorOpensAt(startsAt))
 
   await sendSms(
     to,
     "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + "." +
       "\n\nAccess code: " + accessCode +
+      "\nWorks from " + worksFrom + "." +
       "\n\n1️⃣ Tap the keypad to wake it up" +
       "\n2️⃣ Enter your code" +
       "\n3️⃣ Press the checkmark" +
