@@ -224,13 +224,13 @@ export async function sendAccessCodeReminder({
   // the door actually unlocks, and a code that silently does not work yet
   // sends a customer to a locked door at an unmanned facility with nobody to
   // ask. Derived from the same constant the door schedule uses.
-  const worksFrom = fmt(doorOpensAt(startsAt))
+  const activeFrom = fmt(doorOpensAt(startsAt))
 
   await sendSms(
     to,
     "Tee365 reminder: " + firstName + ", your session in " + bayName + " starts at " + timeStr + "." +
       "\n\nAccess code: " + accessCode +
-      "\nWorks from " + worksFrom + "." +
+      "\nCode becomes active at " + activeFrom + "." +
       "\n\n1️⃣ Tap the keypad to wake it up" +
       "\n2️⃣ Enter your code" +
       "\n3️⃣ Press the checkmark" +
