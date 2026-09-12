@@ -132,7 +132,7 @@ export default async function AdminPage() {
           </div>
           <span className="text-xs text-neutral-600">Every number opens what is behind it</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <SalesCell
             label="Bookings this week"
             value={String(operations.bookingsWeek)}
@@ -152,16 +152,26 @@ export default async function AdminPage() {
             hint="See the maths"
           />
           <SalesCell
-            label="Utilization (week)"
+            label="Utilization (week to date)"
             value={`${operations.utilizationWeek.toFixed(1)}%`}
             href="/admin/bookings?view=month"
             hint="Open calendar"
           />
           <SalesCell
-            label="Utilization (month)"
+            label="Utilization (month to date)"
             value={`${operations.utilizationMonth.toFixed(1)}%`}
             href="/admin/bookings?view=month"
             hint="Open calendar"
+          />
+          {/* Against the whole month's capacity rather than the time elapsed
+              so far, and counting time already booked for later this month -
+              this one answers "how full is this month", so it climbs as
+              bookings land instead of only as days pass. */}
+          <SalesCell
+            label="Utilization (month total)"
+            value={`${operations.utilizationMonthTotal.toFixed(1)}%`}
+            href="/admin/bookings?view=month"
+            hint={`of ${(96 * operations.daysInMonth).toLocaleString()} hrs`}
           />
         </div>
       </div>
