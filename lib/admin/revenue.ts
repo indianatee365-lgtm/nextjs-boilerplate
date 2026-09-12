@@ -1,7 +1,8 @@
 /**
  * Revenue bucketing helpers for the admin dashboard.
  *
- * One DB query per source (bookings / gift cards / memberships / renewals) since Jan 1.
+ * One DB query per source (bookings / extensions / gift cards / memberships /
+ * renewals) since Jan 1.
  * Rows are bucketed into Today / 7d / MTD / YTD in JS — cheap on small row counts.
  */
 
@@ -14,6 +15,7 @@ export type RevenueBuckets = {
 
 export type RevenueBreakdown = {
   bookings: RevenueBuckets
+  extensions: RevenueBuckets
   giftCards: RevenueBuckets
   memberships: RevenueBuckets
   renewals: RevenueBuckets
@@ -74,12 +76,27 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   const { todayStart, weekStart, monthStart, yearStart } = computePeriodBoundaries()
   const boundaries = { todayStart, weekStart, monthStart }
 
-  const [{ data: bookings }, { data: giftCards }, { data: memberships }, { data: renewalLogs }] = await Promise.all([
+  const [
+    { data: bookings },
+    { data: extensions },
+    { data: giftCards },
+    { data: memberships },
+    { data: renewalLogs },
+  ] = await Promise.all([
     serviceClient
       .from("bookings")
-      .select("total, gift_card_applied, refund_amount, extension_revenue, paid_at, status")
+      .select("total, gift_card_applied, refund_amount, paid_at, status")
       .gte("paid_at", yearStart.toISOString())
       .not("paid_at", "is", null),
+    // Extensions are their own source, bucketed by when the extension was
+    // bought rather than when the original booking was paid for - an
+    // extension sold tonight on yesterday's booking belongs to tonight.
+    serviceClient
+      .from("bookings")
+      .select("extension_revenue, last_extended_at")
+      .gt("extension_revenue", 0)
+      .gte("last_extended_at", yearStart.toISOString())
+      .not("last_extended_at", "is", null),
     serviceClient
       .from("gift_cards")
       .select("original_amount, created_at, stripe_payment_id")
@@ -96,25 +113,31 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   ])
 
   const bookingBuckets = emptyBuckets()
+  const extensionBuckets = emptyBuckets()
   const giftBuckets = emptyBuckets()
   const memBuckets = emptyBuckets()
   const renewalBuckets = emptyBuckets()
 
   for (const b of (bookings ?? []) as Array<{
     total: number; gift_card_applied: number | null; refund_amount: number | null
-    extension_revenue: number | null; paid_at: string; status: string
+    paid_at: string; status: string
   }>) {
-    // extension_revenue is added on top of total rather than folded into it.
-    // Extensions are charged on their own PaymentIntent and never touched
-    // total, so every dollar customers paid to add time was missing from
-    // revenue entirely until 2026-09-12. Keeping total as the original sale
-    // means the booking still reports what it was sold for, and the added
-    // time is still counted. Historical extensions predate the column and
-    // stay at 0 - that money was never recorded anywhere to recover.
-    const cash =
-      Number(b.total) + Number(b.extension_revenue ?? 0)
-      - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
+    const cash = Number(b.total) - Number(b.gift_card_applied ?? 0) - Number(b.refund_amount ?? 0)
     if (cash > 0) addToBuckets(bookingBuckets, cash, new Date(b.paid_at), boundaries)
+  }
+
+  // Extensions are charged on their own PaymentIntent and never touched
+  // `total`, so every dollar customers paid to add time was missing from
+  // revenue entirely until 2026-09-12. Reported separately rather than folded
+  // into bookings: a booking still shows what it was sold for, and added time
+  // is visible as its own line of business. Extensions from before the column
+  // existed carry 0 and no timestamp, so they simply do not appear - that
+  // money was never recorded anywhere to recover.
+  for (const e of (extensions ?? []) as Array<{
+    extension_revenue: number | null; last_extended_at: string
+  }>) {
+    const amount = Number(e.extension_revenue ?? 0)
+    if (amount > 0) addToBuckets(extensionBuckets, amount, new Date(e.last_extended_at), boundaries)
   }
 
   for (const g of (giftCards ?? []) as Array<{
@@ -149,28 +172,49 @@ export async function computeRevenue(serviceClient: any): Promise<RevenueBreakdo
   }
 
   const total: RevenueBuckets = {
-    today: bookingBuckets.today + giftBuckets.today + memBuckets.today + renewalBuckets.today,
-    week: bookingBuckets.week + giftBuckets.week + memBuckets.week + renewalBuckets.week,
-    mtd: bookingBuckets.mtd + giftBuckets.mtd + memBuckets.mtd + renewalBuckets.mtd,
-    ytd: bookingBuckets.ytd + giftBuckets.ytd + memBuckets.ytd + renewalBuckets.ytd,
+    today: bookingBuckets.today + extensionBuckets.today + giftBuckets.today + memBuckets.today + renewalBuckets.today,
+    week: bookingBuckets.week + extensionBuckets.week + giftBuckets.week + memBuckets.week + renewalBuckets.week,
+    mtd: bookingBuckets.mtd + extensionBuckets.mtd + giftBuckets.mtd + memBuckets.mtd + renewalBuckets.mtd,
+    ytd: bookingBuckets.ytd + extensionBuckets.ytd + giftBuckets.ytd + memBuckets.ytd + renewalBuckets.ytd,
   }
 
-  return { bookings: bookingBuckets, giftCards: giftBuckets, memberships: memBuckets, renewals: renewalBuckets, total }
+  return {
+    bookings: bookingBuckets,
+    extensions: extensionBuckets,
+    giftCards: giftBuckets,
+    memberships: memBuckets,
+    renewals: renewalBuckets,
+    total,
+  }
 }
 
 /* ------------------------------------------------------------------ *
  * Drill-down: the individual rows behind each number on /admin/sales. *
  * ------------------------------------------------------------------ */
 
-export type RevenueSource = "bookings" | "giftCards" | "memberships" | "renewals"
+export type RevenueSource = "bookings" | "extensions" | "giftCards" | "memberships" | "renewals"
 export type PeriodKey = keyof RevenueBuckets
 
 export const REVENUE_SOURCE_LABELS: Record<RevenueSource, string> = {
   bookings: "Bay bookings",
+  extensions: "Bay extensions",
   giftCards: "Gift cards sold",
   memberships: "Membership sign-ups",
   renewals: "Membership renewals",
 }
+
+// The order these are shown in, everywhere. Jerrod's ordering, 2026-09-12:
+// the two bay-time lines first since that is the core business, then the
+// recurring membership money, then gift cards. Kept here rather than
+// repeated per page so the dashboard, the sales page and any future view
+// cannot drift out of agreement about it.
+export const REVENUE_SOURCE_ORDER: RevenueSource[] = [
+  "bookings",
+  "extensions",
+  "renewals",
+  "memberships",
+  "giftCards",
+]
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
   today: "Today",
@@ -204,6 +248,13 @@ type BookingDetailRow = {
   paid_at: string; status: string
   bays: { name: string } | null
   profiles: PersonRef
+}
+
+type ExtensionDetailRow = {
+  id: string; extension_revenue: number; extension_minutes: number | null
+  extension_count: number | null; last_extended_at: string
+  duration_minutes: number | null
+  bays: { name: string } | null; profiles: PersonRef
 }
 
 type GiftCardDetailRow = {
@@ -247,6 +298,34 @@ export async function getRevenueLineItems(serviceClient: any, source: RevenueSou
         detail: parts.join(" · "),
         amount: cash,
         excludedReason: cash > 0 ? undefined : "nothing collected after gift card / refund",
+        href: "/admin/bookings",
+      }
+    })
+  }
+
+  if (source === "extensions") {
+    const { data } = await serviceClient
+      .from("bookings")
+      .select("id, extension_revenue, extension_minutes, extension_count, last_extended_at, duration_minutes, bays(name), profiles!user_id(first_name, last_name)")
+      .gt("extension_revenue", 0)
+      .gte("last_extended_at", since)
+      .not("last_extended_at", "is", null)
+      .order("last_extended_at", { ascending: false })
+    return ((data ?? []) as ExtensionDetailRow[]).map(e => {
+      const times = Number(e.extension_count ?? 0)
+      const parts = [e.bays?.name ?? "Bay ?"]
+      if (Number(e.extension_minutes ?? 0) > 0) {
+        parts.push(`+${e.extension_minutes} min added`)
+      }
+      if (e.duration_minutes) {
+        parts.push(`booked ${e.duration_minutes} min`)
+      }
+      if (times > 1) parts.push(`${times} separate extensions`)
+      return {
+        when: e.last_extended_at,
+        who: name(e.profiles),
+        detail: parts.join(" · "),
+        amount: Number(e.extension_revenue),
         href: "/admin/bookings",
       }
     })

@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { computeRevenue } from "@/lib/admin/revenue"
+import { computeRevenue, REVENUE_SOURCE_LABELS, REVENUE_SOURCE_ORDER } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Sales | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -49,12 +49,12 @@ export default async function AdminSalesPage() {
   // Every cell links to /admin/sales/[source] so a number that looks wrong can
   // be opened to see the individual rows behind it, including the ones
   // deliberately excluded from revenue and why.
-  const sourceRows = [
-    { source: "bookings" as const, label: "Bay bookings" },
-    { source: "giftCards" as const, label: "Gift cards sold" },
-    { source: "memberships" as const, label: "Membership sign-ups" },
-    { source: "renewals" as const, label: "Membership renewals" },
-  ]
+  // Order and labels both come from lib/admin/revenue.ts so this page cannot
+  // drift out of agreement with the dashboard about either.
+  const sourceRows = REVENUE_SOURCE_ORDER.map((source) => ({
+    source,
+    label: REVENUE_SOURCE_LABELS[source],
+  }))
 
   const statusBadge = (s: string) => {
     if (s === "active") return "bg-green-500/20 text-green-400"
@@ -170,6 +170,9 @@ export default async function AdminSalesPage() {
       <p className="mt-6 text-xs text-neutral-500">
         Click any amount above to see the individual rows behind it.
         Bay bookings shown as cash received (total minus gift-card applied minus refunds).
+        Bay extensions are counted separately, on the day the extension was bought rather than
+        the day the original booking was paid for. Extensions from before 2026-09-12 are missing:
+        the amount was never recorded at the time.
         Gift cards shown at face value, excluding admin-issued comps. Membership sign-ups include first month + joining fee,
         excluding free grants. Renewals pulled from Stripe webhook events.
       </p>

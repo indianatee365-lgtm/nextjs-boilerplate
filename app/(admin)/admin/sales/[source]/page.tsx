@@ -2,15 +2,22 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import {
-  getRevenueLineItems, startForPeriod,
-  REVENUE_SOURCE_LABELS, PERIOD_LABELS,
-  type RevenueSource, type PeriodKey,
+  PERIOD_LABELS,
+  REVENUE_SOURCE_LABELS,
+  REVENUE_SOURCE_ORDER,
+  getRevenueLineItems,
+  startForPeriod,
+  type PeriodKey,
+  type RevenueSource,
 } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Revenue detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
 
-const SOURCES = ["bookings", "giftCards", "memberships", "renewals"] as const
+// Was a third hardcoded copy of the source list, which is exactly how
+// /admin/sales/extensions would have 404'd while the dashboard happily linked
+// to it. Derived from the same constant the other two views use.
+const SOURCES = REVENUE_SOURCE_ORDER
 const PERIODS = ["today", "week", "mtd", "ytd"] as const
 
 export default async function AdminSalesSourcePage({
