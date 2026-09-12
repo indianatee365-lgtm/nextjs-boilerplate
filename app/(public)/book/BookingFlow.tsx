@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
-import { pickBestBay } from "@/lib/bookings/bay-selection"
+import { pickBestBay, type BayUsage } from "@/lib/bookings/bay-selection"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer } from "lucide-react"
@@ -189,10 +189,19 @@ export default function BookingFlow({
         let bestTime: string | null = null
         let bestSlot: SlotData | null = null
         let tiedCandidates: Bay[] = []
-        const loadByBayId = new Map<string, number>()
+        // The browser has no booking history, only today's availability grid,
+        // so it approximates wear from how much of the day each bay is
+        // already taken. It is a preview only: the server never trusts the
+        // bay the client picked (see lib/bookings/create.ts) and re-runs the
+        // selection against real 30-day usage. Same shape so both sides go
+        // through one code path.
+        const usageByBayId = new Map<string, BayUsage>()
 
         for (const bayAvail of data) {
-          loadByBayId.set(bayAvail.bay.id, bayAvail.slots.filter((s) => !s.available).length)
+          usageByBayId.set(bayAvail.bay.id, {
+            minutes: bayAvail.slots.filter((s) => !s.available).length * 30,
+            lastUsedAt: null,
+          })
           let firstOpenSlot: SlotData | null = null
           for (let i = 0; i < bayAvail.slots.length - 1; i++) {
             const slot = bayAvail.slots[i]
@@ -231,7 +240,7 @@ export default function BookingFlow({
         }
 
         if (bestSlot) {
-          const bay = pickBestBay(tiedCandidates, busyBayNumbers, loadByBayId)
+          const bay = pickBestBay(tiedCandidates, busyBayNumbers, usageByBayId)
           if (bay) {
             const slotDate = new Date(d)
             slotDate.setHours(0, 0, 0, 0)
@@ -370,11 +379,14 @@ export default function BookingFlow({
     const needed = durationMins / 30
     const candidates: Bay[] = []
     const busyBayNumbers: number[] = []
-    const loadByBayId = new Map<string, number>()
+    const usageByBayId = new Map<string, BayUsage>()
 
     for (const bayAvail of availability) {
       const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
-      loadByBayId.set(bayAvail.bay.id, bayAvail.slots.filter((s) => !s.available).length)
+      usageByBayId.set(bayAvail.bay.id, {
+        minutes: bayAvail.slots.filter((s) => !s.available).length * 30,
+        lastUsedAt: null,
+      })
       if (startIdx === -1) { busyBayNumbers.push(bayAvail.bay.number); continue }
 
       let fits = true
@@ -385,7 +397,7 @@ export default function BookingFlow({
       else busyBayNumbers.push(bayAvail.bay.number)
     }
 
-    return pickBestBay(candidates, busyBayNumbers, loadByBayId)
+    return pickBestBay(candidates, busyBayNumbers, usageByBayId)
   }
 
   function selectDate(date: Date) {

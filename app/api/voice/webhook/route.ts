@@ -4,7 +4,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
-import { pickBestBay, easternDayWindow } from "@/lib/bookings/bay-selection"
+import { pickBestBay, buildBayUsage, wearWindowStart } from "@/lib/bookings/bay-selection"
 import {
   isFoundersDaySession,
   hasFoundersDayCredit,
@@ -306,24 +306,21 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
     .filter((b: { id: string }) => busyBayIds.has(b.id))
     .map((b: { number: number }) => b.number)
 
-  // Today's load per bay, for the "nothing's busy yet" tiebreak - same
-  // Eastern-day window pattern already used elsewhere (see
-  // easternDayBoundsUtc in admin/bookings/page.tsx), computed with a plain
-  // offset here since this is a short-lived voice call, not worth pulling
-  // in that helper for one query.
-  const { dayStart, dayEnd } = easternDayWindow(startDate)
-  const { data: todaysBookings } = await supabase
+  // Recent wear per bay, which is what the fairness tiebreak runs on once
+  // spacing ties. Counted in booked minutes over a rolling window rather
+  // than "bookings started today": a daily count resets every midnight and
+  // so can never pull back a standing imbalance, which is how bay 1 reached
+  // 30 hours against bay 3's 12.3 by 2026-09-11. Every non-cancelled
+  // booking counts, because the projector, launch monitor and sim all spin
+  // up whether or not a ball is ever hit.
+  const { data: recentBookings } = await supabase
     .from("bookings")
-    .select("bay_id")
-    .in("status", ["pending", "confirmed"])
-    .gte("starts_at", dayStart.toISOString())
-    .lt("starts_at", dayEnd.toISOString())
-  const loadByBayId = new Map<string, number>()
-  for (const b of (todaysBookings ?? []) as { bay_id: string }[]) {
-    loadByBayId.set(b.bay_id, (loadByBayId.get(b.bay_id) ?? 0) + 1)
-  }
+    .select("bay_id, starts_at, ends_at")
+    .neq("status", "cancelled")
+    .gte("starts_at", wearWindowStart().toISOString())
+  const usageByBayId = buildBayUsage(recentBookings ?? [])
 
-  const openBay = pickBestBay(candidates, busyBayNumbers, loadByBayId)
+  const openBay = pickBestBay(candidates, busyBayNumbers, usageByBayId)
   return { openBay, facilityClosed: false, noBaysConfigured: false }
 }
 

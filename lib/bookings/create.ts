@@ -8,7 +8,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
-import { pickBestBay, easternDayWindow } from "@/lib/bookings/bay-selection"
+import { pickBestBay, buildBayUsage, wearWindowStart } from "@/lib/bookings/bay-selection"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -207,22 +207,21 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     return { ok: false, status: 409, error: "Bay is not available for this time" }
   }
 
-  // Today's load per bay, same tiebreak as findOpenBay - keeps a quiet day
-  // from always handing out the same low-numbered bay once spacing itself
-  // ties (e.g. nothing else booked yet).
-  const { dayStart, dayEnd } = easternDayWindow(startDate)
-  const { data: todaysBookings } = await serviceClient
+  // Recent wear per bay, which is what the fairness tiebreak runs on once
+  // spacing ties. Counted in booked minutes over a rolling window rather
+  // than "bookings started today": a daily count resets every midnight and
+  // so can never pull back a standing imbalance, which is how bay 1 reached
+  // 30 hours against bay 3's 12.3 by 2026-09-11. Every non-cancelled
+  // booking counts, because the projector, launch monitor and sim all spin
+  // up whether or not a ball is ever hit.
+  const { data: recentBookings } = await serviceClient
     .from("bookings")
-    .select("bay_id")
-    .in("status", ["pending", "confirmed"])
-    .gte("starts_at", dayStart.toISOString())
-    .lt("starts_at", dayEnd.toISOString())
-  const loadByBayId = new Map<string, number>()
-  for (const b of (todaysBookings ?? []) as { bay_id: string }[]) {
-    loadByBayId.set(b.bay_id, (loadByBayId.get(b.bay_id) ?? 0) + 1)
-  }
+    .select("bay_id, starts_at, ends_at")
+    .neq("status", "cancelled")
+    .gte("starts_at", wearWindowStart().toISOString())
+  const usageByBayId = buildBayUsage(recentBookings ?? [])
 
-  const bay = pickBestBay(candidates, busyBayNumbers, loadByBayId)
+  const bay = pickBestBay(candidates, busyBayNumbers, usageByBayId)
   if (!bay) {
     return { ok: false, status: 409, error: "Bay is not available for this time" }
   }

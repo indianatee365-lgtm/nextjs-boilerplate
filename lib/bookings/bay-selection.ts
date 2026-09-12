@@ -13,68 +13,59 @@
 // webhook) - only the caller differs in how it gathers `busyBayNumbers`
 // and `loadByBayId`.
 
-export const BOOKING_TIMEZONE = "America/Indiana/Indianapolis"
-
-function easternYmd(at: Date): { y: number; m: number; d: number } {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BOOKING_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(at)
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
-  return { y: get("year"), m: get("month"), d: get("day") }
-}
-
-function offsetHoursAt(instant: Date): number {
-  const name = new Intl.DateTimeFormat("en-US", {
-    timeZone: BOOKING_TIMEZONE, timeZoneName: "shortOffset",
-  }).formatToParts(instant).find((p) => p.type === "timeZoneName")?.value ?? "GMT-5"
-  return parseInt(name.replace("GMT", ""), 10) || -5
-}
-
-// Midnight local time on a given Eastern calendar date, as a real instant.
-//
-// Reading the offset at noon and applying it to midnight is wrong on the two
-// DST transition days a year: on spring-forward, noon is already EDT (-4)
-// while midnight was still EST (-5), which places midnight an hour late. So
-// the noon offset is only a first guess, then re-read AT that guessed instant
-// and applied again. One refinement is enough, since the guess is never more
-// than an hour off and the transition happens at 2am, not midnight.
-function easternMidnight(y: number, m: number, d: number): Date {
-  const pad = (n: number) => String(n).padStart(2, "0")
-  const ymd = `${y}-${pad(m)}-${pad(d)}`
-  const withOffset = (hours: number) =>
-    new Date(`${ymd}T00:00:00${hours < 0 ? "-" : "+"}${pad(Math.abs(hours))}:00`)
-
-  const guess = withOffset(offsetHoursAt(new Date(`${ymd}T12:00:00Z`)))
-  return withOffset(offsetHoursAt(guess))
-}
-
-/**
- * The calendar day, in Indiana local time, that contains `at`.
- *
- * This replaces `setUTCHours(0,0,0,0)`, which silently split a single
- * Indiana evening across two UTC days: anything from 8pm local onward is
- * already tomorrow in UTC. Found live 2026-09-11 - the day's only two
- * bookings, 5:30pm and 10pm, both auto-assigned to Bay 4, because the 10pm
- * booking's "load today" window started at 8pm local and so could not see
- * the 5:30pm one. Every bay looked equally unused and the tie broke at
- * random onto the bay that was already the day's busiest.
- *
- * Both ends are computed from their own date rather than as start + 24h,
- * so a DST transition day is 23 or 25 hours, not always 24.
- */
-export function easternDayWindow(at: Date): { dayStart: Date; dayEnd: Date } {
-  const { y, m, d } = easternYmd(at)
-  const dayStart = easternMidnight(y, m, d)
-  const nextUtc = new Date(Date.UTC(y, m - 1, d) + 24 * 60 * 60 * 1000)
-  const dayEnd = easternMidnight(
-    nextUtc.getUTCFullYear(), nextUtc.getUTCMonth() + 1, nextUtc.getUTCDate()
-  )
-  return { dayStart, dayEnd }
-}
-
 export interface BaySelectable {
   id: string
   number: number
+}
+
+/**
+ * How hard a bay has been worked recently, used as the fairness tiebreak.
+ *
+ * Minutes rather than hours so the comparison is exact integer arithmetic -
+ * floating-point hours summed from timestamps produce values like 2.0000001
+ * that never compare equal and silently defeat the tiebreak below it.
+ */
+export interface BayUsage {
+  /** Booked minutes inside the wear window. */
+  minutes: number
+  /** Epoch ms of the most recent session start, or null if never used. */
+  lastUsedAt: number | null
+}
+
+/** How far back bay usage is counted when balancing wear. */
+export const WEAR_WINDOW_DAYS = 30
+
+export function wearWindowStart(now: Date = new Date()): Date {
+  return new Date(now.getTime() - WEAR_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+}
+
+/**
+ * Folds raw booking rows into per-bay wear totals.
+ *
+ * Shared so the web and phone booking paths cannot drift apart on what
+ * "recently used" means - they previously held separate copies of the load
+ * calculation and both carried the same timezone bug.
+ */
+export function buildBayUsage(
+  bookings: { bay_id: string | null; starts_at: string; ends_at: string }[]
+): Map<string, BayUsage> {
+  const usage = new Map<string, BayUsage>()
+  for (const b of bookings) {
+    if (!b.bay_id) continue
+    const start = new Date(b.starts_at).getTime()
+    const end = new Date(b.ends_at).getTime()
+    // A row with unparseable or inverted timestamps contributes nothing
+    // rather than poisoning a bay's total with NaN, which would make that
+    // bay compare unequal to everything and silently win or lose forever.
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue
+
+    const prev = usage.get(b.bay_id)
+    usage.set(b.bay_id, {
+      minutes: (prev?.minutes ?? 0) + Math.round((end - start) / 60000),
+      lastUsedAt: prev?.lastUsedAt == null ? start : Math.max(prev.lastUsedAt, start),
+    })
+  }
+  return usage
 }
 
 /**
@@ -88,10 +79,12 @@ export interface BaySelectable {
  *      physical distance. If bay 1 is taken and both bay 3 and bay 4 are
  *      free, bay 4 wins (distance 3 vs distance 2).
  *   2. Break any tie (including "nothing is busy yet, every candidate
- *      ties at maximum distance") by whichever candidate has the lightest
- *      existing load today - keeps a quiet day from defaulting back to the
- *      same low-numbered bay every single time, which was the other half
- *      of the complaint (bay 3 barely getting used).
+ *      ties at maximum distance") by whichever candidate has been worked
+ *      least over the last WEAR_WINDOW_DAYS, measured in booked minutes.
+ *      This is what spreads wear and tear evenly: a bay that is behind
+ *      stays preferred until it catches up.
+ *   3. Then by least recently used, which settles the ordinary case of
+ *      several bays sitting at identical wear.
  *
  * Spacing is a preference among otherwise-available bays, never a reason
  * to reject one - if only an adjacent bay can fit, it's still returned.
@@ -100,23 +93,41 @@ export interface BaySelectable {
 export function pickBestBay<T extends BaySelectable>(
   candidates: T[],
   busyBayNumbers: number[],
-  loadByBayId: Map<string, number> = new Map()
+  usageByBayId: Map<string, BayUsage> = new Map()
 ): T | null {
   if (candidates.length === 0) return null
   if (candidates.length === 1) return candidates[0]
 
-  const scored = candidates.map((c) => ({
-    candidate: c,
-    distance: busyBayNumbers.length === 0
-      ? Infinity // nothing else booked around this time - spacing doesn't apply, go straight to load
-      : Math.min(...busyBayNumbers.map((n) => Math.abs(c.number - n))),
-    load: loadByBayId.get(c.id) ?? 0,
-  }))
+  const scored = candidates.map((c) => {
+    const usage = usageByBayId.get(c.id)
+    return {
+      candidate: c,
+      distance: busyBayNumbers.length === 0
+        ? Infinity // nothing else booked around this time - spacing doesn't apply, go straight to wear
+        : Math.min(...busyBayNumbers.map((n) => Math.abs(c.number - n))),
+      minutes: usage?.minutes ?? 0,
+      // Never used sorts oldest, so a bay nobody has booked wins the
+      // recency tiebreak outright instead of losing it to a null check.
+      lastUsedAt: usage?.lastUsedAt ?? -Infinity,
+    }
+  })
 
   const bestDistance = Math.max(...scored.map((s) => s.distance))
   const atBestDistance = scored.filter((s) => s.distance === bestDistance)
-  const bestLoad = Math.min(...atBestDistance.map((s) => s.load))
-  const tied = atBestDistance.filter((s) => s.load === bestLoad)
+
+  // Least worked wins. This used to be "fewest bookings started today",
+  // which reset every midnight and so could never correct a standing
+  // imbalance - on 2026-09-11 bay 1 had run 30 hours against bay 3's 12.3
+  // and nothing in the selection was pulling that back. Counting minutes
+  // over a rolling window does, because a bay that is behind stays
+  // preferred until it catches up.
+  const leastWorked = Math.min(...atBestDistance.map((s) => s.minutes))
+  const atLeastWorked = atBestDistance.filter((s) => s.minutes === leastWorked)
+
+  // Then least recently used, which is what settles the common case of
+  // several bays sitting at identical wear.
+  const oldest = Math.min(...atLeastWorked.map((s) => s.lastUsedAt))
+  const tied = atLeastWorked.filter((s) => s.lastUsedAt === oldest)
 
   // A genuine tie (same spacing, same load - most commonly a totally
   // empty day, every bay equally free) breaks randomly rather than by
