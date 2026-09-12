@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
       const detail =
         `bay=${bay.name} at=${status.lastNoShotAlertAt} ` +
         `secondsSinceReady=${diagnostics.secondsSinceReady} secondsSinceLastShot=${diagnostics.secondsSinceLastShot ?? "never"} ` +
+        `shotThisSession=${diagnostics.secondsSinceLastShot != null && (diagnostics.secondsSinceReady == null || diagnostics.secondsSinceLastShot <= diagnostics.secondsSinceReady)} ` +
         `currentHitter=${diagnostics.currentHitter ?? "none"} runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
       const notifyEnabled = await getAdminSetting(serviceClient, "notify_no_shot_alert")
       // Text the actual gap that triggered this alert (secondsSinceLastShot),
@@ -233,13 +234,28 @@ export async function POST(request: NextRequest) {
       // live 2026-09-07: real shots (198 of them) were captured the whole
       // session, the alert just reported the wrong number. Only fall back to
       // secondsSinceReady when there's truly been no shot yet this booking.
-      const goneQuietSeconds = diagnostics.secondsSinceLastShot ?? diagnostics.secondsSinceReady ?? 0
-      const goneQuietMessage =
-        diagnostics.secondsSinceLastShot != null
-          ? `${bay.name}: customer's had no new shots in ${Math.round(goneQuietSeconds / 60)} min. ` +
-            `They may be stuck right now - check in or call them.`
-          : `${bay.name}: customer's been ready for ${Math.round(goneQuietSeconds / 60)} min with ZERO shots read yet. ` +
-            `They may be stuck right now - check in or call them.`
+      //
+      // But secondsSinceLastShot is the bay's last shot EVER, not this
+      // booking's - the capture thread's clock survives from one customer to
+      // the next. A `!= null` check therefore passes on a stale timestamp
+      // from hours earlier and takes the wrong branch. Found live 2026-09-11:
+      // Bay 2 was 8 minutes into a brand new session having read nothing at
+      // all, and the text claimed "no new shots in 292 min", quoting a shot
+      // from a test session five hours before that customer arrived.
+      //
+      // A last shot older than the session has even been ready cannot belong
+      // to this session, which is the whole check.
+      const sinceReady = diagnostics.secondsSinceReady ?? null
+      const sinceLastShot = diagnostics.secondsSinceLastShot ?? null
+      const shotThisSession =
+        sinceLastShot != null && (sinceReady == null || sinceLastShot <= sinceReady)
+
+      const goneQuietSeconds = (shotThisSession ? sinceLastShot : sinceReady) ?? 0
+      const goneQuietMessage = shotThisSession
+        ? `${bay.name}: customer's had no new shots in ${Math.round(goneQuietSeconds / 60)} min. ` +
+          `They may be stuck right now - check in or call them.`
+        : `${bay.name}: customer's been ready for ${Math.round(goneQuietSeconds / 60)} min with ZERO shots read yet. ` +
+          `They may be stuck right now - check in or call them.`
       await logFailure(
         serviceClient,
         "bay-agent-no-shot-alert",
