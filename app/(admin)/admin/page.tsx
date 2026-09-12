@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Calendar, Users, Clock, Tag, Gift, UserCircle, XCircle, TrendingUp, Phone, MessageSquare, AlertTriangle, Settings, Ticket, Activity, Percent } from "lucide-react"
 import { computeRevenue } from "@/lib/admin/revenue"
 import { computeOperationsStats } from "@/lib/admin/operations"
+import { filterRealCancellations, filterAbandonedCheckouts } from "@/lib/admin/cancellations"
 
 export const metadata = { title: "Admin | Tee365" }
 export const dynamic = "force-dynamic"
@@ -36,6 +37,7 @@ export default async function AdminPage() {
     { count: failureCount24h },
     { count: commsCount24h },
     { count: cancellations30d },
+    { count: abandoned30d },
     { data: giftCardBalances },
     { data: recentBookings },
     { count: activeCouponCount },
@@ -56,8 +58,14 @@ export default async function AdminPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("id", { count: "exact", head: true })
       .gte("created_at", twentyFourHoursAgo).in("event", ["sms-sent", "email-sent", "notify-owner-sent"]),
-    serviceClient.from("bookings").select("id", { count: "exact", head: true })
-      .eq("status", "cancelled").gte("cancelled_at", thirtyDaysAgo),
+    // Both halves of what used to be one misleading number. See
+    // lib/admin/cancellations.ts for why a never-paid booking is not one.
+    filterRealCancellations(
+      serviceClient.from("bookings").select("id", { count: "exact", head: true }),
+      thirtyDaysAgo),
+    filterAbandonedCheckouts(
+      serviceClient.from("bookings").select("id", { count: "exact", head: true }),
+      thirtyDaysAgo),
     serviceClient.from("gift_cards").select("balance, active"),
     serviceClient.from("bookings")
       .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
@@ -84,7 +92,13 @@ export default async function AdminPage() {
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
         <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
-        <StatCard icon={<XCircle size={18} />} label="Cancellations (30d)" value={String(cancellations30d ?? 0)} href="/admin/cancellations" />
+        <StatCard
+          icon={<XCircle size={18} />}
+          label="Cancellations (30d)"
+          value={String(cancellations30d ?? 0)}
+          sublabel={abandoned30d ? `+${abandoned30d} abandoned checkouts` : undefined}
+          href="/admin/cancellations"
+        />
         <StatCard
           icon={<MessageSquare size={18} />}
           label="Communications (24h)"
@@ -278,11 +292,14 @@ export default async function AdminPage() {
   )
 }
 
-function StatCard({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
+function StatCard({ icon, label, value, href, sublabel }: {
+  icon: React.ReactNode; label: string; value: string; href?: string; sublabel?: string
+}) {
   const inner = (
     <div className={["rounded-xl border border-white/10 bg-white/5 px-4 py-4", href ? "transition hover:border-brand/40 hover:bg-brand/10" : ""].join(" ")}>
       <div className="flex items-center gap-2 text-neutral-400">{icon}<span className="text-xs">{label}</span></div>
       <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+      {sublabel && <p className="mt-0.5 text-[11px] text-neutral-600">{sublabel}</p>}
     </div>
   )
   if (href) return <Link href={href}>{inner}</Link>

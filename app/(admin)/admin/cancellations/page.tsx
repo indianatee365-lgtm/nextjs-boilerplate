@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { filterRealCancellations, filterAbandonedCheckouts } from "@/lib/admin/cancellations"
 
 export const metadata = { title: "Cancellations | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -35,23 +36,21 @@ export default async function AdminCancellationsPage({
 
   const since = new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data } = await serviceClient
-    .from("bookings")
-    .select("id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, paid_at, cancelled_at, credit_hours_applied, bays(name), profiles!user_id(first_name, last_name)")
-    .eq("status", "cancelled")
-    .not("cancelled_at", "is", null)
-    .gte("cancelled_at", since)
-    .order("cancelled_at", { ascending: false })
+  const COLS = "id, user_id, starts_at, ends_at, total, refund_amount, refunded_at, paid_at, cancelled_at, credit_hours_applied, bays(name), profiles!user_id(first_name, last_name)"
 
-  const all = (data ?? []) as Row[]
+  // Two queries rather than one filtered in memory, so this page and the
+  // dashboard's count card are answering with the exact same definition.
+  // See lib/admin/cancellations.ts - a never-paid booking is not a
+  // cancellation, and splitting them here is what made the numbers honest.
+  const [{ data: cancelledRows }, { data: abandonedRows }] = await Promise.all([
+    filterRealCancellations(serviceClient.from("bookings").select(COLS), since)
+      .order("cancelled_at", { ascending: false }),
+    filterAbandonedCheckouts(serviceClient.from("bookings").select(COLS), since)
+      .order("cancelled_at", { ascending: false }),
+  ])
 
-  // A booking that never completed payment was never a cancellation - nobody
-  // cancelled anything, the customer just did not finish checking out and the
-  // held slot was released. Keeping those in the same list made the count, the
-  // forfeited figure and the refunded figure all wrong, and buried the handful
-  // of real cancellations among thirteen abandoned carts.
-  const cancellations = all.filter((b) => b.paid_at !== null)
-  const abandoned = all.filter((b) => b.paid_at === null)
+  const cancellations = (cancelledRows ?? []) as Row[]
+  const abandoned = (abandonedRows ?? []) as Row[]
 
   const forfeited = (b: Row) => Number(b.total) > 0 && Number(b.refund_amount ?? 0) === 0
   const totalForfeited = cancellations.filter(forfeited).reduce((s, b) => s + Number(b.total), 0)
