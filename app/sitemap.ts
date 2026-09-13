@@ -23,6 +23,10 @@ const EXCLUDED = new Set([
   "/join/checkout/return",
   "/gift-cards/success",
   "/unsubscribed",
+  // Draft. /league 404s for everyone but admins until the league row is
+  // set active, so listing it would feed Google a 404. Remove this line
+  // the same day you publish the league.
+  "/league",
 ])
 
 // Editorial ranking, which is the one thing the filesystem can't tell us.
@@ -36,6 +40,7 @@ const RANKING: Record<string, { priority: number; changeFrequency: MetadataRoute
   "/founders": { priority: 0.9, changeFrequency: "weekly" },
   "/events": { priority: 0.8, changeFrequency: "monthly" },
   "/technology": { priority: 0.8, changeFrequency: "monthly" },
+  "/league": { priority: 0.8, changeFrequency: "weekly" },
   "/gift-cards": { priority: 0.7, changeFrequency: "monthly" },
   "/faq": { priority: 0.6, changeFrequency: "monthly" },
   "/about": { priority: 0.5, changeFrequency: "monthly" },

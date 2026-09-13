@@ -15,6 +15,8 @@ import {
   FOUNDERS_DAY_START,
 } from "@/lib/bookings/launch-gate"
 
+import { parseReportedTime, findBookingAt, formatFacilityTime } from "@/lib/incidents"
+
 const OWNER_PHONE = "+15749990622"
 
 function normalizePhone(raw: string): string {
@@ -711,6 +713,113 @@ function vapiRequestIsAuthentic(request: NextRequest): boolean {
 // someone probing the endpoint (worth knowing once, not once per request).
 let rejectionAlerted = false
 
+// Damage, injuries and conduct reported over the phone. Distinct from
+// report_issue, which is for "the projector is flickering" and only pings the
+// owner. This one writes a durable record, because the time the caller gives us
+// is the only thing that makes the camera footage findable later.
+async function handleLogIncident(args: Record<string, string>, callerPhone: string): Promise<string> {
+  const description = args.description?.trim()
+  if (!description) {
+    return "I did not catch what happened. Could you describe it again?"
+  }
+
+  const supabase = await createServiceClient()
+
+  // "Bay 3", "three", "3" all arrive here.
+  let bayId: string | null = null
+  let bayNumber: number | null = null
+  const bayDigits = args.bay?.match(/\d+/)?.[0]
+  if (bayDigits) {
+    const { data: bay } = await supabase
+      .from("bays")
+      .select("id, number")
+      .eq("number", Number(bayDigits))
+      .maybeSingle()
+    bayId = bay?.id ?? null
+    bayNumber = bay?.number ?? null
+  }
+
+  let equipmentId: string | null = null
+  const tag = args.equipment_tag?.trim().toUpperCase()
+  if (tag) {
+    const { data: item } = await supabase
+      .from("equipment")
+      .select("id")
+      .eq("tag", tag)
+      .maybeSingle()
+    equipmentId = item?.id ?? null
+  }
+
+  const occurredAt = parseReportedTime(args.occurred_at)
+  const occurredText = args.occurred_at_text?.trim() || args.occurred_at?.trim() || null
+
+  const timeConfidence = occurredAt
+    ? (args.time_confidence === "exact" ? "exact" : "approximate")
+    : "unknown"
+
+  const booking = await findBookingAt(supabase, bayId, occurredAt?.toISOString() ?? null)
+
+  let userId: string | null = null
+  if (callerPhone && callerPhone !== "unknown") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("phone", normalizePhone(callerPhone))
+      .maybeSingle()
+    userId = profile?.id ?? null
+  }
+
+  const category = ["equipment_damage", "facility_damage", "injury", "conduct", "other"].includes(args.category)
+    ? args.category
+    : "equipment_damage"
+  const severity = category === "injury" ? "major" : "minor"
+
+  const { data: inserted, error } = await supabase
+    .from("incidents")
+    .insert({
+      occurred_at: occurredAt?.toISOString() ?? null,
+      occurred_at_text: occurredText,
+      time_confidence: timeConfidence,
+      reported_via: "phone_agent",
+      reporter_name: args.reporter_name?.trim() || null,
+      reporter_phone: callerPhone !== "unknown" ? callerPhone : null,
+      category,
+      severity,
+      description,
+      bay_id: bayId,
+      booking_id: booking?.id ?? null,
+      user_id: userId,
+      equipment_id: equipmentId,
+    })
+    .select("id")
+    .single()
+
+  if (error) {
+    console.error("[log_incident] insert failed", error)
+    await notifyOwner(
+      ["Tee365 INCIDENT (failed to save, phone):", `From: ${callerPhone}`, description].join("\n")
+    )
+    return "Thank you for letting us know. I have flagged it for Jerrod directly."
+  }
+
+  await notifyOwner(
+    [
+      severity === "major" ? "Tee365 INCIDENT (major):" : "Tee365 incident logged:",
+      bayNumber ? `Bay: ${bayNumber}` : null,
+      occurredAt ? `When: ${formatFacilityTime(occurredAt)} (${timeConfidence})` : "When: not given",
+      `From: ${callerPhone}`,
+      description,
+      `https://tee365.org/admin/incidents/${inserted.id}`,
+    ].filter(Boolean).join("\n")
+  )
+
+  if (!occurredAt) {
+    return "Thank you, I have logged that and passed it to our team. One more thing if you remember, roughly what time did it happen? It helps us pull the right camera footage."
+  }
+
+  return "Thank you for reporting that, I have logged it with the time and passed it to our team. We would much rather know, so we appreciate you calling."
+}
+
 export async function POST(request: NextRequest) {
   if (!vapiRequestIsAuthentic(request)) {
     if (!rejectionAlerted) {
@@ -750,6 +859,8 @@ export async function POST(request: NextRequest) {
         result = await handleSendInfoSms(callerPhone)
       } else if (name === "report_issue") {
         result = await handleReportIssue(args, callerPhone)
+      } else if (name === "log_incident") {
+        result = await handleLogIncident(args, callerPhone)
       } else if (name === "capture_event_lead") {
         result = await handleCaptureEventLead(args, callerPhone)
       } else if (name === "transfer_to_human") {

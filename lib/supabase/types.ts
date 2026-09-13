@@ -658,6 +658,62 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment: {
+        Row: {
+          acquired_on: string | null
+          baseline_photo_url: string | null
+          bay_id: string | null
+          club_type: string | null
+          created_at: string
+          hand: string | null
+          id: string
+          name: string
+          notes: string | null
+          replacement_cost: number | null
+          status: string
+          tag: string
+          updated_at: string
+        }
+        Insert: {
+          acquired_on?: string | null
+          baseline_photo_url?: string | null
+          bay_id?: string | null
+          club_type?: string | null
+          created_at?: string
+          hand?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          replacement_cost?: number | null
+          status?: string
+          tag: string
+          updated_at?: string
+        }
+        Update: {
+          acquired_on?: string | null
+          baseline_photo_url?: string | null
+          bay_id?: string | null
+          club_type?: string | null
+          created_at?: string
+          hand?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          replacement_cost?: number | null
+          status?: string
+          tag?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: false
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_leads: {
         Row: {
           caller_phone: string | null
@@ -878,12 +934,122 @@ export type Database = {
           },
         ]
       }
+      incidents: {
+        Row: {
+          bay_id: string | null
+          booking_id: string | null
+          category: string
+          charge_amount: number | null
+          charge_decision: string
+          created_at: string
+          description: string
+          equipment_id: string | null
+          id: string
+          occurred_at: string | null
+          occurred_at_text: string | null
+          reported_at: string
+          reported_via: string
+          reporter_name: string | null
+          reporter_phone: string | null
+          resolution_notes: string | null
+          severity: string
+          status: string
+          time_confidence: string
+          updated_at: string
+          user_id: string | null
+          video_notes: string | null
+          video_reviewed: boolean
+        }
+        Insert: {
+          bay_id?: string | null
+          booking_id?: string | null
+          category?: string
+          charge_amount?: number | null
+          charge_decision?: string
+          created_at?: string
+          description: string
+          equipment_id?: string | null
+          id?: string
+          occurred_at?: string | null
+          occurred_at_text?: string | null
+          reported_at?: string
+          reported_via?: string
+          reporter_name?: string | null
+          reporter_phone?: string | null
+          resolution_notes?: string | null
+          severity?: string
+          status?: string
+          time_confidence?: string
+          updated_at?: string
+          user_id?: string | null
+          video_notes?: string | null
+          video_reviewed?: boolean
+        }
+        Update: {
+          bay_id?: string | null
+          booking_id?: string | null
+          category?: string
+          charge_amount?: number | null
+          charge_decision?: string
+          created_at?: string
+          description?: string
+          equipment_id?: string | null
+          id?: string
+          occurred_at?: string | null
+          occurred_at_text?: string | null
+          reported_at?: string
+          reported_via?: string
+          reporter_name?: string | null
+          reporter_phone?: string | null
+          resolution_notes?: string | null
+          severity?: string
+          status?: string
+          time_confidence?: string
+          updated_at?: string
+          user_id?: string | null
+          video_notes?: string | null
+          video_reviewed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: false
+            referencedRelation: "bays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       league_participants: {
         Row: {
           active: boolean
           id: string
           joined_at: string
           league_id: string
+          partner_name: string | null
+          preferred_slot: string | null
+          status: string
           user_id: string
         }
         Insert: {
@@ -891,6 +1057,9 @@ export type Database = {
           id?: string
           joined_at?: string
           league_id: string
+          partner_name?: string | null
+          preferred_slot?: string | null
+          status?: string
           user_id: string
         }
         Update: {
@@ -898,6 +1067,9 @@ export type Database = {
           id?: string
           joined_at?: string
           league_id?: string
+          partner_name?: string | null
+          preferred_slot?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -931,6 +1103,9 @@ export type Database = {
           max_players: number | null
           name: string
           price_per_session: number | null
+          prize_pool_per_session: number
+          signup_closes_on: string | null
+          slug: string | null
           start_time: string
           starts_on: string
         }
@@ -947,6 +1122,9 @@ export type Database = {
           max_players?: number | null
           name: string
           price_per_session?: number | null
+          prize_pool_per_session?: number
+          signup_closes_on?: string | null
+          slug?: string | null
           start_time: string
           starts_on: string
         }
@@ -963,6 +1141,9 @@ export type Database = {
           max_players?: number | null
           name?: string
           price_per_session?: number | null
+          prize_pool_per_session?: number
+          signup_closes_on?: string | null
+          slug?: string | null
           start_time?: string
           starts_on?: string
         }
