@@ -39,6 +39,8 @@ export async function logIncident(formData: FormData) {
     bay_id: bayId,
     booking_id: booking?.id ?? null,
     equipment_id: str(formData, "equipment_id"),
+    reported_club: str(formData, "reported_club"),
+    reported_set: str(formData, "reported_set"),
   })
 
   if (error) {

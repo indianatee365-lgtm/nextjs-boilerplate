@@ -87,9 +87,13 @@ LOG_INCIDENT = {
                     "type": "string",
                     "description": "Which bay, if they know. Just the number is fine.",
                 },
-                "equipment_tag": {
+                "club": {
                     "type": "string",
-                    "description": "Tag printed on the club grip, e.g. C-014, if the caller can read it off.",
+                    "description": "Which club broke, as the caller says it, e.g. '7 iron', 'driver', 'pitching wedge'.",
+                },
+                "club_set": {
+                    "type": "string",
+                    "description": "Which loaner set it came from, as the caller says it, e.g. 'mens right handed', 'ladies right handed', 'kids left handed'.",
                 },
                 "category": {
                     "type": "string",
@@ -114,7 +118,7 @@ Gather, in this order:
 1. What happened, in their own words.
 2. WHAT TIME IT HAPPENED. Always ask this, even if they already gave you a rough idea. Ask it plainly and once: "So I can pull up the right camera footage, about what time did that happen?" If they genuinely do not know, log it without a time rather than pressing them.
 3. Which bay, if they know.
-4. If a club broke, ask whether they can read you the tag printed on the grip, something like C-014. Do not push if they cannot find it.
+4. If a club broke, ask which club it was and which set it came from. Ask it naturally: "Which club was it, and do you know which set you grabbed it from?" You are hoping for something like "a seven iron from the mens right handed set" or "a kids left handed driver". Never ask for a tag, a label, or an ID number. Our clubs do not have them, and asking makes the caller feel like they failed a test. If they only know one of the two, take what they have.
 
 Turn the time they give you into an actual date and time using the current date and time, and pass it as occurred_at. Also pass their own words as occurred_at_text. Use time_confidence "exact" only if they gave a specific minute or said they checked a clock, otherwise "approximate".
 
@@ -131,15 +135,22 @@ def main():
     tools = model["tools"]
     names = [(t.get("function") or {}).get("name") for t in tools]
 
+    # Replace rather than skip, so editing LOG_INCIDENT or PROMPT_SECTION above
+    # and re-running actually pushes the change.
     if "log_incident" in names:
-        print("log_incident already on the assistant")
+        tools[names.index("log_incident")] = LOG_INCIDENT
+        print("replaced existing log_incident tool")
     else:
         tools.insert(names.index("report_issue") + 1, LOG_INCIDENT)
         print("inserted log_incident after report_issue")
 
     sys_msg = model["messages"][0]
-    if "DAMAGE, INJURIES AND INCIDENTS" in sys_msg["content"]:
-        print("prompt section already present")
+    marker = "\n\nDAMAGE, INJURIES AND INCIDENTS"
+    if marker in sys_msg["content"]:
+        # The section is always appended last, so truncating at the marker and
+        # re-appending replaces it cleanly.
+        sys_msg["content"] = sys_msg["content"].split(marker)[0].rstrip() + PROMPT_SECTION
+        print("replaced existing prompt section")
     else:
         sys_msg["content"] = sys_msg["content"].rstrip() + PROMPT_SECTION
         print("appended prompt section")

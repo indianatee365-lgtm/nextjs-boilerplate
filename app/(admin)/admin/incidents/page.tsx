@@ -150,6 +150,22 @@ export default async function AdminIncidentsPage() {
           </label>
 
           <label className="text-xs text-neutral-400">
+            Club (as described)
+            <input
+              name="reported_club"
+              placeholder="7 iron"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+            />
+          </label>
+          <label className="text-xs text-neutral-400">
+            Which set
+            <input
+              name="reported_set"
+              placeholder="mens right handed"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+            />
+          </label>
+          <label className="text-xs text-neutral-400">
             Category
             <select
               name="category"

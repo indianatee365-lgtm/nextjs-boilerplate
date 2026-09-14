@@ -754,15 +754,23 @@ async function handleLogIncident(args: Record<string, string>, callerPhone: stri
     bayNumber = bay?.number ?? null
   }
 
+  // The loaner clubs are not tagged yet, so we ask what club and which set
+  // instead of a label that does not exist. "A seven iron from the mens right
+  // handed set" is enough to walk out and find it.
+  const reportedClub = args.club?.trim() || null
+  const reportedSet = args.club_set?.trim() || null
+
+  // Best-effort link if the inventory happens to describe the same thing.
   let equipmentId: string | null = null
-  const tag = args.equipment_tag?.trim().toUpperCase()
-  if (tag) {
-    const { data: item } = await supabase
+  if (reportedClub && reportedSet) {
+    const { data: match } = await supabase
       .from("equipment")
       .select("id")
-      .eq("tag", tag)
-      .maybeSingle()
-    equipmentId = item?.id ?? null
+      .ilike("club_type", reportedClub)
+      .ilike("set_name", reportedSet)
+      .eq("status", "in_service")
+      .limit(2)
+    if (match && match.length === 1) equipmentId = match[0].id
   }
 
   const occurredAt = parseReportedTime(args.occurred_at)
@@ -805,6 +813,8 @@ async function handleLogIncident(args: Record<string, string>, callerPhone: stri
       booking_id: booking?.id ?? null,
       user_id: userId,
       equipment_id: equipmentId,
+      reported_club: reportedClub,
+      reported_set: reportedSet,
     })
     .select("id")
     .single()
@@ -821,6 +831,9 @@ async function handleLogIncident(args: Record<string, string>, callerPhone: stri
     [
       severity === "major" ? "Tee365 INCIDENT (major):" : "Tee365 incident logged:",
       bayNumber ? `Bay: ${bayNumber}` : null,
+      reportedClub || reportedSet
+        ? `Club: ${[reportedClub, reportedSet].filter(Boolean).join(", ")}`
+        : null,
       occurredAt ? `When: ${formatFacilityTime(occurredAt)} (${timeConfidence})` : "When: not given",
       `From: ${callerPhone}`,
       description,

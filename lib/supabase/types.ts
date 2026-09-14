@@ -670,6 +670,7 @@ export type Database = {
           name: string
           notes: string | null
           replacement_cost: number | null
+          set_name: string | null
           status: string
           tag: string
           updated_at: string
@@ -685,6 +686,7 @@ export type Database = {
           name: string
           notes?: string | null
           replacement_cost?: number | null
+          set_name?: string | null
           status?: string
           tag: string
           updated_at?: string
@@ -700,6 +702,7 @@ export type Database = {
           name?: string
           notes?: string | null
           replacement_cost?: number | null
+          set_name?: string | null
           status?: string
           tag?: string
           updated_at?: string
@@ -948,6 +951,8 @@ export type Database = {
           occurred_at: string | null
           occurred_at_text: string | null
           reported_at: string
+          reported_club: string | null
+          reported_set: string | null
           reported_via: string
           reporter_name: string | null
           reporter_phone: string | null
@@ -973,6 +978,8 @@ export type Database = {
           occurred_at?: string | null
           occurred_at_text?: string | null
           reported_at?: string
+          reported_club?: string | null
+          reported_set?: string | null
           reported_via?: string
           reporter_name?: string | null
           reporter_phone?: string | null
@@ -998,6 +1005,8 @@ export type Database = {
           occurred_at?: string | null
           occurred_at_text?: string | null
           reported_at?: string
+          reported_club?: string | null
+          reported_set?: string | null
           reported_via?: string
           reporter_name?: string | null
           reporter_phone?: string | null

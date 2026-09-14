@@ -76,6 +76,14 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
         {incident.occurred_at_text && (
           <Field label="Said as">&ldquo;{incident.occurred_at_text}&rdquo;</Field>
         )}
+        {(incident.reported_club || incident.reported_set) && (
+          <Field label="Club described">
+            {incident.reported_club ?? "unspecified"}
+            {incident.reported_set && (
+              <span className="block text-xs text-neutral-500">{incident.reported_set} set</span>
+            )}
+          </Field>
+        )}
         {incident.reporter_name && <Field label="Reporter">{incident.reporter_name}</Field>}
         {incident.reporter_phone && <Field label="Phone">{incident.reporter_phone}</Field>}
         {item && (
