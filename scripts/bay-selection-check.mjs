@@ -49,6 +49,76 @@ function wearRows() {
 
 console.log("\nReal wear order: bay 3 (19.5h) < bay 2 (20.0h) < bay 4 (21.8h) < bay 1 (31.0h)")
 
+console.log("\nLong runs: never seat two customers side by side, and let wear even out")
+{
+  // Sessions are laid end to end with `gapHours` of breathing room between
+  // them. Nothing overlaps, so no bay is ever concurrently occupied - this is
+  // purely about who follows whom.
+  function simulate(gapFor, n = 60) {
+    const booked = []
+    const placed = []
+    let cursor = 0
+    for (let i = 0; i < n; i++) {
+      const start = at(cursor), end = at(cursor + 2)
+      const wear = buildBayUsage([...wearRows(), ...booked])
+      const gaps = buildAdjacencyGaps(booked, start, end)
+      const bay = pickBestBay(BAYS, [], wear, gaps)
+      placed.push({ number: bay.number, id: bay.id, start: start.getTime(), end: end.getTime() })
+      booked.push({ bay_id: bay.id, starts_at: start.toISOString(), ends_at: end.toISOString() })
+      cursor += 2 + gapFor(i)
+    }
+    const wear = buildBayUsage([...wearRows(), ...booked])
+    const mins = BAYS.map((b) => wear.get(b.id).minutes)
+
+    // A bad seating is two customers in ADJACENT bays close enough in time to
+    // actually be near one another. Two people in bays 2 and 3 six hours apart
+    // never met.
+    let sideBySide = 0
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        if (Math.abs(placed[i].number - placed[j].number) !== 1) continue
+        if ((placed[j].start - placed[i].end) / 60000 < 30) sideBySide++
+      }
+    }
+    return { placed, spread: Math.max(...mins) - Math.min(...mins), sideBySide, wear }
+  }
+
+  const STARTING_SPREAD = 688 // bay 1 at 1858 minus bay 3 at 1170
+
+  const roomy = simulate(() => 0.5)
+  console.log("   30 min between sessions:", roomy.placed.slice(0, 20).map((p) => p.number).join(" "))
+  console.log("   sessions each:", BAYS.map((b) =>
+    `bay${b.number}=${roomy.placed.filter((p) => p.number === b.number).length}`).join(" "))
+  console.log(`   wear spread ${STARTING_SPREAD} -> ${roomy.spread} min`)
+  check("nobody is ever seated next to anybody", roomy.sideBySide === 0, `${roomy.sideBySide} bad`)
+  // Sessions come out dead even, which is the most rule 3 can do here. It does
+  // not claw back bay 1's existing lead: that 688 is historical, from the era
+  // when every booking defaulted to bay 1, and an even rotation preserves a
+  // gap rather than closing it. Closing it would mean handing bay 1 fewer
+  // sessions than the rest, which can only happen by seating someone next to
+  // somebody - exactly the trade Jerrod said not to make.
+  const counts = BAYS.map((b) => roomy.placed.filter((p) => p.number === b.number).length)
+  check("sessions are shared out dead even", Math.max(...counts) - Math.min(...counts) <= 1,
+    counts.join(","))
+  check("the existing gap does not widen", roomy.spread <= STARTING_SPREAD, `spread ${roomy.spread}`)
+  check("every bay is used", new Set(roomy.placed.map((p) => p.number)).size === 4)
+
+  // The pathological case: 60 sessions butted perfectly end to end, one
+  // customer at a time, never a minute of slack. Separation still holds, but
+  // the row's topology bites - bay 3 is non-adjacent only to bay 1, so once a
+  // run settles into 2<->4 it stops being reachable. Real volume is nowhere
+  // near this (19-31 booked hours per bay per MONTH), and the moment any gap
+  // appears the roomy case above takes over. Asserted so the tradeoff is
+  // recorded rather than discovered again later.
+  const relentless = simulate(() => 0)
+  console.log("   back-to-back all day:", relentless.placed.slice(0, 20).map((p) => p.number).join(" "))
+  console.log(`   wear spread ${STARTING_SPREAD} -> ${relentless.spread} min`)
+  check("separation still never breaks, even at full tilt", relentless.sideBySide === 0,
+    `${relentless.sideBySide} bad`)
+  check("known tradeoff: perfectly gapless days do not even out wear",
+    relentless.spread > STARTING_SPREAD, `spread ${relentless.spread}`)
+}
+
 console.log("\nFour bookings in a row on an otherwise empty evening")
 {
   const booked = []
@@ -63,7 +133,11 @@ console.log("\nFour bookings in a row on an otherwise empty evening")
   }
   console.log("   17:00 -> 19:00 -> 21:00 -> 23:00 lands on bays:", chosen.join(" -> "))
   check("first booking goes to the least-worn bay (3)", chosen[0] === 3, `got ${chosen[0]}`)
-  check("second moves to bay 1, the furthest bay from bay 3", chosen[1] === 1, `got ${chosen[1]}`)
+  check("second moves to bay 1, a clear bay away from bay 3", chosen[1] === 1, `got ${chosen[1]}`)
+  check("never adjacent to the previous session", (() => {
+    for (let i = 1; i < chosen.length; i++) if (Math.abs(chosen[i] - chosen[i - 1]) < 2) return false
+    return true
+  })(), chosen.join(" "))
   check("no two consecutive bookings share a bay",
     chosen[0] !== chosen[1] && chosen[1] !== chosen[2] && chosen[2] !== chosen[3], chosen.join(","))
   check("no back-to-back handoff anywhere in the run", (() => {
@@ -125,7 +199,14 @@ console.log("\nConcurrent occupancy still spaces (rule 2 unchanged)")
   const counts = { b2: 0, b3: 0, b4: 0 }
   for (let i = 0; i < 200; i++) counts[pickBestBay(free, [1], new Map(), gaps).id]++
   console.log("   picks with bay 1 occupied during the window:", counts)
-  check("furthest bay from the occupied one wins", counts.b4 === 200)
+  // Bay 2 is adjacent and never acceptable. Bays 3 and 4 are both a clear bay
+  // away, so they are equally good for the customer and the cap makes them
+  // tie - bay 4 no longer wins just for being further. With no wear passed in
+  // the tie breaks randomly, which is the point: it leaves the decision to
+  // rule 3 in real use.
+  check("the adjacent bay is never chosen", counts.b2 === 0, `bay 2 got ${counts.b2}`)
+  check("both far-enough bays stay in play", counts.b3 > 0 && counts.b4 > 0,
+    `b3=${counts.b3} b4=${counts.b4}`)
 }
 
 console.log("\nAn hour of clear air is not a turnover problem")

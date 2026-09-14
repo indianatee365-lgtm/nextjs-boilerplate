@@ -69,6 +69,19 @@ export function buildBayUsage(
 }
 
 /**
+ * How far apart is far enough.
+ *
+ * One empty bay between two customers is the whole ask. Beyond that the
+ * experience is not measurably better, and chasing more distance actively
+ * hurts: on a four-bay row only the far end is ever three away, so an
+ * uncapped distance permanently favours the ends and starves the middle.
+ * Capping here means every bay at least one clear bay away is considered
+ * equally good, and wear breaks the tie between them - which is how bay 3
+ * keeps catching up instead of falling behind again.
+ */
+export const MAX_USEFUL_SEPARATION = 2
+
+/**
  * How much clear air a bay wants either side of a booking before the handoff
  * stops feeling like a handoff.
  *
@@ -173,6 +186,12 @@ export function slotGridGap(
  *      free, bay 4 wins (distance 3 vs distance 2). Counting the cramped
  *      bays here is what makes the booking after a session move away from
  *      the bay that session was in, rather than merely off it.
+ *
+ *      Distance is capped at MAX_USEFUL_SEPARATION, because one clear bay
+ *      between customers is the whole point and a second buys nothing. Every
+ *      bay at or past the cap ties, so wear decides between them - without
+ *      the cap the ends of the row would win every contested booking and the
+ *      middle bays would never catch up.
  *   3. Break any tie (including "nothing is busy yet, every candidate
  *      ties at maximum distance") by whichever candidate has been worked
  *      least over the last WEAR_WINDOW_DAYS, measured in booked minutes.
@@ -218,7 +237,10 @@ export function pickBestBay<T extends BaySelectable>(
       // is the bay somebody just walked out of.
       distance: spacingRefs.length === 0
         ? Infinity // genuinely nobody near this time - spacing doesn't apply, go straight to wear
-        : Math.min(...spacingRefs.map((n) => Math.abs(c.number - n))),
+        : Math.min(
+            MAX_USEFUL_SEPARATION,
+            ...spacingRefs.map((n) => Math.abs(c.number - n))
+          ),
       minutes: usage?.minutes ?? 0,
       // Never used sorts oldest, so a bay nobody has booked wins the
       // recency tiebreak outright instead of losing it to a null check.
