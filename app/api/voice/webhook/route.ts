@@ -713,10 +713,23 @@ function vapiRequestIsAuthentic(request: NextRequest): boolean {
   return timingSafeEqual(a, b)
 }
 
-// Alert at most once per warm instance. A rejected request is either a
-// misconfiguration (the phone agent is down - Jerrod needs to know NOW) or
-// someone probing the endpoint (worth knowing once, not once per request).
-let rejectionAlerted = false
+// Two very different events cause a rejection here, and they are tracked
+// separately so one cannot mask the other.
+//
+// A request carrying NO secret header is an internet scanner hitting a
+// predictable path. /api/voice/webhook gets found by the same crawlers that
+// try /wp-login.php. Worth a log line, never worth waking Jerrod.
+//
+// A request carrying a header that does not MATCH is the one that matters,
+// because that is exactly what Vapi looks like when its Server URL Secret has
+// drifted from VAPI_WEBHOOK_SECRET, which means the phone agent is down.
+//
+// Both shared a single alert-once flag until 2026-09-13, which had it
+// backwards twice over: a scanner sent the "your agent may be down" SMS at
+// 2am, and having sent it, that same flag would then silently swallow the
+// alert for a genuine outage on the same warm instance.
+let mismatchAlerted = false
+let probeLogged = false
 
 const BAY_WORD_NUMBERS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4,
@@ -855,16 +868,28 @@ async function handleLogIncident(args: Record<string, string>, callerPhone: stri
 
 export async function POST(request: NextRequest) {
   if (!vapiRequestIsAuthentic(request)) {
-    if (!rejectionAlerted) {
-      rejectionAlerted = true
-      try {
-        const sc = await createServiceClient()
-        await logFailure(sc, "voice-webhook-UNAUTHORIZED",
-          `secret_configured=${Boolean(process.env.VAPI_WEBHOOK_SECRET)} has_header=${Boolean(request.headers.get("x-vapi-secret"))}`,
-          "ALERT /api/voice/webhook rejected a request as unauthorized. If the phone agent just stopped working, " +
-          "the Server URL Secret in Vapi does not match VAPI_WEBHOOK_SECRET in Vercel. Otherwise someone is probing the endpoint.")
-      } catch { /* best-effort */ }
-    }
+    // Same two header names vapiRequestIsAuthentic accepts, so "did they even
+    // try to authenticate" is judged on the same basis the check itself uses.
+    const hasHeader = Boolean(
+      request.headers.get("x-vapi-secret") ?? request.headers.get("x-vapi-signature")
+    )
+    try {
+      const sc = await createServiceClient()
+      if (hasHeader) {
+        if (!mismatchAlerted) {
+          mismatchAlerted = true
+          await logFailure(sc, "voice-webhook-SECRET-MISMATCH",
+            `secret_configured=${Boolean(process.env.VAPI_WEBHOOK_SECRET)} has_header=true`,
+            "ALERT Phone agent is probably DOWN. /api/voice/webhook got a request carrying the WRONG secret, " +
+            "which is what Vapi looks like when its Server URL Secret no longer matches VAPI_WEBHOOK_SECRET in Vercel. " +
+            "Call (574) 444-9365 to confirm, then re-set the secret in Vapi.")
+        }
+      } else if (!probeLogged) {
+        probeLogged = true
+        await logEvent(sc, "voice-webhook-probe-rejected",
+          "request arrived with no vapi secret header, treated as an internet scanner, no alert sent")
+      }
+    } catch { /* best-effort */ }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
