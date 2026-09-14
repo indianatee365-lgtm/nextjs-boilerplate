@@ -165,11 +165,14 @@ export function slotGridGap(
  *      nearest neighbouring booking is TURNOVER_COMFORT_MINUTES or more
  *      away carries no penalty at all, so on a busy day when everything is
  *      tight this tier ties and the rest of the ordering decides as before.
- *   2. Then whichever candidate is numerically furthest from any bay
- *      that's already busy overlapping this same time window - bays are
+ *   2. Then whichever candidate is numerically furthest from any bay with
+ *      somebody in it around this time - either overlapping the window
+ *      outright, or close enough either side to count as cramped. Bays are
  *      laid out in a row (1-2-3-4), so |number - number| is a real
  *      physical distance. If bay 1 is taken and both bay 3 and bay 4 are
- *      free, bay 4 wins (distance 3 vs distance 2).
+ *      free, bay 4 wins (distance 3 vs distance 2). Counting the cramped
+ *      bays here is what makes the booking after a session move away from
+ *      the bay that session was in, rather than merely off it.
  *   3. Break any tie (including "nothing is busy yet, every candidate
  *      ties at maximum distance") by whichever candidate has been worked
  *      least over the last WEAR_WINDOW_DAYS, measured in booked minutes.
@@ -191,6 +194,17 @@ export function pickBestBay<T extends BaySelectable>(
   if (candidates.length === 0) return null
   if (candidates.length === 1) return candidates[0]
 
+  // Spacing has to reckon with bays that are about to empty or about to fill,
+  // not only bays occupied for the whole of this window. The customer finishing
+  // at 19:00 is still in the building at 19:00, so a 19:00 booking should move
+  // away from their bay - but their booking does not overlap the window, so
+  // busyBayNumbers alone never saw them and spacing silently stopped applying
+  // the moment the previous session ended.
+  const crampedNumbers = candidates
+    .filter((c) => (adjacencyByBayId.get(c.id) ?? Infinity) < TURNOVER_COMFORT_MINUTES)
+    .map((c) => c.number)
+  const spacingRefs = Array.from(new Set([...busyBayNumbers, ...crampedNumbers]))
+
   const scored = candidates.map((c) => {
     const usage = usageByBayId.get(c.id)
     // Absent from the map means nothing else is booked near this window on
@@ -200,9 +214,11 @@ export function pickBestBay<T extends BaySelectable>(
     return {
       candidate: c,
       turnoverPenalty: Math.max(0, TURNOVER_COMFORT_MINUTES - gapMinutes),
-      distance: busyBayNumbers.length === 0
-        ? Infinity // nothing else booked around this time - spacing doesn't apply, go straight to wear
-        : Math.min(...busyBayNumbers.map((n) => Math.abs(c.number - n))),
+      // A cramped bay measures zero distance to itself, which is correct: it
+      // is the bay somebody just walked out of.
+      distance: spacingRefs.length === 0
+        ? Infinity // genuinely nobody near this time - spacing doesn't apply, go straight to wear
+        : Math.min(...spacingRefs.map((n) => Math.abs(c.number - n))),
       minutes: usage?.minutes ?? 0,
       // Never used sorts oldest, so a bay nobody has booked wins the
       // recency tiebreak outright instead of losing it to a null check.
