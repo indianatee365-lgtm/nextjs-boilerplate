@@ -2,6 +2,7 @@ import Stripe from "stripe"
 import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
 import { sendGiveawayMembershipEmail } from "@/lib/resend/email"
 import { FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
+import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -152,11 +153,12 @@ export async function grantFreeMembership(
     joining_fee_paid: plan.slug === "founder",
     joining_fee_paid_at: plan.slug === "founder" ? now.toISOString() : null,
   }
-  if (plan.slug === "eagle") {
-    insertData.signup_bonus_hours = 2
-    const bonusExpiry = new Date(now)
-    bonusExpiry.setDate(bonusExpiry.getDate() + 90)
-    insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+  // Same source the hour_credits row uses below. This path previously set the
+  // display fields and granted no spendable credit at all, for either plan.
+  const signupBonus = signupBonusFor(plan.slug, now)
+  if (signupBonus) {
+    insertData.signup_bonus_hours = signupBonus.hours
+    insertData.signup_bonus_expires_at = signupBonus.expiresAt
   }
   if (plan.slug === "founder") {
     const { data: maxRow } = await serviceClient
@@ -166,7 +168,6 @@ export async function grantFreeMembership(
       .limit(1).maybeSingle()
     insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
     insertData.year_one_discount_expires_at = FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES.toISOString()
-    insertData.signup_bonus_hours = 2
   }
 
   const { data: newMembership, error: memInsertErr } = await serviceClient
@@ -178,6 +179,12 @@ export async function grantFreeMembership(
       `ALERT Free membership grant FAILED to create membership, ${custName} ${sourceLabel} plan=${plan.slug}. Fix manually.`)
     return { ok: false, message: "Something went wrong granting this membership. We've been notified - please try again." }
   }
+
+  // Makes the signup hours actually spendable. A granted membership promises
+  // the same free hours a paid one does, and this path never granted them.
+  await grantSignupBonus(serviceClient, {
+    userId, planSlug: plan.slug, now, sourceLabel,
+  })
 
   try {
     const subscription = await stripe.subscriptions.create({

@@ -7,6 +7,7 @@ import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
+import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
 function generateGiftCardCode(): string {
@@ -148,11 +149,13 @@ export async function POST(request: NextRequest) {
         // what it earned, not at sticker.
         signup_amount_paid: (_pi.amount_received ?? _pi.amount ?? 0) / 100,
       }
-      if (plan_slug === "eagle") {
-        insertData.signup_bonus_hours = 2
-        const bonusExpiry = new Date(now)
-        bonusExpiry.setDate(bonusExpiry.getDate() + 90)
-        insertData.signup_bonus_expires_at = bonusExpiry.toISOString()
+      // Read from the same source as the hour_credits row granted below, so
+      // the number on the account page and the number they can actually spend
+      // cannot disagree.
+      const signupBonus = signupBonusFor(plan_slug, now)
+      if (signupBonus) {
+        insertData.signup_bonus_hours = signupBonus.hours
+        insertData.signup_bonus_expires_at = signupBonus.expiresAt
       }
       if (plan_slug === "founder") {
         const { data: maxRow } = await supabase
@@ -162,7 +165,6 @@ export async function POST(request: NextRequest) {
           .limit(1).maybeSingle()
         insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
         insertData.year_one_discount_expires_at = FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES.toISOString()
-        insertData.signup_bonus_hours = 2
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,30 +180,14 @@ export async function POST(request: NextRequest) {
       await (supabase as any).from("admin_logs").insert({ event: "membership-created", detail: `user=${user_id} plan=${plan_slug} founder#=${insertData.founder_number ?? "n/a"} pi=${_pi.id}` })
       await supabase.from("profiles").update({ stripe_customer_id }).eq("id", user_id)
 
-      // Founders' 2-hour signup bonus is redeemed at Friends & Founders Day
-      // (2026-08-29) or, if a founder can't get a slot that day, any later
-      // date once general public booking opens - deliberately no expiry so
-      // capacity or a scheduling conflict on 8/29 doesn't just forfeit the
-      // benefit. signup_bonus_hours above is just a display promise on the
-      // membership row - this is what actually makes it spendable via the
-      // hour_credits ledger createBooking() checks.
-      if (plan_slug === "founder") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: creditErr } = await (supabase as any).from("hour_credits").insert({
-          user_id,
-          hours: 2,
-          hours_remaining: 2,
-          reason: "Founders Day 2026",
-          expires_at: null,
-          active: true,
-          created_by: user_id,
-          redeemed_at: now.toISOString(),
-        })
-        if (creditErr) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any).from("admin_logs").insert({ event: "founders-day-credit-FAILED", detail: `user=${user_id} err=${JSON.stringify(creditErr).slice(0, 200)}` })
-        }
-      }
+      // signup_bonus_hours above is only a display promise on the membership
+      // row. This is what actually makes those hours spendable, via the
+      // hour_credits ledger createBooking() checks. It used to run for
+      // founders only, so every Eagle member saw "2 free hrs remaining" on
+      // their account page with nothing behind it.
+      await grantSignupBonus(supabase, {
+        userId: user_id, planSlug: plan_slug, now, sourceLabel: "stripe-checkout",
+      })
 
       const founderTag = plan_slug === "founder" ? ` (#${String(insertData.founder_number)} of 100)` : ""
 
