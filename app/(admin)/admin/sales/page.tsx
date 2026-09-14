@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { computeRevenue, REVENUE_SOURCE_LABELS, REVENUE_SOURCE_ORDER } from "@/lib/admin/revenue"
+import { computeRevenue, computeMrr, mrrContribution, REVENUE_SOURCE_LABELS, REVENUE_SOURCE_ORDER } from "@/lib/admin/revenue"
 
 export const metadata = { title: "Sales | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -13,6 +13,10 @@ type Membership = {
   current_period_end: string | null
   plan_type: string
   stripe_subscription_id: string | null
+  comped: boolean | null
+  granted_free: boolean | null
+  membership_paused: boolean | null
+  is_annual: boolean | null
   membership_plans: { name: string; price_monthly: number } | null
   profiles: { first_name: string; last_name: string } | null
 }
@@ -30,6 +34,7 @@ export default async function AdminSalesPage() {
     serviceClient
       .from("memberships")
       .select(`id, status, started_at, current_period_end, plan_type, stripe_subscription_id,
+        comped, granted_free, membership_paused, is_annual,
         membership_plans(name, price_monthly),
         profiles!user_id(first_name, last_name)`)
       .in("status", ["active", "past_due"])
@@ -62,9 +67,10 @@ export default async function AdminSalesPage() {
     return "bg-neutral-500/20 text-neutral-400"
   }
 
-  const mrr = subs
-    .filter(s => s.status === "active")
-    .reduce((sum, s) => sum + Number(s.membership_plans?.price_monthly ?? 0), 0)
+  // Only what will actually be charged next cycle. Comped members, free grants
+  // and anything prepaid past this billing period contribute nothing until they
+  // renew. See lib/admin/revenue.ts for the rules and the reason on each row.
+  const { mrr, deferred, billingCount, excludedCount } = computeMrr(subs)
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -125,7 +131,17 @@ export default async function AdminSalesPage() {
       <div className="flex items-baseline gap-4 mb-4">
         <h2 className="text-lg font-semibold text-white">Active Subscriptions</h2>
         <span className="text-xs text-neutral-500">{subs.length} subscriber{subs.length !== 1 ? "s" : ""}</span>
-        <span className="ml-auto text-xs text-neutral-400">MRR <span className="text-white font-semibold">{fmt(mrr)}</span></span>
+        <span className="ml-auto text-xs text-neutral-400">
+          MRR <span className="text-white font-semibold">{fmt(mrr)}</span>
+          <span className="text-neutral-600"> · </span>
+          {billingCount} billing
+          {excludedCount > 0 && (
+            <span title="Comped, free grants, paused, and anything prepaid past this cycle">
+              <span className="text-neutral-600"> · </span>
+              {excludedCount} not billing yet ({fmt(deferred)})
+            </span>
+          )}
+        </span>
       </div>
 
       {subs.length === 0 ? (
@@ -149,6 +165,7 @@ export default async function AdminSalesPage() {
                 const name = p ? `${p.first_name} ${p.last_name}`.trim() : "—"
                 const started = s.started_at ? new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"
                 const renewal = s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"
+                const contribution = mrrContribution(s)
                 return (
                   <tr key={s.id} className="border-t border-white/5 hover:bg-white/[0.02]">
                     <td className="px-4 py-3 font-medium text-white">{name}</td>
@@ -158,7 +175,16 @@ export default async function AdminSalesPage() {
                     </td>
                     <td className="px-4 py-3 text-neutral-400">{started}</td>
                     <td className="px-4 py-3 text-neutral-400">{renewal}</td>
-                    <td className="px-4 py-3 text-right">{fmt(Number(s.membership_plans?.price_monthly ?? 0))}</td>
+                    <td className="px-4 py-3 text-right">
+                      {contribution.excludedReason === null ? (
+                        fmt(contribution.amount)
+                      ) : (
+                        <>
+                          <span className="text-neutral-600">{fmt(0)}</span>
+                          <span className="block text-xs text-neutral-500">{contribution.excludedReason}</span>
+                        </>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -175,6 +201,9 @@ export default async function AdminSalesPage() {
         the amount was never recorded at the time.
         Gift cards shown at face value, excluding admin-issued comps. Membership sign-ups include first month + joining fee,
         excluding free grants. Renewals pulled from Stripe webhook events.
+        MRR counts only memberships that will actually be charged in the next cycle. Comped members,
+        free grants, paused memberships and anything already paid up past this cycle show as $0 with
+        the reason, and start counting on the day they renew.
       </p>
     </main>
   )

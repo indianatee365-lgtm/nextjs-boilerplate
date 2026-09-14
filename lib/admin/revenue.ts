@@ -396,3 +396,101 @@ export async function getRevenueLineItems(serviceClient: any, source: RevenueSou
     }
   })
 }
+
+// ---------------------------------------------------------------------------
+// MRR
+//
+// This used to be a one-liner on the sales page that summed price_monthly for
+// every active membership. That counted money nobody is paying: comped members
+// who have no Stripe subscription at all, and free-grant members whose first
+// charge is a year out. MRR is meant to answer "what bills next month", so a
+// membership only counts when it is actually going to be charged.
+//
+// Every exclusion carries a reason so the sales table can show why a row is
+// zero, rather than silently dropping it and leaving the total unexplainable.
+// ---------------------------------------------------------------------------
+
+export type MrrMembership = {
+  status: string
+  comped: boolean | null
+  granted_free: boolean | null
+  membership_paused: boolean | null
+  is_annual: boolean | null
+  current_period_end: string | null
+  stripe_subscription_id: string | null
+  membership_plans: { price_monthly: number } | null
+}
+
+export type MrrContribution = {
+  /** What this membership adds to MRR. Zero whenever excludedReason is set. */
+  amount: number
+  /** Null when it counts. Otherwise a short label for the sales table. */
+  excludedReason: string | null
+}
+
+// A monthly subscription's current period never runs more than about 31 days
+// ahead. Anything further out is not billing this month: a granted free year,
+// or an annual plan already paid up.
+const MONTHLY_PERIOD_MAX_DAYS = 45
+
+export function mrrContribution(m: MrrMembership, now: Date = new Date()): MrrContribution {
+  const price = Number(m.membership_plans?.price_monthly ?? 0)
+
+  if (m.status !== "active") {
+    return { amount: 0, excludedReason: m.status.replace("_", " ") }
+  }
+  if (m.comped) {
+    return { amount: 0, excludedReason: "Comped" }
+  }
+  if (m.membership_paused) {
+    return { amount: 0, excludedReason: "Paused" }
+  }
+  if (!m.stripe_subscription_id) {
+    return { amount: 0, excludedReason: "No subscription" }
+  }
+  if (!m.current_period_end) {
+    return { amount: 0, excludedReason: "No renewal date" }
+  }
+
+  const daysOut = (new Date(m.current_period_end).getTime() - now.getTime()) / 86_400_000
+  if (daysOut > MONTHLY_PERIOD_MAX_DAYS) {
+    return {
+      amount: 0,
+      excludedReason: m.granted_free ? "Free until renewal" : "Prepaid until renewal",
+    }
+  }
+  if (m.granted_free) {
+    return { amount: 0, excludedReason: "Free grant" }
+  }
+
+  return { amount: price, excludedReason: null }
+}
+
+export type MrrSummary = {
+  /** Money that will actually be billed over the next cycle. */
+  mrr: number
+  /** List-price value of everything excluded, so the gap is visible. */
+  deferred: number
+  billingCount: number
+  excludedCount: number
+}
+
+export function computeMrr(memberships: MrrMembership[], now: Date = new Date()): MrrSummary {
+  let mrr = 0
+  let deferred = 0
+  let billingCount = 0
+  let excludedCount = 0
+
+  for (const m of memberships) {
+    const { amount, excludedReason } = mrrContribution(m, now)
+    if (excludedReason === null) {
+      mrr += amount
+      billingCount += 1
+    } else {
+      deferred += Number(m.membership_plans?.price_monthly ?? 0)
+      excludedCount += 1
+    }
+  }
+
+  return { mrr, deferred, billingCount, excludedCount }
+}
