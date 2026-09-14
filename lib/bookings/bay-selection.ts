@@ -69,21 +69,113 @@ export function buildBayUsage(
 }
 
 /**
+ * How much clear air a bay wants either side of a booking before the handoff
+ * stops feeling like a handoff.
+ *
+ * Back-to-back bookings cost the incoming customer real time: the bay agent
+ * needs a few minutes to reset the sim between sessions, so they walk in and
+ * wait while their paid hour is already running. That is tolerable when the
+ * place is full and obviously unfair when three bays are sitting dark, which
+ * is exactly what happened on 2026-09-13 - three bookings stacked back to back
+ * to back on bay 3 because wear balancing had nothing else to push against.
+ */
+export const TURNOVER_COMFORT_MINUTES = 30
+
+/**
+ * Minutes between a requested window and the nearest other booking on the same
+ * bay, per bay. Infinity (absent from the map) means that bay has nothing else
+ * anywhere near this time.
+ *
+ * Note this is deliberately blind to whether the neighbour is before or after:
+ * following someone costs you the reset, and being followed means someone is
+ * hovering while you finish. Both are worth avoiding when a clean bay exists.
+ */
+export function buildAdjacencyGaps(
+  bookings: { bay_id: string | null; starts_at: string; ends_at: string }[],
+  requestedStart: Date,
+  requestedEnd: Date
+): Map<string, number> {
+  const start = requestedStart.getTime()
+  const end = requestedEnd.getTime()
+  const gaps = new Map<string, number>()
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return gaps
+
+  for (const b of bookings) {
+    if (!b.bay_id) continue
+    const bStart = new Date(b.starts_at).getTime()
+    const bEnd = new Date(b.ends_at).getTime()
+    if (!Number.isFinite(bStart) || !Number.isFinite(bEnd) || bEnd <= bStart) continue
+
+    let gap: number
+    if (bEnd <= start) gap = (start - bEnd) / 60000
+    else if (bStart >= end) gap = (bStart - end) / 60000
+    else gap = 0 // overlapping; the caller filters these bays out before we get here
+
+    const prev = gaps.get(b.bay_id)
+    if (prev === undefined || gap < prev) gaps.set(b.bay_id, gap)
+  }
+  return gaps
+}
+
+/**
+ * The same measurement taken from the browser's half-hour availability grid,
+ * which is all the client has. Counts free slots either side of the requested
+ * block until it hits a taken one; running off either end of the day means
+ * nothing is near, so the gap is unbounded.
+ *
+ * Approximate by nature - the grid is half-hour resolution and only covers one
+ * day - but the server re-runs the real selection on every booking, so this
+ * only has to be good enough to show the customer the same bay they will get.
+ */
+export function slotGridGap(
+  slots: { available: boolean }[],
+  startIdx: number,
+  neededSlots: number,
+  slotMinutes = 30
+): number {
+  let before = 0
+  for (let i = startIdx - 1; i >= 0; i--) {
+    if (!slots[i].available) break
+    before++
+  }
+  let after = 0
+  for (let i = startIdx + neededSlots; i < slots.length; i++) {
+    if (!slots[i].available) break
+    after++
+  }
+
+  const hitDayStart = before === startIdx
+  const hitDayEnd = startIdx + neededSlots + after >= slots.length
+
+  return Math.min(
+    hitDayStart ? Infinity : before * slotMinutes,
+    hitDayEnd ? Infinity : after * slotMinutes
+  )
+}
+
+/**
  * Picks the best bay from a list of candidates that can all actually
  * fulfill the request (right duration, right time - filtering that out is
  * the caller's job). Two-stage choice:
  *
- *   1. Prefer whichever candidate is numerically furthest from any bay
+ *   1. Prefer a bay with clear air either side of the requested window.
+ *      "Away from other customers" is a distance in time as well as space,
+ *      and the time one costs real money: a back-to-back handoff eats the
+ *      next customer's first few minutes while the sim resets. A bay whose
+ *      nearest neighbouring booking is TURNOVER_COMFORT_MINUTES or more
+ *      away carries no penalty at all, so on a busy day when everything is
+ *      tight this tier ties and the rest of the ordering decides as before.
+ *   2. Then whichever candidate is numerically furthest from any bay
  *      that's already busy overlapping this same time window - bays are
  *      laid out in a row (1-2-3-4), so |number - number| is a real
  *      physical distance. If bay 1 is taken and both bay 3 and bay 4 are
  *      free, bay 4 wins (distance 3 vs distance 2).
- *   2. Break any tie (including "nothing is busy yet, every candidate
+ *   3. Break any tie (including "nothing is busy yet, every candidate
  *      ties at maximum distance") by whichever candidate has been worked
  *      least over the last WEAR_WINDOW_DAYS, measured in booked minutes.
  *      This is what spreads wear and tear evenly: a bay that is behind
  *      stays preferred until it catches up.
- *   3. Then by least recently used, which settles the ordinary case of
+ *   4. Then by least recently used, which settles the ordinary case of
  *      several bays sitting at identical wear.
  *
  * Spacing is a preference among otherwise-available bays, never a reason
@@ -93,15 +185,21 @@ export function buildBayUsage(
 export function pickBestBay<T extends BaySelectable>(
   candidates: T[],
   busyBayNumbers: number[],
-  usageByBayId: Map<string, BayUsage> = new Map()
+  usageByBayId: Map<string, BayUsage> = new Map(),
+  adjacencyByBayId: Map<string, number> = new Map()
 ): T | null {
   if (candidates.length === 0) return null
   if (candidates.length === 1) return candidates[0]
 
   const scored = candidates.map((c) => {
     const usage = usageByBayId.get(c.id)
+    // Absent from the map means nothing else is booked near this window on
+    // this bay, so the penalty floors at zero rather than going negative and
+    // beating a genuinely clear bay.
+    const gapMinutes = adjacencyByBayId.get(c.id) ?? Infinity
     return {
       candidate: c,
+      turnoverPenalty: Math.max(0, TURNOVER_COMFORT_MINUTES - gapMinutes),
       distance: busyBayNumbers.length === 0
         ? Infinity // nothing else booked around this time - spacing doesn't apply, go straight to wear
         : Math.min(...busyBayNumbers.map((n) => Math.abs(c.number - n))),
@@ -112,8 +210,14 @@ export function pickBestBay<T extends BaySelectable>(
     }
   })
 
-  const bestDistance = Math.max(...scored.map((s) => s.distance))
-  const atBestDistance = scored.filter((s) => s.distance === bestDistance)
+  // Clear air first. When every candidate is equally clear (the common case on
+  // a quiet day) or equally cramped (a full evening), this tier ties and the
+  // spacing and wear rules below decide exactly as they did before.
+  const leastCramped = Math.min(...scored.map((s) => s.turnoverPenalty))
+  const restful = scored.filter((s) => s.turnoverPenalty === leastCramped)
+
+  const bestDistance = Math.max(...restful.map((s) => s.distance))
+  const atBestDistance = restful.filter((s) => s.distance === bestDistance)
 
   // Least worked wins. This used to be "fewest bookings started today",
   // which reset every midnight and so could never correct a standing

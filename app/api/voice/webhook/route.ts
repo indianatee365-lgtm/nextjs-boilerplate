@@ -4,7 +4,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
-import { pickBestBay, buildBayUsage, wearWindowStart } from "@/lib/bookings/bay-selection"
+import { pickBestBay, buildBayUsage, buildAdjacencyGaps, wearWindowStart } from "@/lib/bookings/bay-selection"
 import {
   isFoundersDaySession,
   hasFoundersDayCredit,
@@ -322,7 +322,12 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
     .gte("starts_at", wearWindowStart().toISOString())
   const usageByBayId = buildBayUsage(recentBookings ?? [])
 
-  const openBay = pickBestBay(candidates, busyBayNumbers, usageByBayId)
+  // Same rows, asked a different question: how close is the nearest other
+  // booking on each bay to this window. The query has no upper bound, so
+  // future bookings either side of the request are already in hand.
+  const adjacencyByBayId = buildAdjacencyGaps(recentBookings ?? [], startDate, endDate)
+
+  const openBay = pickBestBay(candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
   return { openBay, facilityClosed: false, noBaysConfigured: false }
 }
 

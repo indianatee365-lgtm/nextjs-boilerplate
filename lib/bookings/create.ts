@@ -8,7 +8,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { getAvailableHourCredits, sumCreditHours, consumeHourCredits } from "@/lib/hour-credits"
 import { isFoundersDaySession, hasFoundersDayCredit, isEarlyAccessEligibleSession, isPublicBookingOpen, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
-import { pickBestBay, buildBayUsage, wearWindowStart } from "@/lib/bookings/bay-selection"
+import { pickBestBay, buildBayUsage, buildAdjacencyGaps, wearWindowStart } from "@/lib/bookings/bay-selection"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -239,7 +239,12 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     .gte("starts_at", wearWindowStart().toISOString())
   const usageByBayId = buildBayUsage(recentBookings ?? [])
 
-  const bay = pickBestBay(candidates, busyBayNumbers, usageByBayId)
+  // Same rows, asked a different question: how close is the nearest other
+  // booking on each bay to this window. The query has no upper bound, so
+  // future bookings either side of the request are already in hand.
+  const adjacencyByBayId = buildAdjacencyGaps(recentBookings ?? [], startDate, endDate)
+
+  const bay = pickBestBay(candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
   if (!bay) {
     return { ok: false, status: 409, error: "Bay is not available for this time" }
   }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
-import { pickBestBay, type BayUsage } from "@/lib/bookings/bay-selection"
+import { pickBestBay, slotGridGap, type BayUsage } from "@/lib/bookings/bay-selection"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer } from "lucide-react"
@@ -196,6 +196,7 @@ export default function BookingFlow({
         // selection against real 30-day usage. Same shape so both sides go
         // through one code path.
         const usageByBayId = new Map<string, BayUsage>()
+        const adjacencyByBayId = new Map<string, number>()
 
         for (const bayAvail of data) {
           usageByBayId.set(bayAvail.bay.id, {
@@ -239,8 +240,18 @@ export default function BookingFlow({
           }
         }
 
+        // Clear air either side of the slot each bay is offering, so the
+        // preview picks the same bay the server will.
+        if (bestTime) {
+          for (const bayAvail of data) {
+            const idx = bayAvail.slots.findIndex((s) => s.startsAt === bestTime)
+            if (idx === -1) continue
+            adjacencyByBayId.set(bayAvail.bay.id, slotGridGap(bayAvail.slots, idx, 2))
+          }
+        }
+
         if (bestSlot) {
-          const bay = pickBestBay(tiedCandidates, busyBayNumbers, usageByBayId)
+          const bay = pickBestBay(tiedCandidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
           if (bay) {
             const slotDate = new Date(d)
             slotDate.setHours(0, 0, 0, 0)
@@ -380,6 +391,7 @@ export default function BookingFlow({
     const candidates: Bay[] = []
     const busyBayNumbers: number[] = []
     const usageByBayId = new Map<string, BayUsage>()
+    const adjacencyByBayId = new Map<string, number>()
 
     for (const bayAvail of availability) {
       const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
@@ -393,11 +405,15 @@ export default function BookingFlow({
       for (let i = 0; i < needed; i++) {
         if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
       }
-      if (fits) candidates.push(bayAvail.bay)
-      else busyBayNumbers.push(bayAvail.bay.number)
+      if (fits) {
+        candidates.push(bayAvail.bay)
+        adjacencyByBayId.set(bayAvail.bay.id, slotGridGap(bayAvail.slots, startIdx, needed))
+      } else {
+        busyBayNumbers.push(bayAvail.bay.number)
+      }
     }
 
-    return pickBestBay(candidates, busyBayNumbers, usageByBayId)
+    return pickBestBay(candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
   }
 
   function selectDate(date: Date) {
