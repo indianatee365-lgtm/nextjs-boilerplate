@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms } from "@/lib/telnyx/sms"
-import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail, sendAccessCodeEmail } from "@/lib/resend/email"
+import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms, sendSubscriptionCancelledSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmationEmail, sendGiftCardEmail, sendFounderConfirmationEmail, sendEagleConfirmationEmail, sendBookingPaymentFailedEmail, sendMembershipWelcomeEmail, sendSubscriptionPastDueEmail, sendSubscriptionCancelledEmail, sendAccessCodeEmail } from "@/lib/resend/email"
 import { randomBytes } from "crypto"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, formatDuration } from "@/lib/observability/notify"
-import { PLAN_DISPLAY_NAMES } from "@/lib/membership/first-year"
+import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
 import { consumeHourCredits } from "@/lib/hour-credits"
 
 function generateGiftCardCode(): string {
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
           .order("founder_number", { ascending: false })
           .limit(1).maybeSingle()
         insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
-        insertData.year_one_discount_expires_at = new Date("2027-09-01T03:59:59Z").toISOString()
+        insertData.year_one_discount_expires_at = FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES.toISOString()
         insertData.signup_bonus_hours = 2
       }
 
@@ -666,10 +666,16 @@ export async function POST(request: NextRequest) {
     // Look up current state BEFORE we update, so we know what changed
     const { data: existing } = await supabase
       .from("memberships")
-      .select("user_id, plan_type, status")
+      .select("user_id, plan_type, status, founder_number, cancellation_requested_at")
       .eq("stripe_subscription_id", sub.id)
       .maybeSingle()
-    const prev = existing as { user_id?: string; plan_type?: string; status?: string } | null
+    const prev = existing as {
+      user_id?: string
+      plan_type?: string
+      status?: string
+      founder_number?: number | null
+      cancellation_requested_at?: string | null
+    } | null
     const prevStatus = prev?.status
     const userId = prev?.user_id ?? "unknown"
     const planType = prev?.plan_type ?? "unknown"
@@ -725,8 +731,61 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (newStatus === "cancelled" && prevStatus !== "cancelled") {
+      // Two very different endings arrive through this same branch, and they
+      // need different words. A member who chose to cancel already got
+      // sendCancellationConfirmation from the self-service flow, and telling
+      // them "we couldn't process your renewal" would be both wrong and
+      // embarrassing. Stripe's own cancellation_details.reason is the
+      // authority; cancellation_requested_at is the fallback for anything
+      // cancelled before that field was populated (or cancelled from the
+      // Stripe dashboard by hand).
+      const cancelReason = (sub as { cancellation_details?: { reason?: string | null } }).cancellation_details?.reason ?? null
+      const memberChoseToCancel = cancelReason === "cancellation_requested" || prev?.cancellation_requested_at != null
+
       const custName = await getCustomerName(supabase, userId)
-      await notifyOwner(`ALERT Subscription CANCELLED, ${planType} ${custName}.`)
+      await notifyOwner(
+        memberChoseToCancel
+          ? `Subscription ENDED (member cancelled), ${planType} ${custName}. Their scheduled cancellation has now taken effect.`
+          : `ALERT Subscription CANCELLED, ${planType} ${custName}. Stripe exhausted its retries, not a member request. Cancellation notice sent.`
+      )
+
+      // Only the involuntary ending gets the "we couldn't process the renewal"
+      // notice. The voluntary one was already acknowledged at request time.
+      if (!memberChoseToCancel && userId !== "unknown") {
+        const { data: cancelledProfile } = await supabase
+          .from("profiles")
+          .select("first_name, phone, sms_consent")
+          .eq("id", userId)
+          .maybeSingle()
+        const cProfile = cancelledProfile as { first_name: string; phone: string | null; sms_consent: boolean } | null
+        const planDisplayName = PLAN_DISPLAY_NAMES[planType] ?? planType
+        const isFounder = planType === "founder"
+        const founderNumber = prev?.founder_number ?? null
+
+        if (cProfile?.phone && cProfile.sms_consent) {
+          try {
+            await sendSubscriptionCancelledSms({
+              to: cProfile.phone, firstName: cProfile.first_name, planDisplayName, isFounder,
+            })
+          } catch (err) {
+            await logFailure(supabase, "subscription-cancelled-sms-FAILED",
+              `user=${userId} to=${cProfile.phone} err=${String(err).slice(0, 200)}`)
+          }
+        }
+
+        const { data: { user: cancelledAuthUser } } = await supabase.auth.admin.getUserById(userId)
+        if (cancelledAuthUser?.email && cProfile) {
+          try {
+            await sendSubscriptionCancelledEmail({
+              to: cancelledAuthUser.email, firstName: cProfile.first_name,
+              planDisplayName, isFounder, founderNumber,
+            })
+          } catch (err) {
+            await logFailure(supabase, "subscription-cancelled-email-FAILED",
+              `user=${userId} to=${cancelledAuthUser.email} err=${String(err).slice(0, 200)}`)
+          }
+        }
+      }
     } else if (newStatus === "active" && prevStatus === "past_due") {
       const custName = await getCustomerName(supabase, userId)
       await notifyOwner(`Sub RECOVERED, ${planType} ${custName} back to active.`)

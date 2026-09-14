@@ -1,6 +1,7 @@
 import Stripe from "stripe"
 import { logEvent, logFailure, notifyOwner, getCustomerName } from "@/lib/observability/notify"
 import { sendGiveawayMembershipEmail } from "@/lib/resend/email"
+import { FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -164,7 +165,7 @@ export async function grantFreeMembership(
       .order("founder_number", { ascending: false })
       .limit(1).maybeSingle()
     insertData.founder_number = ((maxRow as { founder_number: number } | null)?.founder_number ?? 0) + 1
-    insertData.year_one_discount_expires_at = new Date("2027-09-01T03:59:59Z").toISOString()
+    insertData.year_one_discount_expires_at = FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES.toISOString()
     insertData.signup_bonus_hours = 2
   }
 

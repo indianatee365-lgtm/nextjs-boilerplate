@@ -281,6 +281,72 @@ export async function sendSubscriptionPastDueSms({
   )
 }
 
+/**
+ * The membership is now actually gone: Stripe exhausted its retry window and
+ * deleted the subscription. Distinct from the past-due notice above, which is
+ * sent while retries are still running and there is still something to save.
+ *
+ * Founders get a different close. Policy (Jerrod, 2026-09-13): the Founder's
+ * Club never ends and a former founder can rejoin once a year at their
+ * locked-in price with their original discount, so telling a founder to go
+ * buy a new membership at tee365.org/join would be wrong twice over - founder
+ * enrollment closed 8/19/26, and the price they would see is not the price
+ * they are owed. Reinstating them is a manual admin action
+ * (lib/membership/reinstate.ts), so the founder copy asks them to reply.
+ */
+/**
+ * Exported so the admin preview endpoint shows the exact text that will be
+ * sent rather than its own second copy of it. A message body that exists twice
+ * is a message body that will eventually differ.
+ */
+export function buildSubscriptionCancelledSmsBody({
+  firstName,
+  planDisplayName,
+  isFounder,
+}: {
+  firstName: string
+  planDisplayName: string
+  isFounder: boolean
+}): string {
+  const opening = `Hi ${firstName}, your Tee365 ${planDisplayName} membership has ended. We weren't able to process the renewal after several attempts, so you won't be charged again.`
+  const close = isFounder
+    ? `\nYour founder number and your locked-in rate are held for you. If you want back in, just reply here or email info@tee365.org and we'll restore it exactly as it was.`
+    : `\nYou can rejoin anytime: tee365.org/join\nIf you think the card should have worked, reply here or email info@tee365.org.`
+  return `${opening}${close}\nReply STOP to opt out.`
+}
+
+export async function sendSubscriptionCancelledSms({
+  to,
+  firstName,
+  planDisplayName,
+  isFounder,
+}: {
+  to: string
+  firstName: string
+  planDisplayName: string
+  isFounder: boolean
+}) {
+  await sendSms(to, buildSubscriptionCancelledSmsBody({ firstName, planDisplayName, isFounder }), "subscription-cancelled")
+}
+
+export async function sendMembershipReinstatedSms({
+  to,
+  firstName,
+  planName,
+  priceMonthly,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  priceMonthly: string
+}) {
+  await sendSms(
+    to,
+    `Welcome back ${firstName}! Your Tee365 ${planName} membership is active again at $${priceMonthly}/mo, same rate as before and no joining fee.\nBook anytime: tee365.org/book\nReply STOP to opt out.`,
+    "membership-reinstated"
+  )
+}
+
 export async function sendBookingPaymentFailedSms({
   to,
   firstName,

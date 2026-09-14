@@ -2,6 +2,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import SendPastDueNudgeButton from "./SendPastDueNudgeButton"
+import ReinstateMembershipButton from "./ReinstateMembershipButton"
+import SendCancelledNoticeButton from "./SendCancelledNoticeButton"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -69,6 +71,26 @@ export default async function AdminUserDetailPage({
         {memberships?.some((m) => m.status === "past_due") && (
           <SendPastDueNudgeButton userId={t.id} />
         )}
+        {(() => {
+          // Offer reinstatement only when there is something lapsed to restore
+          // and nothing live to conflict with it. Mirrors the same guard
+          // reinstateMembership() enforces server-side.
+          const live = memberships?.find((m) => m.status === "active" || m.status === "past_due")
+          if (live) return null
+          const lapsed = memberships?.find((m) => m.status === "cancelled")
+          if (!lapsed) return null
+          const lapsedPlan = lapsed.membership_plans as { name: string; display_name: string | null } | null
+          return (
+            <>
+              <ReinstateMembershipButton
+                userId={t.id}
+                planLabel={lapsedPlan?.display_name ?? lapsedPlan?.name ?? lapsed.plan_type}
+                founderNumber={lapsed.founder_number}
+              />
+              <SendCancelledNoticeButton userId={t.id} />
+            </>
+          )
+        })()}
         {memberships && memberships.length > 0 ? (
           <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">

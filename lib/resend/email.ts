@@ -705,6 +705,111 @@ export async function sendSubscriptionPastDueEmail({
   })
 }
 
+/**
+ * Sent once Stripe has given up: the retry window closed and the subscription
+ * was deleted. The past-due notice above goes out while retries are still in
+ * flight; this one goes out when there is nothing left to retry.
+ *
+ * Founders get a hold-your-spot close rather than a "rejoin at tee365.org/join"
+ * button. Policy (Jerrod, 2026-09-13): the Founder's Club never ends, and a
+ * former founder rejoins once a year at their locked-in price with their
+ * original discount intact. Founder enrollment closed 8/19/26 and /join would
+ * both reject them and quote the wrong price, so the CTA is a reply, and an
+ * admin reinstates them via lib/membership/reinstate.ts.
+ */
+export async function sendSubscriptionCancelledEmail({
+  to, firstName, planDisplayName, isFounder, founderNumber,
+}: {
+  to: string
+  firstName: string
+  planDisplayName: string
+  isFounder: boolean
+  founderNumber: number | null
+}) {
+  const founderLine = isFounder
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">The Founder's Club doesn't expire, and neither does your place in it${founderNumber ? ` as Founder #${founderNumber}` : ""}. Your locked-in rate and your founder discount are held exactly as they were. Whenever you want back in, reply to this email and we'll restore it, no joining fee and nothing lost.</p>`
+    : `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">You're welcome back anytime, and rejoining takes about a minute.</p>`
+
+  const cta = isFounder
+    ? `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="mailto:info@tee365.org?subject=I'd like to restore my Founder's Club membership" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Restore my membership</a>
+</td></tr></table>`
+    : `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/join" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Rejoin Tee365</a>
+</td></tr></table>`
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your membership has ended</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">We weren't able to process the renewal on your <strong style="color:#fff;">${planDisplayName}</strong> membership after several attempts, so it has now ended. You won't be charged again, and there's nothing you need to do.</p>
+${founderLine}
+${cta}
+<p style="margin:24px 0 0;color:#a3a3a3;font-size:15px;line-height:1.6;">If you think that card should have worked, tell us and we'll look into it. Sometimes a bank blocks a recurring charge without telling anyone.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `Your Tee365 ${planDisplayName} membership has ended`,
+    html,
+    kind: "subscription-cancelled",
+  })
+}
+
+export async function sendMembershipReinstatedEmail({
+  to, firstName, planName, priceMonthly, nextCharge, isFounder, founderNumber,
+}: {
+  to: string
+  firstName: string
+  planName: string
+  priceMonthly: string
+  nextCharge: string
+  isFounder: boolean
+  founderNumber: number | null
+}) {
+  const founderNote = isFounder && founderNumber
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">You're still Founder #${founderNumber}. Your founder discount carries on exactly as it was.</p>`
+    : ""
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Welcome back.</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your <strong style="color:#fff;">${planName}</strong> membership is active again at <strong style="color:#fff;">$${priceMonthly}/mo</strong>, the same rate you had before. No joining fee, since you already paid it.</p>
+${founderNote}
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your next charge is ${nextCharge}. Every member benefit is back in place right now, so go book a bay.</p>
+<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/book" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Book a bay</a>
+</td></tr></table>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #222;text-align:center;">
+<p style="margin:0;color:#525252;font-size:12px;line-height:1.8;">Questions? <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a></p>
+</td></tr></table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: `Your ${planName} membership is active again`,
+    html,
+    kind: "membership-reinstated",
+  })
+}
+
 export async function sendBookingPaymentFailedEmail({
   to, firstName, bayName, startsAt,
 }: {
