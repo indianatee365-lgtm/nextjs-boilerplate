@@ -74,10 +74,13 @@ export async function reinstateMembership(
 
   if (selfServe) {
     const { data: gate } = await serviceClient
-      .from("profiles").select("reinstate_blocked").eq("id", userId).maybeSingle()
-    if ((gate as { reinstate_blocked: boolean } | null)?.reinstate_blocked) {
+      .from("profiles").select("reinstate_blocked, banned").eq("id", userId).maybeSingle()
+    const g = gate as { reinstate_blocked: boolean; banned: boolean } | null
+    // Two separate flags on purpose. A chargeback should stop someone
+    // rejoining without barring them from the building; a ban does both.
+    if (g?.reinstate_blocked || g?.banned) {
       await logEvent(serviceClient, "membership-reinstate-blocked",
-        `user=${userId} self-serve restore refused, reinstate_blocked is set`)
+        `user=${userId} self-serve restore refused, ${g?.banned ? "banned" : "reinstate_blocked"} is set`)
       return {
         ok: false,
         message: "We can't restore this membership online. Please email info@tee365.org and we'll take a look.",

@@ -5,6 +5,7 @@ import SendPastDueNudgeButton from "./SendPastDueNudgeButton"
 import ReinstateMembershipButton from "./ReinstateMembershipButton"
 import SendCancelledNoticeButton from "./SendCancelledNoticeButton"
 import ReinstateBlockToggle from "./ReinstateBlockToggle"
+import BanCustomerPanel from "./BanCustomerPanel"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -24,11 +25,11 @@ export default async function AdminUserDetailPage({
   if ((meProfile as { role: string } | null)?.role !== "admin") redirect("/account")
 
   const [{ data: target }, { data: authUserRes }] = await Promise.all([
-    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at, reinstate_blocked, reinstate_blocked_reason").eq("id", id).single(),
+    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at, reinstate_blocked, reinstate_blocked_reason, banned, banned_at, banned_reason").eq("id", id).single(),
     serviceClient.auth.admin.getUserById(id),
   ])
   if (!target) notFound()
-  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null }
+  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null; banned: boolean | null; banned_at: string | null; banned_reason: string | null }
   const targetEmail = authUserRes?.user?.email ?? "N/A"
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
@@ -45,7 +46,14 @@ export default async function AdminUserDetailPage({
 
       <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">{t.first_name} {t.last_name}</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-semibold text-white">{t.first_name} {t.last_name}</h1>
+            {t.banned && (
+              <span className="rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-red-300">
+                Banned
+              </span>
+            )}
+          </div>
           <p className="text-sm text-neutral-500 mt-1">User ID: <span className="font-mono text-xs">{t.id}</span></p>
         </div>
         <Link
@@ -92,10 +100,22 @@ export default async function AdminUserDetailPage({
             </>
           )
         })()}
-        <ReinstateBlockToggle
+        {/* A ban already blocks the self-service restore, so offering the
+            narrower toggle alongside it would just be a second switch for
+            something already off. */}
+        {!t.banned && (
+          <ReinstateBlockToggle
+            userId={t.id}
+            blocked={t.reinstate_blocked === true}
+            reason={t.reinstate_blocked_reason}
+          />
+        )}
+        <BanCustomerPanel
           userId={t.id}
-          blocked={t.reinstate_blocked === true}
-          reason={t.reinstate_blocked_reason}
+          name={`${t.first_name} ${t.last_name}`}
+          banned={t.banned === true}
+          reason={t.banned_reason}
+          bannedAt={t.banned_at}
         />
         {memberships && memberships.length > 0 ? (
           <div className="rounded-xl border border-white/10 overflow-x-auto">

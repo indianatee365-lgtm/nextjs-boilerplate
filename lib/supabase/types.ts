@@ -1501,6 +1501,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          banned: boolean
+          banned_at: string | null
+          banned_by: string | null
+          banned_reason: string | null
           created_at: string
           first_name: string
           id: string
@@ -1516,6 +1520,10 @@ export type Database = {
           stripe_customer_id: string | null
         }
         Insert: {
+          banned?: boolean
+          banned_at?: string | null
+          banned_by?: string | null
+          banned_reason?: string | null
           created_at?: string
           first_name: string
           id: string
@@ -1531,6 +1539,10 @@ export type Database = {
           stripe_customer_id?: string | null
         }
         Update: {
+          banned?: boolean
+          banned_at?: string | null
+          banned_by?: string | null
+          banned_reason?: string | null
           created_at?: string
           first_name?: string
           id?: string

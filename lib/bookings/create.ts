@@ -71,10 +71,28 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   const { data: callerProfile } = await serviceClient
     .from("profiles")
-    .select("role")
+    .select("role, banned")
     .eq("id", userId)
     .single()
   const isAdmin = (callerProfile as { role: string } | null)?.role === "admin"
+
+  // Barred from the facility. Checked here rather than in the HTTP route
+  // because this function is the one chokepoint both the website flow and the
+  // phone agent go through, so a banned customer cannot get in by calling
+  // instead of clicking. First thing after the profile load, before any
+  // pricing, hold, or Stripe work.
+  //
+  // The message deliberately says nothing about why. That conversation
+  // happens with a person, not an error string.
+  if ((callerProfile as { banned?: boolean } | null)?.banned) {
+    await logEvent(serviceClient, "booking-blocked-banned",
+      `user=${userId} attempted booking bay=${bayId} starts=${startsAt} source=${source}`)
+    return {
+      ok: false,
+      status: 403,
+      error: "We're not able to take this booking. Please contact us at info@tee365.org.",
+    }
+  }
 
   // Fetch the caller's active membership once - reused below for the
   // founder early-access gate, the tier-based advance-booking cap, and

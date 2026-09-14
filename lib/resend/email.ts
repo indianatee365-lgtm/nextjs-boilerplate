@@ -762,6 +762,56 @@ ${cta}
   })
 }
 
+/**
+ * Tells someone their access has been revoked under the Facility Rules.
+ *
+ * Deliberately plain. No branding flourish, no "we hope to see you soon", no
+ * marketing footer: this is a notice, and dressing it up would read as either
+ * sarcastic or unserious. The reason is included only when Jerrod writes one,
+ * because a vague accusation is worse than none. Every version ends with the
+ * appeal line, since the person on the other end may genuinely be the wrong
+ * person or have been mistaken for someone else.
+ */
+export async function sendAccountBannedEmail({
+  to, firstName, reason, hadMembership,
+}: {
+  to: string
+  firstName: string
+  reason: string | null
+  hadMembership: boolean
+}) {
+  const reasonBlock = reason
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Reason given: ${reason}</p>`
+    : ""
+  const membershipBlock = hadMembership
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Per the Facility Rules you agreed to when booking, this also ends your membership and the benefits that came with it.</p>`
+    : ""
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #222;">
+<p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
+</td></tr>
+<tr><td style="padding:36px 32px;">
+<h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your Tee365 access has been revoked</h1>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your account can no longer book or enter the facility, effective immediately. Any door codes previously issued to you are no longer valid.</p>
+${reasonBlock}
+${membershipBlock}
+<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">If you believe this action was in error, contact us at <a href="mailto:info@tee365.org" style="color:#4ade80;text-decoration:none;">info@tee365.org</a>.</p>
+<p style="margin:16px 0 0;font-size:13px;color:#fff;">Jerrod<br>Tee365</p>
+</td></tr>
+</table></td></tr></table></body></html>`
+  await sendResendEmail({
+    to,
+    from: "Jerrod | Tee365 <jerrod@tee365.org>",
+    subject: "Your Tee365 access has been revoked",
+    html,
+    kind: "account-banned",
+  })
+}
+
 export async function sendMembershipReinstatedEmail({
   to, firstName, planName, priceMonthly, nextCharge, isFounder, founderNumber,
 }: {
