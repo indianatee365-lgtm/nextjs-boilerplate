@@ -713,6 +713,19 @@ function vapiRequestIsAuthentic(request: NextRequest): boolean {
 // someone probing the endpoint (worth knowing once, not once per request).
 let rejectionAlerted = false
 
+const BAY_WORD_NUMBERS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4,
+  five: 5, six: 6, seven: 7, eight: 8,
+}
+
+function parseBayNumber(raw: string | undefined): number | null {
+  if (!raw) return null
+  const digits = raw.match(/\d+/)?.[0]
+  if (digits) return Number(digits)
+  const word = raw.toLowerCase().match(/\b(one|two|three|four|five|six|seven|eight)\b/)?.[1]
+  return word ? BAY_WORD_NUMBERS[word] : null
+}
+
 // Damage, injuries and conduct reported over the phone. Distinct from
 // report_issue, which is for "the projector is flickering" and only pings the
 // owner. This one writes a durable record, because the time the caller gives us
@@ -725,15 +738,17 @@ async function handleLogIncident(args: Record<string, string>, callerPhone: stri
 
   const supabase = await createServiceClient()
 
-  // "Bay 3", "three", "3" all arrive here.
+  // "Bay 3", "bay three", "3" and "three" all arrive here. A caller saying the
+  // word rather than the digit is common on the phone, and losing the bay costs
+  // the shot lookup, the booking match, and the camera to point at.
   let bayId: string | null = null
   let bayNumber: number | null = null
-  const bayDigits = args.bay?.match(/\d+/)?.[0]
-  if (bayDigits) {
+  const parsedBay = parseBayNumber(args.bay)
+  if (parsedBay !== null) {
     const { data: bay } = await supabase
       .from("bays")
       .select("id, number")
-      .eq("number", Number(bayDigits))
+      .eq("number", parsedBay)
       .maybeSingle()
     bayId = bay?.id ?? null
     bayNumber = bay?.number ?? null
