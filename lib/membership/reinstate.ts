@@ -27,6 +27,9 @@ export interface ReinstateResult {
   message: string
   membershipId?: string
   subscriptionStatus?: string
+  /** Set when the only thing standing in the way is a missing card, so the
+   *  caller can point the member at the add-a-card form instead of a dead end. */
+  needsCard?: boolean
 }
 
 /**
@@ -52,14 +55,35 @@ export interface ReinstateResult {
  * so a cancelled founder's slot was never released and reusing the row cannot
  * consume a second one.
  *
- * Admin-triggered rather than self-serve, because it forgives a joining fee
- * that a fresh signup would pay.
+ * Runs from two entry points. The member restores their own membership from
+ * /account, which is what the cancel dialog has always promised them ("you can
+ * reactivate any time at your original Founder's terms"), and no joining fee is
+ * being forgiven to do it - joining_fee_paid is already true on the row they
+ * are restoring. An admin can also do it from /admin/users/[id].
+ *
+ * The difference between the two is profiles.reinstate_blocked, which only the
+ * self-serve path honours: someone removed under the zero-tolerance policy must
+ * not be able to click their way back in, while an admin reinstating by hand IS
+ * the override. Messages are also worded for whoever is reading them.
  */
 export async function reinstateMembership(
   serviceClient: SupabaseClient,
-  params: { userId: string; overrideCooldown?: boolean; actorLabel: string }
+  params: { userId: string; overrideCooldown?: boolean; actorLabel: string; selfServe?: boolean }
 ): Promise<ReinstateResult> {
-  const { userId, overrideCooldown = false, actorLabel } = params
+  const { userId, overrideCooldown = false, actorLabel, selfServe = false } = params
+
+  if (selfServe) {
+    const { data: gate } = await serviceClient
+      .from("profiles").select("reinstate_blocked").eq("id", userId).maybeSingle()
+    if ((gate as { reinstate_blocked: boolean } | null)?.reinstate_blocked) {
+      await logEvent(serviceClient, "membership-reinstate-blocked",
+        `user=${userId} self-serve restore refused, reinstate_blocked is set`)
+      return {
+        ok: false,
+        message: "We can't restore this membership online. Please email info@tee365.org and we'll take a look.",
+      }
+    }
+  }
 
   const { data: activeAlready } = await serviceClient
     .from("memberships")
@@ -120,7 +144,9 @@ export async function reinstateMembership(
         .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
       return {
         ok: false,
-        message: `Already reinstated within the last year (${Math.floor(daysSince)} days ago). Eligible again on ${eligibleOn}. Override if you want to do it anyway.`,
+        message: selfServe
+          ? `Memberships can be restored once a year. Yours was last restored ${Math.floor(daysSince)} days ago, so you're eligible again on ${eligibleOn}. Email info@tee365.org if you need it sooner.`
+          : `Already reinstated within the last year (${Math.floor(daysSince)} days ago). Eligible again on ${eligibleOn}. Override if you want to do it anyway.`,
       }
     }
   }
@@ -157,7 +183,10 @@ export async function reinstateMembership(
   if (!defaultPaymentMethod) {
     return {
       ok: false,
-      message: "No card on file at Stripe. Have them add one at tee365.org/account, then reinstate.",
+      needsCard: true,
+      message: selfServe
+        ? "Add a card to your account first, then restore your membership."
+        : "No card on file at Stripe. Have them add one at tee365.org/account, then reinstate.",
     }
   }
 

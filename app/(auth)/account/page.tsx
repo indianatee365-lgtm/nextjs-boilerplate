@@ -5,6 +5,7 @@ import { logout } from "@/app/actions/auth"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
+import RestoreMembershipSection from "./RestoreMembershipSection"
 import HourCreditsSection from "./HourCreditsSection"
 import MembershipGiveawaySection from "./MembershipGiveawaySection"
 import Stripe from "stripe"
@@ -33,10 +34,10 @@ export default async function AccountPage({
   const nowIso = new Date().toISOString()
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }, { data: hourCredits }] =
     await Promise.all([
-      serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent").eq("id", user.id).single(),
+      serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked").eq("id", user.id).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations)")
+        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly)")
         .eq("user_id", user.id)
         .order("started_at", { ascending: false })
         .limit(1)
@@ -163,8 +164,15 @@ export default async function AccountPage({
           {membershipStatus === "cancelled" && (
             <p className="mt-3 text-xs text-neutral-400">
               This membership is cancelled.
-              {founderNumber ? " Your founder number and Founders Wall listing are permanent." : ""}{" "}
-              <Link href="/join" className="text-brand hover:underline">Rejoin →</Link>
+              {founderNumber ? " Your founder number and Founders Wall listing are permanent." : ""}
+              {(profile as { reinstate_blocked?: boolean } | null)?.reinstate_blocked && (
+                <>
+                  {" "}
+                  <a href="mailto:info@tee365.org" className="text-brand hover:underline">
+                    Contact us to rejoin →
+                  </a>
+                </>
+              )}
             </p>
           )}
 
@@ -194,6 +202,14 @@ export default async function AccountPage({
             <p className="mt-3 text-xs text-neutral-500">
               Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
+          )}
+          {membershipStatus === "cancelled" && !(profile as { reinstate_blocked?: boolean } | null)?.reinstate_blocked && (
+            <RestoreMembershipSection
+              planName={plan.display_name ?? plan.name}
+              priceMonthly={Number((plan as { price_monthly?: number }).price_monthly ?? 0).toFixed(2)}
+              isFounder={plan.slug === "founder"}
+              founderNumber={founderNumber ?? null}
+            />
           )}
           {membershipStatus !== "cancelled" && (
             <CancelMembershipSection

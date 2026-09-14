@@ -5,6 +5,7 @@ import { notifyOwner, getCustomerName } from "@/lib/observability/notify"
 import { revalidatePath } from "next/cache"
 import Stripe from "stripe"
 import { sendCancellationConfirmation, sendReactivationConfirmation } from "@/lib/resend/email"
+import { reinstateMembership } from "@/lib/membership/reinstate"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -87,6 +88,36 @@ export async function cancelMembership(): Promise<{ error?: string; ok?: boolean
 
   revalidatePath("/account")
   return { ok: true }
+}
+
+/**
+ * Restore a membership that has actually lapsed: Stripe deleted the
+ * subscription and status is 'cancelled'. Distinct from reactivateMembership()
+ * below, which only un-schedules a cancellation that has not taken effect yet.
+ *
+ * Self-serve because the cancel dialog promises exactly this ("you can
+ * reactivate any time at your original Founder's terms: same discount, same
+ * booking window, same number") and because nothing is being given away: the
+ * joining fee on the row they are restoring is already marked paid. The
+ * heavy lifting, including the reinstate_blocked check, is in
+ * lib/membership/reinstate.ts.
+ */
+export async function restoreMembership(): Promise<{ error?: string; ok?: boolean; message?: string; needsCard?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
+
+  const serviceClient = await createServiceClient()
+  const result = await reinstateMembership(serviceClient, {
+    userId: user.id,
+    selfServe: true,
+    actorLabel: "self-serve",
+  })
+
+  if (!result.ok) return { error: result.message, needsCard: result.needsCard }
+
+  revalidatePath("/account")
+  return { ok: true, message: result.message }
 }
 
 export async function reactivateMembership(): Promise<{ error?: string; ok?: boolean }> {

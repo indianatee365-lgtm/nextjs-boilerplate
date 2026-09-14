@@ -727,15 +727,11 @@ export async function sendSubscriptionCancelledEmail({
   founderNumber: number | null
 }) {
   const founderLine = isFounder
-    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">The Founder's Club doesn't expire, and neither does your place in it${founderNumber ? ` as Founder #${founderNumber}` : ""}. Your locked-in rate and your founder discount are held exactly as they were. Whenever you want back in, reply to this email and we'll restore it, no joining fee and nothing lost.</p>`
-    : `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">You're welcome back anytime, and rejoining takes about a minute.</p>`
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">The Founder's Club doesn't expire, and neither does your place in it${founderNumber ? ` as Founder #${founderNumber}` : ""}. Your locked-in rate and your founder discount are held exactly as they were. Whenever you want back in, one click restores it: same rate, same number, no joining fee, nothing lost.</p>`
+    : `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">You're welcome back anytime. Restoring takes one click and keeps your original rate, with no joining fee to pay again.</p>`
 
-  const cta = isFounder
-    ? `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
-<a href="mailto:info@tee365.org?subject=I'd like to restore my Founder's Club membership" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Restore my membership</a>
-</td></tr></table>`
-    : `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
-<a href="https://tee365.org/join" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Rejoin Tee365</a>
+  const cta = `<table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
+<a href="https://tee365.org/account" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Restore my membership</a>
 </td></tr></table>`
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>

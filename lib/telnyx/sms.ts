@@ -310,9 +310,9 @@ export function buildSubscriptionCancelledSmsBody({
 }): string {
   const opening = `Hi ${firstName}, your Tee365 ${planDisplayName} membership has ended. We weren't able to process the renewal after several attempts, so you won't be charged again.`
   const close = isFounder
-    ? `\nYour founder number and your locked-in rate are held for you. If you want back in, just reply here or email info@tee365.org and we'll restore it exactly as it was.`
-    : `\nYou can rejoin anytime: tee365.org/join\nIf you think the card should have worked, reply here or email info@tee365.org.`
-  return `${opening}${close}\nReply STOP to opt out.`
+    ? `\nYour founder number and your locked-in rate are held for you. Restore it anytime, same rate and no joining fee: tee365.org/account`
+    : `\nYou can restore it anytime at your original rate, no joining fee: tee365.org/account`
+  return `${opening}${close}\nIf you think the card should have worked, reply here or email info@tee365.org.\nReply STOP to opt out.`
 }
 
 export async function sendSubscriptionCancelledSms({

@@ -1333,6 +1333,7 @@ export type Database = {
           plan_id: string
           plan_type: string
           reactivation_count: number | null
+          last_reinstated_at: string | null
           signup_amount_paid: number | null
           signup_bonus_expires_at: string | null
           signup_bonus_hours: number | null
@@ -1364,6 +1365,7 @@ export type Database = {
           plan_id: string
           plan_type?: string
           reactivation_count?: number | null
+          last_reinstated_at?: string | null
           signup_amount_paid?: number | null
           signup_bonus_expires_at?: string | null
           signup_bonus_hours?: number | null
@@ -1395,6 +1397,7 @@ export type Database = {
           plan_id?: string
           plan_type?: string
           reactivation_count?: number | null
+          last_reinstated_at?: string | null
           signup_amount_paid?: number | null
           signup_bonus_expires_at?: string | null
           signup_bonus_hours?: number | null
@@ -1506,6 +1509,8 @@ export type Database = {
           parental_consent_verified: boolean
           phone: string | null
           phone_verified: boolean
+          reinstate_blocked: boolean
+          reinstate_blocked_reason: string | null
           role: string
           sms_consent: boolean
           stripe_customer_id: string | null
@@ -1519,6 +1524,8 @@ export type Database = {
           parental_consent_verified?: boolean
           phone?: string | null
           phone_verified?: boolean
+          reinstate_blocked?: boolean
+          reinstate_blocked_reason?: string | null
           role?: string
           sms_consent?: boolean
           stripe_customer_id?: string | null
@@ -1532,6 +1539,8 @@ export type Database = {
           parental_consent_verified?: boolean
           phone?: string | null
           phone_verified?: boolean
+          reinstate_blocked?: boolean
+          reinstate_blocked_reason?: string | null
           role?: string
           sms_consent?: boolean
           stripe_customer_id?: string | null

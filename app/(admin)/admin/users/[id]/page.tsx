@@ -4,6 +4,7 @@ import Link from "next/link"
 import SendPastDueNudgeButton from "./SendPastDueNudgeButton"
 import ReinstateMembershipButton from "./ReinstateMembershipButton"
 import SendCancelledNoticeButton from "./SendCancelledNoticeButton"
+import ReinstateBlockToggle from "./ReinstateBlockToggle"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -23,11 +24,11 @@ export default async function AdminUserDetailPage({
   if ((meProfile as { role: string } | null)?.role !== "admin") redirect("/account")
 
   const [{ data: target }, { data: authUserRes }] = await Promise.all([
-    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at").eq("id", id).single(),
+    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at, reinstate_blocked, reinstate_blocked_reason").eq("id", id).single(),
     serviceClient.auth.admin.getUserById(id),
   ])
   if (!target) notFound()
-  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string }
+  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null }
   const targetEmail = authUserRes?.user?.email ?? "N/A"
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
@@ -91,6 +92,11 @@ export default async function AdminUserDetailPage({
             </>
           )
         })()}
+        <ReinstateBlockToggle
+          userId={t.id}
+          blocked={t.reinstate_blocked === true}
+          reason={t.reinstate_blocked_reason}
+        />
         {memberships && memberships.length > 0 ? (
           <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
