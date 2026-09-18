@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { generateDaySlots, getPricingContext } from "@/lib/pricing/engine"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
   let bookingQuery = supabase
     .from("bookings")
     .select("bay_id, starts_at, ends_at")
-    .in("status", ["pending", "confirmed"])
+    .or(holdsBayFilter())
     .gt("ends_at", dayStart.toISOString())
     .lte("starts_at", dayEnd.toISOString())
 

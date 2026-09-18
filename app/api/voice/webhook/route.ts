@@ -4,6 +4,7 @@ import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 import { pickBestBay, buildBayUsage, buildAdjacencyGaps, wearWindowStart } from "@/lib/bookings/bay-selection"
 import {
   isFoundersDaySession,
@@ -284,7 +285,7 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
   const { data: conflicts } = await supabase
     .from("bookings")
     .select("bay_id")
-    .in("status", ["pending", "confirmed"])
+    .or(holdsBayFilter())
     .lt("starts_at", endDate.toISOString())
     .gt("ends_at", startDate.toISOString())
 

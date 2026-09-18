@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 
 // Available extension lengths offered on the extend page, capped by whatever
 // room is actually free on the bay before the next booking/block.
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const [{ data: conflicts }, { data: blocked }] = await Promise.all([
       serviceClient.from("bookings").select("id")
-        .eq("bay_id", booking.bay_id).in("status", ["pending", "confirmed"])
+        .eq("bay_id", booking.bay_id).or(holdsBayFilter())
         .neq("id", bookingId)
         .lt("starts_at", newEnd.toISOString()).gt("ends_at", currentEnd.toISOString()),
       serviceClient.from("blocked_times").select("id")

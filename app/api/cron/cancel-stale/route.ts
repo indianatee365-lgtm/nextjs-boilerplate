@@ -4,11 +4,13 @@ import { sendBookingPaymentFailedSms } from "@/lib/telnyx/sms"
 import { sendBookingPaymentFailedEmail } from "@/lib/resend/email"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import Stripe from "stripe"
+import { PENDING_HOLD_MINUTES } from "@/lib/bookings/pending-hold"
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
-const EXPIRY_MINUTES = 15
+// Single source of truth, shared with every availability check.
+const EXPIRY_MINUTES = PENDING_HOLD_MINUTES
 
 export async function GET(request: NextRequest) {
   const secret = request.headers.get("x-cron-secret")

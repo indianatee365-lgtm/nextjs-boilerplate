@@ -1,4 +1,5 @@
 import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
@@ -196,7 +197,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   const { data: conflicts } = await serviceClient
     .from("bookings")
     .select("bay_id")
-    .in("status", ["pending", "confirmed"])
+    .or(holdsBayFilter())
     .lt("starts_at", endDate.toISOString())
     .gt("ends_at", startDate.toISOString())
 

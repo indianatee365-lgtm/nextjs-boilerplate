@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 
 export const RESCHEDULE_FEE = 5.00
 
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     for (const bay of bays) {
       const [{ data: conflicts }, { data: blocked }] = await Promise.all([
         serviceClient.from("bookings").select("id")
-          .eq("bay_id", bay.id).in("status", ["pending", "confirmed"])
+          .eq("bay_id", bay.id).or(holdsBayFilter())
           .neq("id", bookingId)
           .lt("starts_at", newEnd.toISOString()).gt("ends_at", newStart.toISOString()),
         serviceClient.from("blocked_times").select("id")
