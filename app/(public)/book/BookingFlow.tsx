@@ -811,6 +811,26 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
+          {/* A signed-out member is being quoted list price, which is correct
+              for a stranger and understates the deal for a Birdie or Eagle.
+              Deliberately says "sign in to see your price" rather than just
+              "discounts applied at checkout": for someone who stays signed
+              out nothing gets applied, and promising otherwise would be the
+              copy telling them a feature works when it does not. */}
+          {!isAuthenticated && (
+            <p className="mt-2 text-center text-xs text-neutral-400">
+              Member discounts apply at checkout.{" "}
+              <button
+                type="button"
+                onClick={() => router.push(`/login?return=${encodeURIComponent("/book")}`)}
+                className="text-brand underline underline-offset-2"
+              >
+                Sign in
+              </button>{" "}
+              to see your price.
+            </p>
+          )}
+
           {/* Disclosures: the last thing before payment, against a booking
               that already exists. Deliberately not shown pre-reserve - a guest
               would be ticking boxes that get destroyed by the /login redirect,
