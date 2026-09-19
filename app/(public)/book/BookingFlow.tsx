@@ -287,6 +287,29 @@ export default function BookingFlow({
     return () => clearInterval(interval)
   }, [step, reservedBooking]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Record acknowledgements against the held booking the moment they are all
+  // ticked, so the audit row (with its body snapshot) exists before payment
+  // rather than after it. Reuses the same endpoint the phone-booking
+  // completion page uses. Fires once per booking - the ref guard stops a
+  // re-render or a re-tick sending it again.
+  const disclosuresPostedFor = useRef<string | null>(null)
+  useEffect(() => {
+    const id = reservedBooking?.id
+    if (!id || !allDisclosuresAcknowledged || disclosures.length === 0) return
+    if (disclosuresPostedFor.current === id) return
+    disclosuresPostedFor.current = id
+    fetch(`/api/bookings/${id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disclosureIds: Array.from(acknowledgedDisclosures) }),
+    }).catch(() => {
+      // Non-fatal: createBooking's own confirmation path is what gates the
+      // booking, and the customer should not be blocked from paying because an
+      // audit write blipped. Allow a retry on the next tick.
+      disclosuresPostedFor.current = null
+    })
+  }, [reservedBooking, allDisclosuresAcknowledged, acknowledgedDisclosures, disclosures.length])
+
   async function cancelReservation(id: string) {
     if (cancellingRef.current) return
     cancellingRef.current = true
@@ -331,7 +354,8 @@ export default function BookingFlow({
           couponCode: couponCode || undefined,
           giftCardCode: giftCardCode || undefined,
           applyHourCredits: useFreeHours && availableCreditHours > 0,
-          disclosureIds: Array.from(acknowledgedDisclosures),
+          // Disclosures are acknowledged after the slot is held, immediately
+          // before payment, and recorded through /api/bookings/[id]/complete.
         }),
       })
       const data = await res.json()
@@ -787,11 +811,14 @@ export default function BookingFlow({
             <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
           </div>
 
-          {/* Disclosures: expandable accordion, shown before slot is reserved */}
-          {!reservedBooking && disclosures.length > 0 && (
+          {/* Disclosures: the last thing before payment, against a booking
+              that already exists. Deliberately not shown pre-reserve - a guest
+              would be ticking boxes that get destroyed by the /login redirect,
+              and an acknowledgement should attach to a real booking. */}
+          {reservedBooking && disclosures.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-sm font-medium text-white">
-                Please read and acknowledge the following before booking:
+                Please read and acknowledge the following before payment:
               </p>
               {disclosures.map((d) => (
                 <div key={d.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
@@ -840,7 +867,7 @@ export default function BookingFlow({
           {!reservedBooking && (
             <button
               onClick={handleReserve}
-              disabled={reserving || (isAuthenticated && !allDisclosuresAcknowledged)}
+              disabled={reserving}
               className="btn-primary mt-5 w-full"
             >
               {reserving ? (
@@ -852,17 +879,21 @@ export default function BookingFlow({
                   Reserving slot…
                 </span>
               ) : (
-                !isAuthenticated
-                  ? "Sign in to reserve"
-                  : disclosures.length > 0 && !allDisclosuresAcknowledged
-                    ? `Acknowledge all ${disclosures.length} items to continue`
-                    : "Reserve slot"
+                !isAuthenticated ? "Sign in to reserve" : "Reserve slot"
               )}
             </button>
           )}
 
-          {/* Payment form (after slot is reserved) */}
-          {reservedBooking && reservedBooking.clientSecret && (
+          {/* Still waiting on acknowledgement - the payment form is not
+              mounted until every disclosure is ticked. */}
+          {reservedBooking && !allDisclosuresAcknowledged && (
+            <p className="mt-5 text-center text-sm text-neutral-400">
+              Acknowledge the {disclosures.length === 1 ? "item" : `${disclosures.length} items`} above to continue to payment.
+            </p>
+          )}
+
+          {/* Payment form (after slot is reserved AND disclosures acknowledged) */}
+          {reservedBooking && allDisclosuresAcknowledged && reservedBooking.clientSecret && (
             <Elements
               stripe={stripePromise}
               options={{
