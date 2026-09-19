@@ -17,20 +17,27 @@ export default async function BookPage({
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
+  // The tee sheet is public. Jerrod advertises straight to /book, and a login
+  // wall before anyone can see whether there is even a 7pm Saturday free was
+  // killing that. Browsing is open; identity is still required to reserve,
+  // which BookingFlow enforces by sending a guest to /login at that point.
+  //
+  // Nothing new is exposed by this: /api/availability has always been public
+  // and unauthenticated, so the slot grid and pricing were already readable by
+  // anyone. And no new write surface opens either, because /api/bookings still
+  // requires a session.
+  //
+  // Everything below that used to come off the session now falls back to what
+  // a non-member sees: 7-day advance window, list price, no credits.
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    // Preserve ?code=... through the login round-trip - losing it here
-    // sent a guest coupon holder to their plain /account page post-login
-    // with no way back to the gated link short of re-typing the URL.
-    const returnTo = "/book" + (guestCode ? `?code=${encodeURIComponent(guestCode)}` : "")
-    redirect(`/login?return=${encodeURIComponent(returnTo)}`) // LAUNCH: remove this line to open tee sheet to public
-  }
 
-  const { data: profile } = await serviceClient
-    .from("profiles")
-    .select("role, first_name, last_name, is_minor, parental_consent_verified")
-    .eq("id", user.id)
-    .single()
+  const { data: profile } = user
+    ? await serviceClient
+        .from("profiles")
+        .select("role, first_name, last_name, is_minor, parental_consent_verified")
+        .eq("id", user.id)
+        .single()
+    : { data: null }
 
   // Drives how far ahead the calendar opens and what discount the quote shows.
   let membershipSlug: string | null = null
@@ -38,12 +45,14 @@ export default async function BookPage({
   let membershipDiscountPercent = 0
 
   {
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single()
+    const { data: membership } = user
+      ? await supabase
+          .from("memberships")
+          .select("id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .single()
+      : { data: null }
 
     const plan = membership?.membership_plans as
       { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
@@ -70,7 +79,8 @@ export default async function BookPage({
   // The Friends Day code is still honored to the extent of prefilling the
   // coupon field, since /account can still redirect someone here with it.
   // Whether it actually applies is create.ts's call, same as any coupon.
-  const hasGuestCode = guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
+  const hasGuestCode = !!user
+    && guestCode?.toUpperCase() === FRIENDS_DAY_COUPON_CODE
     && (await hasUnusedFriendsDayCoupon(serviceClient, user.id))
 
   // Minor consent gate
@@ -93,13 +103,15 @@ export default async function BookPage({
       .select("id, title, body")
       .eq("active", true)
       .order("created_at"),
-    serviceClient
-      .from("hour_credits")
-      .select("hours_remaining")
-      .eq("user_id", user.id)
-      .eq("active", true)
-      .gt("hours_remaining", 0)
-      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+    user
+      ? serviceClient
+          .from("hour_credits")
+          .select("hours_remaining")
+          .eq("user_id", user.id)
+          .eq("active", true)
+          .gt("hours_remaining", 0)
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      : Promise.resolve({ data: [] }),
   ])
 
   const availableCreditHours = (hourCredits ?? []).reduce(

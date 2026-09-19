@@ -311,6 +311,13 @@ export default function BookingFlow({
 
   async function handleReserve() {
     if (!selectedBay || !selectedStart || reserving) return
+    // Browsing is public, reserving is not. Send a guest to sign in rather than
+    // firing a POST that /api/bookings would reject with a 401 and no
+    // explanation. `return` brings them straight back to the tee sheet.
+    if (!isAuthenticated) {
+      router.push(`/login?return=${encodeURIComponent("/book")}`)
+      return
+    }
     setReserving(true)
     setBookingError("")
     try {
@@ -833,7 +840,7 @@ export default function BookingFlow({
           {!reservedBooking && (
             <button
               onClick={handleReserve}
-              disabled={reserving || !allDisclosuresAcknowledged}
+              disabled={reserving || (isAuthenticated && !allDisclosuresAcknowledged)}
               className="btn-primary mt-5 w-full"
             >
               {reserving ? (
@@ -845,9 +852,11 @@ export default function BookingFlow({
                   Reserving slot…
                 </span>
               ) : (
-                disclosures.length > 0 && !allDisclosuresAcknowledged
-                  ? `Acknowledge all ${disclosures.length} items to continue`
-                  : "Reserve slot"
+                !isAuthenticated
+                  ? "Sign in to reserve"
+                  : disclosures.length > 0 && !allDisclosuresAcknowledged
+                    ? `Acknowledge all ${disclosures.length} items to continue`
+                    : "Reserve slot"
               )}
             </button>
           )}
