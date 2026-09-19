@@ -275,11 +275,17 @@ async function handleTransferToHuman(
 // already booked nearby, don't always hand out bay 1.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promise<
-  { openBay: { id: string; number: number; name: string } | null; facilityClosed: boolean; noBaysConfigured: boolean }
+  {
+    openBay: { id: string; number: number; name: string } | null
+    /** How many bays are free across the whole window, not just the one picked. */
+    openCount: number
+    facilityClosed: boolean
+    noBaysConfigured: boolean
+  }
 > {
   const { data: bays } = await supabase.from("bays").select("id, number, name").eq("active", true).order("number")
   if (!bays || bays.length === 0) {
-    return { openBay: null, facilityClosed: false, noBaysConfigured: true }
+    return { openBay: null, openCount: 0, facilityClosed: false, noBaysConfigured: true }
   }
 
   const { data: conflicts } = await supabase
@@ -296,7 +302,7 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
     .gt("ends_at", startDate.toISOString())
 
   if ((blocked ?? []).some((b: { bay_id: string | null }) => b.bay_id === null)) {
-    return { openBay: null, facilityClosed: true, noBaysConfigured: false }
+    return { openBay: null, openCount: 0, facilityClosed: true, noBaysConfigured: false }
   }
 
   const busyBayIds = new Set([
@@ -329,7 +335,7 @@ async function findOpenBay(supabase: any, startDate: Date, endDate: Date): Promi
   const adjacencyByBayId = buildAdjacencyGaps(recentBookings ?? [], startDate, endDate)
 
   const openBay = pickBestBay(candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
-  return { openBay, facilityClosed: false, noBaysConfigured: false }
+  return { openBay, openCount: candidates.length, facilityClosed: false, noBaysConfigured: false }
 }
 
 // The caller speaks Eastern wall-clock time ("ten in the morning") and the
@@ -433,9 +439,20 @@ async function lookupCallerId(supabase: any, callerPhone: string): Promise<strin
   return profile?.id ?? null
 }
 
+// A caller asking for more than one bay is asking a different question, and
+// until 2026-09-19 the tool could not hear it: it answered "is at least one bay
+// open" no matter how many were wanted. Anything unparseable or out of range
+// falls back to 1, which is what the overwhelming majority of callers mean.
+function requestedBayCount(raw: string | undefined): number {
+  const n = parseInt(raw ?? "", 10)
+  if (!Number.isFinite(n) || n < 1) return 1
+  return Math.min(n, 4)
+}
+
 async function handleCheckAvailability(args: Record<string, string>, callerPhone: string): Promise<string> {
   const startDate = parseSlotDate(args.date, args.start_time)
   const duration = validDuration(args.duration_minutes)
+  const wantedBays = requestedBayCount(args.bay_count)
   if (!startDate || !duration) {
     return "I need a valid date, start time, and a duration between 1 and 4 hours in 30-minute increments."
   }
@@ -447,18 +464,32 @@ async function handleCheckAvailability(args: Record<string, string>, callerPhone
   const gateMessage = await checkLaunchGateEligible(supabase, callerId, startDate)
   if (gateMessage) return gateMessage
 
-  const { openBay, facilityClosed, noBaysConfigured } = await findOpenBay(supabase, startDate, endDate)
+  const { openBay, openCount, facilityClosed, noBaysConfigured } = await findOpenBay(supabase, startDate, endDate)
   if (noBaysConfigured) {
     return "I'm not able to check availability right now. Let me transfer you to someone who can help."
   }
   if (facilityClosed) {
     return "We're closed facility-wide during that window. Would you like to try a different time?"
   }
-  if (!openBay) {
+  if (!openBay || openCount === 0) {
     return "Nothing is open at that time. Would you like to try a different time?"
   }
-  // Deliberately does not name which bay, how many are open, or offer a
-  // choice - Jerrod: "we don't do that." Bay assignment is automatic.
+
+  // Asked for more than exist. Naming the shortfall is answering the question
+  // they asked, not volunteering inventory - a caller who only ever asked about
+  // one bay still gets the vague line below, per Jerrod's "we don't do that".
+  if (wantedBays > openCount) {
+    if (openCount === 1) {
+      return `I can only do one bay at that time, not ${wantedBays}. Would you like the one bay, or shall I look for a time with ${wantedBays} open?`
+    }
+    return `I can only do ${openCount} bays at that time, not ${wantedBays}. Would you like those ${openCount}, or shall I look for a time with ${wantedBays} open?`
+  }
+
+  // Deliberately does not name which bay or offer a choice - Jerrod: "we don't
+  // do that." Bay assignment is automatic.
+  if (wantedBays > 1) {
+    return `Yes, we have ${wantedBays} bays open at that time.`
+  }
   return "Yes, we have a bay open at that time."
 }
 
