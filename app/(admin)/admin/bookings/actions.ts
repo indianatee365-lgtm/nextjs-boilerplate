@@ -5,6 +5,8 @@ import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingResched
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
+import { createBooking } from "@/lib/bookings/create"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -82,6 +84,149 @@ export async function confirmBookingManually(bookingId: string) {
       console.error("Confirmation email failed", emailError)
     }
   }
+}
+
+
+// Booking someone who will not, or cannot, self-serve: the caller who does not
+// text and will not use a website, and the walk-in at the door. Until this
+// existed those people were simply turned away, because /admin could view,
+// confirm and cancel bookings but had no way to create one.
+//
+// Payment is deliberately NOT modelled here. This reuses exactly what
+// confirmBookingManually already does - confirm and stamp paid_at without
+// charging - so no new money concept enters the system. How these get paid for
+// (collect at the door, comp, send a payment link) is still an open decision
+// and can be layered on top without changing any of this.
+export async function createManualBooking(input: {
+  firstName: string
+  lastName: string
+  phone: string
+  email?: string
+  date: string
+  startTime: string
+  durationMinutes: number
+  bayId?: string | null
+}): Promise<{ ok: boolean; error?: string; bookingId?: string; bayName?: string }> {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not signed in." }
+  const { data: actingProfile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((actingProfile as { role: string } | null)?.role !== "admin") {
+    return { ok: false, error: "Admins only." }
+  }
+
+  const firstName = input.firstName.trim()
+  const lastName = input.lastName.trim()
+  if (!firstName || !lastName) return { ok: false, error: "First and last name are required." }
+
+  const digits = input.phone.replace(/\D/g, "")
+  const phone =
+    digits.length === 10 ? "+1" + digits
+      : digits.length === 11 && digits.startsWith("1") ? "+" + digits
+        : ""
+  if (!phone) return { ok: false, error: "Enter a 10-digit US phone number." }
+
+  const duration = Number(input.durationMinutes)
+  if (!duration || duration < 60 || duration > 240 || duration % 30 !== 0) {
+    return { ok: false, error: "Duration must be 60 to 240 minutes, in 30-minute steps." }
+  }
+
+  const [y, m, d] = input.date.split("-").map(Number)
+  const [hh, mm] = input.startTime.split(":").map(Number)
+  const startsAt = new Date(y, (m || 1) - 1, d, hh, mm, 0, 0)
+  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: "That date or time did not parse." }
+  const endsAt = new Date(startsAt.getTime() + duration * 60000)
+
+  // Reuse the customer's existing account when there is one, so a member keeps
+  // their pricing and their history stays in one place instead of fragmenting
+  // across a second account made by staff.
+  const { data: existing } = await serviceClient
+    .from("profiles").select("id").eq("phone", phone).maybeSingle()
+
+  let userId: string
+  if (existing) {
+    userId = (existing as { id: string }).id
+  } else {
+    const email = input.email?.trim()
+    const { data: created, error: createErr } = await serviceClient.auth.admin.createUser({
+      ...(email ? { email, email_confirm: true } : {}),
+      phone,
+      phone_confirm: true,
+      user_metadata: { first_name: firstName, last_name: lastName },
+    })
+    if (createErr || !created?.user) {
+      return { ok: false, error: "Could not create the customer account: " + (createErr?.message ?? "unknown error") }
+    }
+    userId = created.user.id
+    // sms_consent stays false on purpose. This person was booked by staff and
+    // has opted in to nothing, and the ones this flow exists for are precisely
+    // the ones who said they do not text.
+    await serviceClient.from("profiles").update({
+      phone,
+      first_name: firstName,
+      last_name: lastName,
+    }).eq("id", userId)
+  }
+
+  // Bay choice: the explicit one if given, otherwise the lowest-numbered bay
+  // that is genuinely free. Respects pending holds AND blocked_times, so this
+  // can never be booked over maintenance downtime.
+  const { data: bayRows } = await serviceClient
+    .from("bays").select("id, name, number").eq("active", true).order("number")
+  const allBays = (bayRows ?? []) as { id: string; name: string; number: number }[]
+
+  const { data: clashing } = await serviceClient
+    .from("bookings")
+    .select("bay_id")
+    .lt("starts_at", endsAt.toISOString())
+    .gt("ends_at", startsAt.toISOString())
+    .or(holdsBayFilter())
+  const taken = new Set((clashing ?? []).map((b) => (b as { bay_id: string }).bay_id))
+
+  const { data: blocks } = await serviceClient
+    .from("blocked_times")
+    .select("bay_id")
+    .lt("starts_at", endsAt.toISOString())
+    .gt("ends_at", startsAt.toISOString())
+  for (const b of (blocks ?? []) as { bay_id: string | null }[]) {
+    if (b.bay_id === null) return { ok: false, error: "Every bay is blocked at that time." }
+    taken.add(b.bay_id)
+  }
+
+  let bayId = input.bayId || null
+  let bayName = ""
+  if (bayId) {
+    if (taken.has(bayId)) return { ok: false, error: "That bay is not free at that time." }
+    bayName = allBays.find((b) => b.id === bayId)?.name ?? ""
+  } else {
+    const free = allBays.find((b) => !taken.has(b.id))
+    if (!free) return { ok: false, error: "Nothing is open at that time." }
+    bayId = free.id
+    bayName = free.name
+  }
+
+  const result = await createBooking({
+    serviceClient,
+    userId,
+    bayId,
+    startsAt: startsAt.toISOString(),
+    durationMinutes: duration,
+    source: "admin",
+  })
+
+  if (!result.ok) {
+    // Surfaced verbatim rather than softened. createBooking reads isAdmin off
+    // the person being booked, not the person doing the booking, so a customer
+    // still gets their own advance-booking cap (7 days for a non-member). If
+    // that is what rejected this, the admin needs to see it, not guess.
+    return { ok: false, error: result.error ?? "The booking was rejected." }
+  }
+
+  await confirmBookingManually(result.bookingId)
+  return { ok: true, bookingId: result.bookingId, bayName }
 }
 
 export async function cancelBooking(bookingId: string) {

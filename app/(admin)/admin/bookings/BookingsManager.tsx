@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight } from "lucide-react"
-import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime } from "./actions"
+import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight, Plus } from "lucide-react"
+import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking } from "./actions"
 
 interface Booking {
   id: string
@@ -125,6 +125,22 @@ export default function BookingsManager({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [blocking, setBlocking] = useState(false)
+  // Staff-created booking, for the caller who does not text and will not use
+  // the website, and for walk-ins. Before this the only way in was the
+  // customer doing it themselves, so those people were simply turned away.
+  const [creating, setCreating] = useState(false)
+  const [savingNew, setSavingNew] = useState(false)
+  const [createMsg, setCreateMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [createForm, setCreateForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    date: "",
+    startTime: "",
+    durationMinutes: 60,
+    bayId: "",
+  })
   const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null)
@@ -423,7 +439,17 @@ export default function BookingsManager({
         >
           <CalendarRange size={14} /> Month view
         </button>
-        <button onClick={() => setBlocking(true)} className="ml-auto btn-secondary flex items-center gap-2 text-sm">
+        <button
+          onClick={() => {
+            setCreateMsg(null)
+            setCreateForm((f) => ({ ...f, date: f.date || selectedDate }))
+            setCreating(true)
+          }}
+          className="ml-auto btn-primary flex items-center gap-2 text-sm"
+        >
+          <Plus size={14} /> New booking
+        </button>
+        <button onClick={() => setBlocking(true)} className="btn-secondary flex items-center gap-2 text-sm">
           <Lock size={14} /> Block Time
         </button>
       </div>
@@ -649,6 +675,120 @@ export default function BookingsManager({
         </div>
       </div>
       </>
+      )}
+      {/* Staff-created booking modal */}
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0a0a] p-6">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">New booking</h2>
+              <button onClick={() => setCreating(false)} className="text-neutral-400 hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="mb-4 text-xs text-neutral-500">
+              For customers who cannot book online. Confirms immediately without taking payment,
+              the same as Confirm + SMS. Collect payment separately.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setCreateMsg(null)
+                setSavingNew(true)
+                try {
+                  const res = await createManualBooking({
+                    firstName: createForm.firstName,
+                    lastName: createForm.lastName,
+                    phone: createForm.phone,
+                    email: createForm.email || undefined,
+                    date: createForm.date,
+                    startTime: createForm.startTime,
+                    durationMinutes: Number(createForm.durationMinutes),
+                    bayId: createForm.bayId || null,
+                  })
+                  if (res.ok) {
+                    setCreating(false)
+                    setCreateMsg({ ok: true, text: "Booked " + (res.bayName || "a bay") + "." })
+                    setCreateForm((f) => ({ ...f, firstName: "", lastName: "", phone: "", email: "", startTime: "" }))
+                    router.refresh()
+                  } else {
+                    setCreateMsg({ ok: false, text: res.error || "Could not create that booking." })
+                  }
+                } catch (err) {
+                  setCreateMsg({ ok: false, text: err instanceof Error ? err.message : "Something went wrong." })
+                } finally {
+                  setSavingNew(false)
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">First name</label>
+                  <input className="input" value={createForm.firstName} required
+                    onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Last name</label>
+                  <input className="input" value={createForm.lastName} required
+                    onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Phone</label>
+                <input className="input" type="tel" placeholder="574 555 0123" value={createForm.phone} required
+                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Email (optional)</label>
+                <input className="input" type="email" value={createForm.email}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Date</label>
+                  <input className="input" type="date" value={createForm.date} required
+                    onChange={(e) => setCreateForm((f) => ({ ...f, date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Start time</label>
+                  <input className="input" type="time" step={1800} value={createForm.startTime} required
+                    onChange={(e) => setCreateForm((f) => ({ ...f, startTime: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Duration</label>
+                  <select className="input" value={createForm.durationMinutes}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, durationMinutes: Number(e.target.value) }))}>
+                    {[60, 90, 120, 150, 180, 210, 240].map((mins) => (
+                      <option key={mins} value={mins}>{mins / 60} hr</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Bay</label>
+                  <select className="input" value={createForm.bayId}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, bayId: e.target.value }))}>
+                    <option value="">Auto (first free)</option>
+                    {bays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {createMsg && !createMsg.ok && (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {createMsg.text}
+                </p>
+              )}
+              <button type="submit" className="btn-primary w-full" disabled={savingNew}>
+                {savingNew ? "Booking..." : "Create booking"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      {createMsg && createMsg.ok && !creating && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm text-green-300">
+          {createMsg.text}
+        </div>
       )}
       {/* Block time modal */}
       {blocking && (

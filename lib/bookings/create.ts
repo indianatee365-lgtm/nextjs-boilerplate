@@ -35,7 +35,7 @@ export interface CreateBookingInput {
   // through the same pre-launch gate below (admin, a founder's day-of
   // exception, or general founder early access), so it can't be bypassed by
   // adding a new channel later.
-  source?: "web" | "phone"
+  source?: "web" | "phone" | "admin"
 }
 
 export type CreateBookingResult =
