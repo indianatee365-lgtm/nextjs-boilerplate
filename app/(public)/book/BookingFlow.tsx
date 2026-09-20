@@ -84,6 +84,17 @@ function formatCountdown(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
+// "YYYY-MM-DD" to a local-midnight Date, matching how the calendar builds its
+// own cells with new Date(year, month, day). Deliberately NOT new Date(str),
+// which parses a bare date as UTC and lands on the previous day for everyone
+// west of Greenwich - the exact day-boundary bug this codebase keeps hitting.
+function parseLocalDate(raw: string | null | undefined): Date | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
+  const [y, m, d] = raw.split("-").map(Number)
+  const date = new Date(y, m - 1, d)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 export default function BookingFlow({
   bays,
   advanceDays,
@@ -95,6 +106,8 @@ export default function BookingFlow({
   availableCreditHours = 0,
   prefillCouponCode,
   minBookableDate,
+  prefillDate,
+  prefillDurationMinutes,
 }: {
   bays: Bay[]
   advanceDays: number
@@ -106,19 +119,27 @@ export default function BookingFlow({
   availableCreditHours?: number
   prefillCouponCode?: string
   minBookableDate?: string | null
+  prefillDate?: string | null
+  prefillDurationMinutes?: number | null
 }) {
   const router = useRouter()
-  const [step, setStep] = useState<Step>("date")
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  // A link texted by the phone agent arrives as /book?date=&duration=. Landing
+  // straight on the time grid for that day is the whole point: the caller has
+  // already said what they want, so the only thing left is to pick a time that
+  // is genuinely open. The date is range-checked server-side before it reaches
+  // here, so if it is set it is safe to jump past the calendar.
+  const prefilledDate = parseLocalDate(prefillDate)
+  const [step, setStep] = useState<Step>(prefilledDate ? "time" : "date")
+  const [selectedDate, setSelectedDate] = useState<Date | null>(prefilledDate)
   const [selectedBay, setSelectedBay] = useState<Bay | null>(null)
   const [selectedStart, setSelectedStart] = useState<SlotData | null>(null)
-  const [selectedDuration, setSelectedDuration] = useState(60)
+  const [selectedDuration, setSelectedDuration] = useState(prefillDurationMinutes ?? 60)
   const [couponCode, setCouponCode] = useState(prefillCouponCode ?? "")
   const [giftCardCode, setGiftCardCode] = useState("")
   const [useFreeHours, setUseFreeHours] = useState(true)
   const [availability, setAvailability] = useState<BayAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
-  const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const [calendarMonth, setCalendarMonth] = useState(prefilledDate ?? new Date())
   const [bookingError, setBookingError] = useState("")
   const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
   const [reserving, setReserving] = useState(false)

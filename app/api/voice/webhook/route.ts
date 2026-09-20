@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { timingSafeEqual } from "crypto"
-import { sendInfoSms, sendBookingLinkSms } from "@/lib/telnyx/sms"
+import { sendInfoSms, sendBookingLinkSms, sendBookingStartLinkSms } from "@/lib/telnyx/sms"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logEvent, logFailure, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { createBooking } from "@/lib/bookings/create"
@@ -447,6 +447,68 @@ function requestedBayCount(raw: string | undefined): number {
   const n = parseInt(raw ?? "", 10)
   if (!Number.isFinite(n) || n < 1) return 1
   return Math.min(n, 4)
+}
+
+// The phone line no longer quotes availability or creates bookings. Both were
+// taken off the assistant on 2026-09-20: every phone booking ever attempted
+// (4 of 4) ended up cancelled, and in one afternoon two callers were lost to
+// dead air while the model sat deciding whether to call check_availability -
+// one of them 48 seconds of silence while the caller said "Hello? Hello?".
+//
+// She now collects what the caller wants and texts a link that lands on the
+// real tee sheet with the date and duration preselected. Availability comes
+// from the booking page, which cannot be wrong, and nothing holds a bay while
+// the caller makes up their mind.
+//
+// handleCheckAvailability and handleCreatePhoneBooking below are deliberately
+// left in place but are no longer reachable: neither tool is on the assistant.
+async function handleSendBookingLink(args: Record<string, string>, callerPhone: string): Promise<string> {
+  if (!callerPhone || callerPhone === "unknown") {
+    return "I could not get your number from this call, so I cannot text you. Offer to put them through to someone."
+  }
+
+  const params = new URLSearchParams()
+
+  let dateLabel: string | null = null
+  const rawDate = args.date?.trim()
+  if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    const [y, m, d] = rawDate.split("-").map(Number)
+    const asked = new Date(y, m - 1, d)
+    if (!Number.isNaN(asked.getTime())) {
+      params.set("date", rawDate)
+      dateLabel = asked.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    }
+  }
+
+  let durationLabel: string | null = null
+  const duration = args.duration_minutes ? validDuration(args.duration_minutes) : null
+  if (duration) {
+    params.set("duration", String(duration))
+    const hours = duration / 60
+    durationLabel = hours === 1 ? "1 hour" : hours + " hours"
+  }
+
+  const query = params.toString()
+  const link = "https://tee365.org/book" + (query ? "?" + query : "")
+
+  try {
+    await sendBookingStartLinkSms({
+      to: normalizePhone(callerPhone),
+      dateLabel,
+      durationLabel,
+      link,
+    })
+  } catch (err) {
+    console.error("[send_booking_link] failed", { callerPhone, err })
+    return "The text did not send. Offer to put them through to someone who can help."
+  }
+
+  const forWhat = dateLabel ? " for " + dateLabel : ""
+  return "Sent the booking link" + forWhat + ". Tell them it is on its way and they pick their time on the page."
 }
 
 async function handleCheckAvailability(args: Record<string, string>, callerPhone: string): Promise<string> {
@@ -955,6 +1017,8 @@ export async function POST(request: NextRequest) {
         result = await handleCaptureEventLead(args, callerPhone)
       } else if (name === "transfer_to_human") {
         result = await handleTransferToHuman(args, callerPhone, msg.call)
+      } else if (name === "send_booking_link") {
+        result = await handleSendBookingLink(args, callerPhone)
       } else if (name === "check_availability") {
         result = await handleCheckAvailability(args, callerPhone)
       } else if (name === "create_phone_booking") {

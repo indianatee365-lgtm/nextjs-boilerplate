@@ -13,7 +13,7 @@ export default async function BookPage({
 }: {
   searchParams: Promise<Record<string, string>>
 }) {
-  const { code: guestCode } = await searchParams
+  const { code: guestCode, date: dateParam, duration: durationParam } = await searchParams
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
@@ -117,6 +117,32 @@ export default async function BookPage({
   const availableCreditHours = (hourCredits ?? []).reduce(
     (sum, c) => sum + Number((c as { hours_remaining: number }).hours_remaining), 0)
 
+  // The phone agent texts /book?date=YYYY-MM-DD&duration=MINUTES so a caller
+  // lands on the real tee sheet with their request already filled in. Both are
+  // validated here rather than trusted: a stale or malformed link quietly falls
+  // back to the normal empty flow instead of opening on a broken or empty grid.
+  let prefillDate: string | null = null
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    const [y, m, d] = dateParam.split("-").map(Number)
+    const asked = new Date(y, m - 1, d)
+    const earliest = new Date()
+    earliest.setHours(0, 0, 0, 0)
+    const latest = new Date(earliest)
+    latest.setDate(latest.getDate() + advanceDays)
+    if (!Number.isNaN(asked.getTime()) && asked >= earliest && asked <= latest) {
+      prefillDate = dateParam
+    }
+  }
+
+  const askedDuration = durationParam ? parseInt(durationParam, 10) : NaN
+  const prefillDurationMinutes =
+    Number.isFinite(askedDuration) &&
+    askedDuration >= 60 &&
+    askedDuration <= 240 &&
+    askedDuration % 30 === 0
+      ? askedDuration
+      : null
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Book a Bay</h1>
@@ -133,6 +159,8 @@ export default async function BookPage({
         isAuthenticated={!!user}
         availableCreditHours={availableCreditHours}
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
+        prefillDate={prefillDate}
+        prefillDurationMinutes={prefillDurationMinutes}
       />
     </main>
   )

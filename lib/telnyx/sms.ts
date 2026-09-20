@@ -189,6 +189,34 @@ export async function sendBookingLinkSms({
   await sendSms(to, message, "booking-link")
 }
 
+// The phone line sends this one. Unlike sendBookingLinkSms above, it is NOT
+// tied to a reservation: nothing is held, no bay is named, and there is no
+// countdown. It just points the caller at the real tee sheet with what they
+// asked for already filled in, so availability comes from the booking page
+// rather than from anything the voice agent believed.
+export async function sendBookingStartLinkSms({
+  to,
+  dateLabel,
+  durationLabel,
+  link,
+}: {
+  to: string
+  dateLabel: string | null
+  durationLabel: string | null
+  link: string
+}) {
+  const lines = ["Thanks for calling Tee365! Here is your booking link:"]
+  if (dateLabel) {
+    lines.push(dateLabel + (durationLabel ? ", " + durationLabel : ""))
+  }
+  lines.push(
+    "Pick your time, then confirm and pay:",
+    link,
+    "Questions? info@tee365.org",
+  )
+  await sendSms(to, lines.join("\n"), "booking-start-link")
+}
+
 export async function sendFoundersDayPersonalNotice({
   to,
   firstName,
