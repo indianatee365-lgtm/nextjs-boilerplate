@@ -88,30 +88,43 @@ export default async function AdminPage() {
     <main className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Admin Dashboard</h1>
 
-      {/* Operational stats: row 1 */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* The two pages actually worked from, first and biggest. Everything
+          below this is a number you read; these two are things you do, so they
+          sit above the stats rather than buried in the tile grid. */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/admin/bookings"
+          className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-brand/40 hover:bg-brand/10"
+        >
+          <Calendar size={28} className="shrink-0 text-brand" />
+          <span>
+            <span className="block text-lg font-semibold text-white">Manage Bookings</span>
+            <span className="block text-xs text-neutral-400">Day and month calendar, move, cancel, extend</span>
+          </span>
+        </Link>
+        <Link
+          href="/admin/bays"
+          className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-brand/40 hover:bg-brand/10"
+        >
+          <Clock size={28} className="shrink-0 text-brand" />
+          <span>
+            <span className="block text-lg font-semibold text-white">Bay Control</span>
+            <span className="block text-xs text-neutral-400">Live status, maintenance, block bays</span>
+          </span>
+        </Link>
+      </div>
+
+      {/* Operational stats */}
+      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
-        <StatCard icon={<Clock size={18} />} label="Pending payment" value={String(pendingCount ?? 0)} href="/admin/bookings?status=pending" />
-        <StatCard
-          icon={<XCircle size={18} />}
-          label="Cancellations (30d)"
-          value={String(cancellations30d ?? 0)}
-          sublabel={abandoned30d ? `+${abandoned30d} abandoned checkouts` : undefined}
-          href="/admin/cancellations"
-        />
         <StatCard
           icon={<MessageSquare size={18} />}
           label="Communications (24h)"
           value={String(commsCount24h ?? 0)}
           href="/admin/logs?filter=communications"
         />
-      </div>
-
-      {/* Membership & liability: row 2 */}
-      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
         <StatCard icon={<Users size={18} />} label="All members" value={String(allMembersCount ?? 0)} href="/admin/members" />
-        <StatCard icon={<Gift size={18} />} label="Gift card liability" value={fmtMoney(liability)} href="/admin/gift-cards" />
         <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
       </div>
 
@@ -193,13 +206,19 @@ export default async function AdminPage() {
       {/* Nav */}
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
-          { href: "/admin/bookings", icon: <Calendar size={16} />, label: "Manage Bookings" },
-          { href: "/admin/bays", icon: <Clock size={16} />, label: "Bays & Block Times" },
+          { href: "/admin/bookings?status=pending", icon: <Clock size={16} />, label: `Pending Payment (${pendingCount ?? 0})` },
+          {
+            href: "/admin/cancellations",
+            icon: <XCircle size={16} />,
+            label: abandoned30d
+              ? `Cancellations 30d (${cancellations30d ?? 0}, +${abandoned30d} abandoned)`
+              : `Cancellations 30d (${cancellations30d ?? 0})`,
+          },
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
           { href: "/admin/users", icon: <UserCircle size={16} />, label: `Users (${userCount ?? 0})` },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/discounts", icon: <Percent size={16} />, label: "Discounts" },
-          { href: "/admin/gift-cards", icon: <Gift size={16} />, label: "Gift Cards" },
+          { href: "/admin/gift-cards", icon: <Gift size={16} />, label: `Gift Cards (${fmtMoney(liability)} liability)` },
           { href: "/admin/membership-giveaways", icon: <Ticket size={16} />, label: "Membership Giveaways" },
           { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },
           { href: "/admin/phone", icon: <Phone size={16} />, label: "Phone Agent" },

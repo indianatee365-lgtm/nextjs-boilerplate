@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingRescheduledSms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingRescheduledSms, sendAdminReplySms } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
@@ -503,4 +503,106 @@ export async function updateBlockedTime(
   if (updates.bayId !== undefined) updateData.bay_id = updates.bayId
 
   await serviceClient.from("blocked_times").update(updateData).eq("id", id)
+}
+
+// Free-text message to whoever booked, sent from the booking itself rather
+// than making staff copy a number into /admin/sms. Writes the same
+// sms_messages row that page does, so the thread there stays complete and a
+// reply lands in the conversation it belongs to.
+//
+// Deliberately not gated on sms_consent. This is an operational reply to a
+// customer about a booking they made, the same class of message as the
+// confirmation and access code they already get, not marketing. The panel
+// shows their consent state so the decision is at least visible.
+export async function sendBookingSms(bookingId: string, body: string) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+  const { data: profile } = await serviceClient
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  const message = (body ?? "").trim()
+  if (!message) throw new Error("Message is empty")
+
+  const { data: booking } = await serviceClient
+    .from("bookings")
+    .select("id, profiles!user_id(phone)")
+    .eq("id", bookingId)
+    .single()
+
+  const phone = (booking?.profiles as unknown as { phone: string | null } | null)?.phone
+  if (!phone) throw new Error("No phone number on file for this customer")
+
+  await sendAdminReplySms(phone, message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (serviceClient as any).from("sms_messages").insert({
+    phone_number: phone,
+    direction: "outbound",
+    body: message,
+  })
+}
+
+// Comped extension, Jerrod's call 2026-09-26: this adds time without taking
+// money, unlike the customer-facing extend at /api/bookings/extend. It still
+// records extension_minutes and extension_count so the day view and the
+// detail panel show it, and leaves extension_revenue alone so a comp never
+// reads as revenue.
+//
+// Conflict checking mirrors extendActiveBooking in bays/actions.ts: an
+// extension that runs into the next booking or into a blocked window is
+// refused rather than silently overlapping.
+export async function extendBookingComp(bookingId: string, minutes: number) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+  const { data: profile } = await serviceClient
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new Error("Invalid extension length")
+
+  const { data: booking } = await serviceClient
+    .from("bookings")
+    .select("id, bay_id, ends_at, status, extension_minutes, extension_count")
+    .eq("id", bookingId)
+    .single()
+
+  if (!booking) throw new Error("Booking not found")
+  if (booking.status === "cancelled") throw new Error("That booking is cancelled")
+
+  const currentEnd = new Date(booking.ends_at)
+  const newEnd = new Date(currentEnd.getTime() + minutes * 60000)
+
+  const [{ data: conflicts }, { data: blocked }] = await Promise.all([
+    serviceClient.from("bookings").select("id")
+      .eq("bay_id", booking.bay_id)
+      .in("status", ["pending", "confirmed"])
+      .neq("id", booking.id)
+      .lt("starts_at", newEnd.toISOString())
+      .gt("ends_at", currentEnd.toISOString()),
+    serviceClient.from("blocked_times").select("id")
+      .or(`bay_id.eq.${booking.bay_id},bay_id.is.null`)
+      .lt("starts_at", newEnd.toISOString())
+      .gt("ends_at", currentEnd.toISOString()),
+  ])
+
+  if (conflicts?.length) throw new Error("Can't extend, the next booking on this bay doesn't leave room")
+  if (blocked?.length) throw new Error("Can't extend, a blocked window on this bay doesn't leave room")
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (serviceClient as any)
+    .from("bookings")
+    .update({
+      ends_at: newEnd.toISOString(),
+      extension_minutes: (booking.extension_minutes ?? 0) + minutes,
+      extension_count: (booking.extension_count ?? 0) + 1,
+      last_extended_at: new Date().toISOString(),
+    })
+    .eq("id", bookingId)
+  if (error) throw new Error("Failed to extend booking")
 }

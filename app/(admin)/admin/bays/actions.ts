@@ -83,7 +83,7 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, ends_at")
+    .select("id, ends_at, extension_minutes, extension_count")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now)
@@ -119,7 +119,12 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
 
   const { error } = await serviceClient
     .from("bookings")
-    .update({ ends_at: newEndsAt.toISOString() })
+    .update({
+      ends_at: newEndsAt.toISOString(),
+      extension_minutes: (booking.extension_minutes ?? 0) + minutes,
+      extension_count: (booking.extension_count ?? 0) + 1,
+      last_extended_at: new Date().toISOString(),
+    })
     .eq("id", booking.id)
   if (error) throw new Error("Failed to extend booking")
 
@@ -139,4 +144,46 @@ export async function requestBayRestart(bayId: string) {
     .update({ restart_requested_at: new Date().toISOString() })
     .eq("bay_id", bayId)
   revalidatePath("/admin/bays")
+}
+
+// Blocking a bay "until cleared" rather than making staff pick an end time and
+// re-block it every day. Modelled as a normal blocked_times row with a
+// far-future ends_at plus the indefinite flag, NOT a null ends_at, so that
+// every existing overlap check (availability, create, extend, reschedule, the
+// voice webhook) honours it with no changes. See the migration comment.
+const INDEFINITE_BLOCK_ENDS_AT = "2099-12-31T23:59:59.000Z"
+
+export async function blockBaysUntilCleared(formData: FormData) {
+  const { serviceClient, userId } = await assertAdmin()
+
+  const bayIds = formData.getAll("bayIds").map(String).filter(Boolean)
+  const reason = ((formData.get("reason") as string) ?? "").trim()
+  if (bayIds.length === 0) throw new Error("Pick at least one bay to block")
+
+  const startsAt = new Date().toISOString()
+  const { error } = await serviceClient.from("blocked_times").insert(
+    bayIds.map((bayId) => ({
+      bay_id: bayId,
+      starts_at: startsAt,
+      ends_at: INDEFINITE_BLOCK_ENDS_AT,
+      reason: reason || null,
+      indefinite: true,
+      created_by: userId,
+    })),
+  )
+  if (error) throw new Error("Failed to block bays")
+
+  revalidatePath("/admin/bays")
+  revalidatePath("/admin/bookings")
+}
+
+// One row per bay, so clearing one bay never disturbs the others blocked in
+// the same action.
+export async function clearBlockedTime(id: string) {
+  const { serviceClient } = await assertAdmin()
+  const { error } = await serviceClient.from("blocked_times").delete().eq("id", id)
+  if (error) throw new Error("Failed to clear block")
+
+  revalidatePath("/admin/bays")
+  revalidatePath("/admin/bookings")
 }

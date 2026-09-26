@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight, Plus } from "lucide-react"
-import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking } from "./actions"
+import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking, sendBookingSms, extendBookingComp } from "./actions"
 
 interface Booking {
   id: string
@@ -31,7 +31,7 @@ interface Booking {
   credit_discount?: number
   paid_at?: string | null
   bays: { id: string; name: string; number: number } | null
-  profiles: { id: string; first_name: string; last_name: string; phone: string | null } | null
+  profiles: { id: string; first_name: string; last_name: string; phone: string | null; sms_consent?: boolean | null } | null
 }
 
 interface Bay { id: string; number: number; name: string }
@@ -124,6 +124,12 @@ export default function BookingsManager({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  // Detail-panel compose box and the result line under it. Both reset when a
+  // different booking is opened, so a half-typed message never follows you
+  // onto someone else's booking.
+  const [smsBody, setSmsBody] = useState("")
+  const [smsNote, setSmsNote] = useState<{ ok: boolean; text: string } | null>(null)
+  const [extendError, setExtendError] = useState<string | null>(null)
   const [blocking, setBlocking] = useState(false)
   // Staff-created booking, for the caller who does not text and will not use
   // the website, and for walk-ins. Before this the only way in was the
@@ -144,6 +150,15 @@ export default function BookingsManager({
   const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null)
+
+  // Clear the compose box and any result line whenever a different booking is
+  // opened, so a half-typed message or a stale "Sent" never carries over onto
+  // someone else's booking.
+  useEffect(() => {
+    setSmsBody("")
+    setSmsNote(null)
+    setExtendError(null)
+  }, [detailBooking?.id])
   const [justDragged, setJustDragged] = useState(false)
   const [blockForm, setBlockForm] = useState({
     bayId: "" as string | null,
@@ -161,6 +176,35 @@ export default function BookingsManager({
     // page.tsx's default (month), so Next/Prev silently bounced out of
     // day view instead of moving a day.
     router.push(`/admin/bookings?view=day&date=${d.toISOString().split("T")[0]}`)
+  }
+
+  function handleSendSms(bookingId: string) {
+    const body = smsBody.trim()
+    if (!body) return
+    setSmsNote(null)
+    startTransition(async () => {
+      try {
+        await sendBookingSms(bookingId, body)
+        setSmsBody("")
+        setSmsNote({ ok: true, text: "Sent" })
+        router.refresh()
+      } catch (err) {
+        setSmsNote({ ok: false, text: err instanceof Error ? err.message : "Could not send" })
+      }
+    })
+  }
+
+  function handleExtend(bookingId: string, minutes: number) {
+    setExtendError(null)
+    startTransition(async () => {
+      try {
+        await extendBookingComp(bookingId, minutes)
+        setDetailBooking(null)
+        router.refresh()
+      } catch (err) {
+        setExtendError(err instanceof Error ? err.message : "Could not extend")
+      }
+    })
   }
 
   function handleCancel(bookingId: string) {
@@ -646,6 +690,11 @@ export default function BookingsManager({
                       {" – "}
                       {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                     </div>
+                    {Number(booking.extension_minutes ?? 0) > 0 && (
+                      <div className="font-medium text-amber-400">
+                        +{booking.extension_minutes} min extended
+                      </div>
+                    )}
                     {booking.status === "confirmed" && (
                       isCompleted ? (
                         <span className="mt-0.5 flex items-center gap-0.5 text-green-400">
@@ -1023,6 +1072,63 @@ export default function BookingsManager({
                 </div>
               )}
             </div>
+
+            {detailBooking.status !== "cancelled" && (
+              <div className="mt-5 space-y-4 border-t border-white/10 pt-4">
+                <div>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium text-white">Extend booking</span>
+                    <span className="text-xs text-neutral-500">Comped, no charge</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {[15, 30, 60].map((mins) => (
+                      <button
+                        key={mins}
+                        disabled={isPending}
+                        onClick={() => handleExtend(detailBooking.id, mins)}
+                        className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2 text-sm text-neutral-200 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white disabled:opacity-50"
+                      >
+                        +{mins} min
+                      </button>
+                    ))}
+                  </div>
+                  {extendError && <p className="mt-2 text-xs text-red-400">{extendError}</p>}
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium text-white">
+                      Text {detailBooking.profiles?.first_name ?? "customer"}
+                    </span>
+                    <span className="text-xs text-neutral-500">
+                      {detailBooking.profiles?.phone ?? "No phone on file"}
+                    </span>
+                  </div>
+                  {detailBooking.profiles?.phone && detailBooking.profiles?.sms_consent === false && (
+                    <p className="mb-2 text-xs text-amber-400">
+                      They opted out of marketing texts. This still sends as an operational reply about their booking.
+                    </p>
+                  )}
+                  <textarea
+                    value={smsBody}
+                    onChange={(e) => setSmsBody(e.target.value)}
+                    rows={3}
+                    placeholder="Message to the customer..."
+                    className="w-full rounded-lg border border-white/10 bg-black/30 p-2 text-sm text-white placeholder:text-neutral-600"
+                  />
+                  <button
+                    disabled={isPending || !detailBooking.profiles?.phone || !smsBody.trim()}
+                    onClick={() => handleSendSms(detailBooking.id)}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 py-2 text-sm font-medium text-neutral-200 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white disabled:opacity-40"
+                  >
+                    Send SMS
+                  </button>
+                  {smsNote && (
+                    <p className={`mt-2 text-xs ${smsNote.ok ? "text-green-400" : "text-red-400"}`}>{smsNote.text}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {detailBooking.status === "confirmed" && (
               <button

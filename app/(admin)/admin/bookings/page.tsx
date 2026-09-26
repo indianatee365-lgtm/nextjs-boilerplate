@@ -85,7 +85,7 @@ export default async function AdminBookingsPage({
         access_code, notes, cancelled_at, refund_amount,
         created_at, stripe_payment_intent_id,
         bays(id, name, number),
-        profiles!user_id(id, first_name, last_name, phone)
+        profiles!user_id(id, first_name, last_name, phone, sms_consent)
       `)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -101,7 +101,7 @@ export default async function AdminBookingsPage({
         subtotal, membership_discount, coupon_discount, tax,
         gift_card_applied, credit_hours_applied, credit_discount, paid_at,
         bays(id, name, number),
-        profiles!user_id(id, first_name, last_name, phone)
+        profiles!user_id(id, first_name, last_name, phone, sms_consent)
       `)
       .gte("starts_at", start.toISOString())
       .lt("starts_at", end.toISOString())

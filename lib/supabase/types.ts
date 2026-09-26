@@ -152,6 +152,7 @@ export type Database = {
           created_by: string
           ends_at: string
           id: string
+          indefinite: boolean
           reason: string | null
           starts_at: string
         }
@@ -161,6 +162,7 @@ export type Database = {
           created_by: string
           ends_at: string
           id?: string
+          indefinite?: boolean
           reason?: string | null
           starts_at: string
         }
@@ -170,6 +172,7 @@ export type Database = {
           created_by?: string
           ends_at?: string
           id?: string
+          indefinite?: boolean
           reason?: string | null
           starts_at?: string
         }
@@ -218,6 +221,7 @@ export type Database = {
           gift_card_applied: number
           gift_card_id: string | null
           id: string
+          last_extended_at: string | null
           member_rate_applied: number | null
           membership_discount: number
           membership_id: string | null
@@ -273,6 +277,7 @@ export type Database = {
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
+          last_extended_at?: string | null
           member_rate_applied?: number | null
           membership_discount?: number
           membership_id?: string | null
@@ -328,6 +333,7 @@ export type Database = {
           gift_card_applied?: number
           gift_card_id?: string | null
           id?: string
+          last_extended_at?: string | null
           member_rate_applied?: number | null
           membership_discount?: number
           membership_id?: string | null
