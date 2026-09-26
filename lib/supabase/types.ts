@@ -63,6 +63,8 @@ export type Database = {
           last_heartbeat_at: string | null
           last_manual_restart_at: string | null
           last_no_shot_alert_at: string | null
+          eyexr_missing_since: string | null
+          eyexr_alerted_at: string | null
           override_state: string | null
           restart_requested_at: string | null
           running_processes: Json | null
@@ -79,6 +81,8 @@ export type Database = {
           last_heartbeat_at?: string | null
           last_manual_restart_at?: string | null
           last_no_shot_alert_at?: string | null
+          eyexr_missing_since?: string | null
+          eyexr_alerted_at?: string | null
           override_state?: string | null
           restart_requested_at?: string | null
           running_processes?: Json | null
@@ -95,6 +99,8 @@ export type Database = {
           last_heartbeat_at?: string | null
           last_manual_restart_at?: string | null
           last_no_shot_alert_at?: string | null
+          eyexr_missing_since?: string | null
+          eyexr_alerted_at?: string | null
           override_state?: string | null
           restart_requested_at?: string | null
           running_processes?: Json | null

@@ -17,6 +17,12 @@ export const runtime = "nodejs"
 const EXTEND_PROMPT_WINDOW_MINUTES = 15
 const KIOSK_KILLS_LOG_LIMIT = 20
 
+// How long the stuck shape (see eyexr_missing_since) has to hold before we
+// text. Long enough to ride out a normal launch, where EYEXR.exe takes 60 to
+// 90 seconds to appear after the chain starts, short enough that the customer
+// is not the one who discovers it. Jerrod's rule, 2026-09-17.
+const EYEXR_MISSING_ALERT_MINUTES = 4
+
 // How long into a session the kiosk keeps showing the "who's playing?" QR
 // before giving up on its own (the companion also lets the customer dismiss
 // it early via an on-screen X, or the phone flow can close it out sooner by
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at")
+    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at, eyexr_missing_since, eyexr_alerted_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -102,6 +108,32 @@ export async function POST(request: NextRequest) {
       kioskKills.push(status.kioskKill)
       while (kioskKills.length > KIOSK_KILLS_LOG_LIMIT) kioskKills.shift()
     }
+
+    // Launch-monitor stuck detection. EYEXR.exe is the one reliable "actually
+    // armed" signal: present on a healthy bay, absent whenever the Uneekor
+    // launcher is sitting on "Device Not Ready". But config.json marks it
+    // transient:true so is_sim_running() ignores it, and the bay goes right on
+    // reporting sim_running=true. That blind spot is what let Bay 4 hand a
+    // customer a black screen on 2026-09-25 with zero shots and no alert: the
+    // bay PC had lost its DHCP lease on the camera link, so Uneekor could not
+    // reach the launch monitor and GSPro's "Start Now" button never rendered
+    // for companion.py to click.
+    const procs = (status.runningProcesses ?? []).map((p) => p.toLowerCase())
+    const eyexrStuck =
+      status.sessionState === "occupied" &&
+      status.simRunning === true &&
+      procs.includes("uneekorlauncher.exe") &&
+      !procs.includes("eyexr.exe")
+    const eyexrMissingSince = eyexrStuck
+      ? existingStatus?.eyexr_missing_since ?? new Date().toISOString()
+      : null
+    const eyexrAlertedAt = eyexrStuck ? existingStatus?.eyexr_alerted_at ?? null : null
+    const eyexrMissingMs = eyexrMissingSince ? new Date(eyexrMissingSince).getTime() : null
+    const shouldAlertEyexr =
+      eyexrStuck &&
+      eyexrMissingMs !== null &&
+      !eyexrAlertedAt &&
+      Date.now() - eyexrMissingMs >= EYEXR_MISSING_ALERT_MINUTES * 60_000
 
     await serviceClient.from("bay_agent_status").upsert({
       bay_id: bayId,
@@ -127,6 +159,8 @@ export async function POST(request: NextRequest) {
       last_crash_restart_at: status.lastCrashRestartAt ?? existingStatus?.last_crash_restart_at ?? null,
       last_manual_restart_at: status.lastManualRestartAt ?? existingStatus?.last_manual_restart_at ?? null,
       last_no_shot_alert_at: status.lastNoShotAlertAt ?? existingStatus?.last_no_shot_alert_at ?? null,
+      eyexr_missing_since: eyexrMissingSince,
+      eyexr_alerted_at: shouldAlertEyexr ? new Date().toISOString() : eyexrAlertedAt,
       kiosk_kills: kioskKills,
       updated_at: new Date().toISOString(),
     })
@@ -261,6 +295,28 @@ export async function POST(request: NextRequest) {
         "bay-agent-no-shot-alert",
         detail,
         notifyEnabled ? goneQuietMessage : undefined,
+      )
+    }
+
+    // Fires once per stuck stretch, not every 5 seconds: eyexr_alerted_at is
+    // stamped in the same upsert above and only clears when the bay recovers.
+    if (shouldAlertEyexr) {
+      const stuckMinutes = Math.round((Date.now() - (eyexrMissingMs as number)) / 60000)
+      const detail =
+        `bay=${bay.name} missingSince=${eyexrMissingSince} minutes=${stuckMinutes} ` +
+        `sessionState=${status.sessionState} simRunning=${status.simRunning} ` +
+        `runningProcesses=${JSON.stringify(status.runningProcesses ?? [])}`
+      const notifyEnabled = await getAdminSetting(serviceClient, "notify_eyexr_stuck_alert")
+      const alertMsg =
+        `${bay.name}: launch monitor never connected. Uneekor has been showing ` +
+        `"Device Not Ready" for ${stuckMinutes} min, so the customer has a black ` +
+        `screen and no shots are reading. Restarting the sim will NOT fix this, ` +
+        `check the bay PC's network link to the camera.`
+      await logFailure(
+        serviceClient,
+        "bay-agent-eyexr-stuck",
+        detail,
+        notifyEnabled ? alertMsg : undefined,
       )
     }
 
