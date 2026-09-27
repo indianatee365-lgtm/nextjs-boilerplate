@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
         stripe_charge_id: paymentIntent.latest_charge as string,
       })
       .eq("stripe_payment_intent_id", paymentIntent.id)
-      .neq("status", "cancelled")
+      .eq("status", "pending")
       .select(`
         id, user_id, bay_id, starts_at, ends_at,
         subtotal, tax, total, coupon_discount, membership_discount,
@@ -297,7 +297,26 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!booking) {
-      console.error("Booking not found for payment intent", paymentIntent.id)
+      // Two different situations reach this branch now. A Stripe retry for a
+      // payment already processed is expected and harmless: the row exists,
+      // it is simply no longer pending, and exiting here is exactly what
+      // stops the duplicate side-effects. A payment intent with no booking
+      // row at all is the real error worth shouting about.
+      const { data: existing } = await supabase
+        .from("bookings")
+        .select("id, status")
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .maybeSingle()
+
+      if (existing) {
+        console.log(
+          "Duplicate Stripe delivery for already-processed payment intent, skipping",
+          paymentIntent.id,
+          existing.status,
+        )
+      } else {
+        console.error("Booking not found for payment intent", paymentIntent.id)
+      }
       return NextResponse.json({ received: true })
     }
 
