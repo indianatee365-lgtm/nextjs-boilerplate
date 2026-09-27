@@ -91,7 +91,7 @@ The main marketing site (`tee365.org`) and the booking app are merged into a sin
 - [x] Utilities + internet scheduled for installation 2026-05-30 (Friday)
 
 ### Remaining 🔴
-- [ ] **🚨 LAUNCH BLOCKER — Vestibule + access control + on-site network**
+- [x] **🚨 LAUNCH BLOCKER — Vestibule + access control + on-site network**
   - **Plans (Windows desktop):**
     - `C:\Users\m20th\tee365-vestibule-shopping.md` — vestibule + access control + bench test + glazier brief + TypeScript integration sketch
     - `C:\Users\m20th\tee365-network-plan.md` — network spine + VLAN scheme + cable pull list + $0/mo ongoing cost
