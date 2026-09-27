@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
-    const { data: booking } = await supabase
+    const { data: booking, error: confirmError } = await supabase
       .from("bookings")
       .update({
         status: "confirmed",
@@ -294,7 +294,118 @@ export async function POST(request: NextRequest) {
         bays(name),
         profiles!user_id(first_name, last_name, phone, sms_consent)
       `)
-      .single()
+      .maybeSingle()
+
+    // 23P01 is the bookings_no_overlap EXCLUDE constraint refusing to confirm
+    // because the slot was taken while this customer was paying. The refusal
+    // is the point: better one refunded charge than two groups standing in the
+    // same bay. But it leaves them charged with no booking, which is only an
+    // improvement if we actually unwind it, so refund in full immediately and
+    // tell both sides. Returning 200 stops Stripe retrying something that can
+    // never succeed.
+    if (confirmError?.code === "23P01") {
+      const { data: lost } = await supabase
+        .from("bookings")
+        .select(`
+          id, user_id, starts_at, ends_at, total,
+          bays(name),
+          profiles!user_id(first_name, phone, sms_consent)
+        `)
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .eq("status", "pending")
+        .maybeSingle()
+
+      let refunded = false
+      try {
+        await getStripe().refunds.create({ payment_intent: paymentIntent.id })
+        refunded = true
+      } catch (err) {
+        await logFailure(
+          supabase,
+          "booking-slot-taken-REFUND-FAILED",
+          `pi=${paymentIntent.id} booking=${lost?.id ?? "?"} err=${String(err).slice(0, 200)}`,
+          `URGENT: could not auto-refund ${paymentIntent.id}. The slot was taken while they paid, ` +
+            `so they have no booking AND still have the charge. Refund this by hand in Stripe now.`,
+        )
+      }
+
+      if (lost) {
+        await supabase
+          .from("bookings")
+          .update({
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+            ...(refunded ? { refund_amount: lost.total, refunded_at: new Date().toISOString() } : {}),
+          })
+          .eq("id", lost.id)
+      }
+
+      const lostProfile = lost?.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
+      const lostBay = lost?.bays as { name: string } | null
+      const when = lost
+        ? new Date(lost.starts_at).toLocaleString("en-US", {
+            weekday: "short", month: "short", day: "numeric",
+            hour: "numeric", minute: "2-digit",
+            timeZone: "America/Indiana/Indianapolis",
+          })
+        : "unknown time"
+
+      await logFailure(
+        supabase,
+        "booking-slot-taken-while-paying",
+        `pi=${paymentIntent.id} booking=${lost?.id ?? "?"} bay=${lostBay?.name ?? "?"} ` +
+          `starts=${lost?.starts_at ?? "?"} refunded=${refunded}`,
+        `${lostBay?.name ?? "A bay"} ${when} was taken while ${lostProfile?.first_name ?? "a customer"} ` +
+          `was paying. Charge ${refunded ? "refunded automatically" : "NOT refunded, do it by hand"}. ` +
+          `They have no booking, call them.`,
+      )
+
+      if (lost && lostBay && lostProfile) {
+        const { data: { user: lostAuthUser } } = await supabase.auth.admin.getUserById(lost.user_id)
+
+        if (lostProfile.phone && lostProfile.sms_consent) {
+          try {
+            await sendBookingPaymentFailedSms({
+              to: lostProfile.phone,
+              firstName: lostProfile.first_name,
+              bayName: lostBay.name,
+              startsAt: new Date(lost.starts_at),
+            })
+          } catch (err) {
+            await logFailure(supabase, "booking-slot-taken-sms-FAILED",
+              `booking=${lost.id} err=${String(err).slice(0, 200)}`)
+          }
+        }
+
+        if (lostAuthUser?.email) {
+          try {
+            await sendBookingPaymentFailedEmail({
+              to: lostAuthUser.email,
+              firstName: lostProfile.first_name,
+              bayName: lostBay.name,
+              startsAt: new Date(lost.starts_at),
+            })
+          } catch (err) {
+            await logFailure(supabase, "booking-slot-taken-email-FAILED",
+              `booking=${lost.id} err=${String(err).slice(0, 200)}`)
+          }
+        }
+      }
+
+      return NextResponse.json({ received: true })
+    }
+
+    // Any other database error is potentially transient, so hand Stripe a
+    // non-2xx and let its retry schedule do the work rather than swallowing it.
+    if (confirmError) {
+      await logFailure(
+        supabase,
+        "booking-confirm-db-error",
+        `pi=${paymentIntent.id} code=${confirmError.code} err=${confirmError.message.slice(0, 200)}`,
+        `Booking confirm failed on a database error for ${paymentIntent.id}. Stripe will retry.`,
+      )
+      return NextResponse.json({ error: "confirm failed" }, { status: 500 })
+    }
 
     if (!booking) {
       // Two different situations reach this branch now. A Stripe retry for a
