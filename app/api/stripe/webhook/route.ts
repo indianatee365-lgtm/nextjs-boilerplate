@@ -9,6 +9,7 @@ import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, fo
 import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
 import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 import { consumeHourCredits } from "@/lib/hour-credits"
+import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -65,6 +66,9 @@ export async function POST(request: NextRequest) {
         starts_at: newStartsAt,
         ends_at: newEndsAt,
       }).eq("id", originalBookingId).neq("status", "cancelled")
+      // A PAID reschedule is applied here rather than in the reschedule route,
+      // so the door credential has to be moved onto the new window from here too.
+      await reissueBookingAccessForNewWindow(supabase, originalBookingId)
       return NextResponse.json({ received: true })
     }
 

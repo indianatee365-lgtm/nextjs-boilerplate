@@ -4,6 +4,7 @@ import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 
 export const RESCHEDULE_FEE = 5.00
 
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
         starts_at: newStart.toISOString(),
         ends_at: newEnd.toISOString(),
       }).eq("id", bookingId)
+      // Old credential was scoped to the old bay and window.
+      await reissueBookingAccessForNewWindow(serviceClient, bookingId)
       rescheduled = true
     } else {
       const pi = await getStripe().paymentIntents.create({

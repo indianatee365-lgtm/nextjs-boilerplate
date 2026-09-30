@@ -8,6 +8,7 @@ import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { restoreHourCredits, moveHourCreditUses } from "@/lib/hour-credits"
+import { revokeBookingAccess } from "@/lib/access-control/booking-access"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -69,6 +70,10 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
       refunded_at: refundEligible && b.stripe_charge_id ? new Date().toISOString() : null,
     })
     .eq("id", bookingId)
+
+  // Kill the door code now instead of waiting up to 15 minutes for the
+  // revoke-access cron. Never throws, and the cron still backstops it.
+  await revokeBookingAccess(serviceClient, bookingId)
 
   // Hour credits follow the same forfeit rules as dollars: refund-eligible cancels
   // get their hours back; inside the forfeit window they are lost. Pending bookings

@@ -7,6 +7,7 @@ import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 import { createBooking } from "@/lib/bookings/create"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { revokeBookingAccess, reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -288,6 +289,9 @@ export async function cancelBooking(bookingId: string) {
     })
     .eq("id", bookingId)
 
+  // Kill the door code now instead of waiting for the revoke-access cron.
+  await revokeBookingAccess(serviceClient, bookingId)
+
   // Admin-initiated cancellations always return hour credits, unlike the customer
   // self-serve flow's 24h forfeit window: an operator cancelling on someone's
   // behalf is never the abuse case that window exists to prevent.
@@ -391,6 +395,11 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
       ends_at: newEnd.toISOString(),
     })
     .eq("id", bookingId)
+
+  // The old door code was minted against the OLD bay and time window, so it has
+  // to be torn down and reminted, or the customer ends up with a code that
+  // opens nothing at the new time and still works at the old one.
+  await reissueBookingAccessForNewWindow(serviceClient, bookingId)
 
   const { data: newBay } = await serviceClient.from("bays").select("name").eq("id", newBayId).single()
   const bayName = (newBay as { name: string } | null)?.name ?? b.bays?.name ?? "your bay"
