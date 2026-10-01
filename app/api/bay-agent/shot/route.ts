@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
   //   - hitterName matches roster_names[0] but isn't in roster_links -> a
   //     booking confirmed before that confirmRoster change went out; still
   //     the booker, not a guest, so still attributed rather than dropped.
-  //   - anything else -> a named guest with no account link. Dropped.
+  //   - anything else -> a named guest with no account link. Stored with a
+  //     NULL user_id (see below), NOT dropped.
   const rosterLinks = (booking.roster_links as Record<string, string> | null) ?? {}
   const rosterNames = (booking.roster_names as string[] | null) ?? []
   const hitterName = body.hitterName ?? null
@@ -99,10 +100,28 @@ export async function POST(request: NextRequest) {
     attributedUserId = null
   }
 
-  if (!attributedUserId) {
-    return NextResponse.json({ ok: true, dropped: true })
-  }
-
+  // A guest with no linked account used to be discarded here, with a 200 and
+  // `dropped: true` that nothing surfaced: companion.py logs "posted shot" on
+  // any 2xx, so the loss was invisible in the bay logs too. Found 2026-10-01
+  // after Kiley Wiers' entire 60-minute session recorded zero shots. Her
+  // roster was ["Kiley","Harrison"] with Harrison hitting, and roster_links
+  // held only the booker, which is true of EVERY multi-player booking in the
+  // table. The net effect was that the moment a group handed the club to a
+  // guest, their shots stopped existing.
+  //
+  // The original intent was right and is preserved: a guest's shots must never
+  // be folded into the booker's own "My Shots" (Jerrod's call 2026-09-01). But
+  // the way to honour that is to decline to ATTRIBUTE the shot, not to destroy
+  // it. shots.user_id is nullable, and every customer-facing reader filters on
+  // `.eq("user_id", ...)` (account/shots, account/shots/[bookingId], the CSV
+  // export), so a NULL-user shot is already invisible in everyone's stats
+  // without any change to those queries. lib/incidents filters on bay_id only,
+  // so it now correctly sees the whole bay's shot history during an
+  // investigation instead of a version with the guests cut out.
+  //
+  // What this keeps: session history, bay utilisation, shot counts, and the
+  // hitter's name for later linking. Shots already lost to the old behaviour
+  // are unrecoverable, they were never written anywhere.
   const { data: inserted, error } = await serviceClient
     .from("shots")
     .insert({
@@ -141,7 +160,15 @@ export async function POST(request: NextRequest) {
   // ball/club data by several seconds (confirmed live 2026-08-24: posting
   // immediately, which is required for the real-time "no refresh" UI, means
   // the club name genuinely isn't written yet at insert time).
-  return NextResponse.json({ ok: true, id: inserted?.id })
+  // unattributed is reported back so a caller can tell "saved to someone's
+  // stats" from "saved, but belongs to an unlinked guest". companion.py does
+  // not branch on it today; it exists so this is answerable without reading
+  // the database.
+  return NextResponse.json({
+    ok: true,
+    id: inserted?.id,
+    ...(attributedUserId ? {} : { unattributed: true }),
+  })
 }
 
 // Best-effort follow-up: fills in a club name and/or total distance
