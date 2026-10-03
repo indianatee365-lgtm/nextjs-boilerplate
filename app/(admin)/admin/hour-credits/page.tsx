@@ -118,7 +118,7 @@ export default async function AdminHourCreditsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
-                <th className="px-4 py-3">Code</th>
+                <th className="px-4 py-3 whitespace-nowrap">Code</th>
                 <th className="px-4 py-3">Holder</th>
                 <th className="px-4 py-3">Hours left</th>
                 <th className="px-4 py-3">Reason</th>
@@ -132,7 +132,7 @@ export default async function AdminHourCreditsPage() {
                 const holder = c.profiles as { first_name: string; last_name: string } | null
                 return (
                   <tr key={c.id} className="border-b border-white/5 text-neutral-300">
-                    <td className="px-4 py-3 font-mono text-xs">{c.code ?? "direct grant"}</td>
+                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{c.code ?? "direct grant"}</td>
                     <td className="px-4 py-3 text-xs">
                       {holder ? `${holder.first_name} ${holder.last_name}` : <span className="text-neutral-500">Unclaimed</span>}
                     </td>
