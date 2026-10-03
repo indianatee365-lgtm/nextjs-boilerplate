@@ -6,7 +6,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen">
       <nav className="border-b border-white/10 bg-black/40 px-4 py-3">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link
               href="/admin"
               className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors"
@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="text-neutral-700 hidden sm:inline">·</span>
             <Link
               href="/admin/phone"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors hidden sm:flex"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
             >
               <Phone size={13} />
               Phone Agent
@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="text-neutral-700 hidden sm:inline">·</span>
             <Link
               href="/admin/sms"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors hidden sm:flex"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
             >
               <MessageSquare size={13} />
               SMS
@@ -33,7 +33,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="text-neutral-700 hidden sm:inline">·</span>
             <Link
               href="/admin/incidents"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors hidden sm:flex"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
             >
               <ClipboardList size={13} />
               Incidents
@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <Link
               href="/admin/pricing"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors hidden sm:flex"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
             >
               <DollarSign size={13} />
               Pricing

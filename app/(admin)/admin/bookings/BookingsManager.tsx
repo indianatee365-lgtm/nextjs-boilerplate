@@ -524,11 +524,14 @@ export default function BookingsManager({
           half-hour resolution, so a booking's card spans its actual duration
           and lands on the real :00/:30 boundary it starts on, instead of only
           ever appearing in - and snapping to - its start hour's cell. */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto [--tee-gutter:44px] sm:[--tee-gutter:80px]">
         <div
-          className="grid min-w-[700px]"
+          className="grid min-w-0 sm:min-w-[700px]"
           style={{
-            gridTemplateColumns: `80px repeat(${bays.length}, 1fr)`,
+            // The time gutter shrinks on phones so the bay columns get the
+            // space. minmax(0, 1fr) lets a column go narrower than its content
+            // instead of forcing horizontal overflow.
+            gridTemplateColumns: `var(--tee-gutter, 80px) repeat(${bays.length}, minmax(0, 1fr))`,
             gridTemplateRows: `auto repeat(48, minmax(20px, auto))`,
           }}
         >
