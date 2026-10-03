@@ -1,9 +1,20 @@
-// Premium hours: 10am–10pm
-const PREMIUM_START_HOUR = 10
-const PREMIUM_END_HOUR = 22
+// Premium hours: 4pm to 10pm.
+//
+// Was 10am to 10pm until 2026-10-03. Six weeks of real bookings showed demand is
+// an afternoon and evening business: 4pm through 9pm is the spine (hour 19 alone
+// was 14 bookings and 27 hours), while 10am through 2pm barely sells and was
+// being charged the peak rate the whole time. Narrowing the window cuts the
+// daytime price without touching evening revenue, which is a far better targeted
+// discount than taking money off every hour of the day.
+//
+// Exported so anything that DISPLAYS the window reads it from here rather than
+// restating it. The admin pricing page got this wrong within a day of being
+// written, which is the whole argument for exporting it.
+export const PREMIUM_START_HOUR = 16
+export const PREMIUM_END_HOUR = 22
 
 // On-season months: October (10) through March (3)
-const ON_SEASON_MONTHS = [10, 11, 12, 1, 2, 3]
+export const ON_SEASON_MONTHS = [10, 11, 12, 1, 2, 3]
 
 // Business timezone — all slot labels and pricing context use local time, not UTC
 const BUSINESS_TZ = "America/Indiana/Indianapolis"

@@ -1,15 +1,35 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { getPricingContext } from "@/lib/pricing/engine"
+import {
+  getPricingContext,
+  PREMIUM_START_HOUR,
+  PREMIUM_END_HOUR,
+  ON_SEASON_MONTHS,
+} from "@/lib/pricing/engine"
 import PricingEditor, { type PricingRule } from "./PricingEditor"
 
 export const metadata = { title: "Pricing | Tee365 Admin" }
 export const dynamic = "force-dynamic"
 
-// Keep these labels in one place so the page explains the same rules the engine
-// actually applies. If lib/pricing/engine.ts changes its windows, change these.
-const PREMIUM_WINDOW = "10:00am to 10:00pm"
-const ON_SEASON_MONTHS = "October through March"
+// Derived from the engine's own constants rather than restated, so this page can
+// never drift from the rule it is describing. It already did once: the window was
+// narrowed to 4pm on 2026-10-03 and this label still said 10:00am.
+function hourLabel(h: number) {
+  const suffix = h >= 12 ? "pm" : "am"
+  const display = h % 12 === 0 ? 12 : h % 12
+  return `${display}:00${suffix}`
+}
+const PREMIUM_WINDOW = `${hourLabel(PREMIUM_START_HOUR)} to ${hourLabel(PREMIUM_END_HOUR)}`
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+// The list is contiguous but wraps the year end, so name the ends rather than
+// trying to print a sorted range.
+const ON_SEASON_LABEL = `${MONTH_NAMES[ON_SEASON_MONTHS[0] - 1]} through ${
+  MONTH_NAMES[ON_SEASON_MONTHS[ON_SEASON_MONTHS.length - 1] - 1]
+}`
 
 export default async function AdminPricingPage() {
   const supabase = await createClient()
@@ -97,7 +117,7 @@ export default async function AdminPricingPage() {
         <h2 className="text-sm font-semibold text-white">How a rate gets picked</h2>
         <ul className="mt-2 space-y-1.5 text-xs text-neutral-400">
           <li>
-            <span className="text-neutral-200">Season:</span> on season is {ON_SEASON_MONTHS}.
+            <span className="text-neutral-200">Season:</span> on season is {ON_SEASON_LABEL}.
             Everything else is off season.
           </li>
           <li>
