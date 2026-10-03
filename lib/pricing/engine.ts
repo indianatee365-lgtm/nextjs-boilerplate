@@ -1,4 +1,4 @@
-// Premium hours: 4pm to 10pm.
+// Premium hours: 4pm to 10pm inclusive, so the last premium start is 10:00pm.
 //
 // Was 10am to 10pm until 2026-10-03. Six weeks of real bookings showed demand is
 // an afternoon and evening business: 4pm through 9pm is the spine (hour 19 alone
@@ -11,7 +11,13 @@
 // restating it. The admin pricing page got this wrong within a day of being
 // written, which is the whole argument for exporting it.
 export const PREMIUM_START_HOUR = 16
-export const PREMIUM_END_HOUR = 22
+// End is EXCLUSIVE, so 23 means a 10:00pm start is premium and 11:00pm is not.
+// Deliberate, 2026-10-03: the 10pm hour sells better than two hours already
+// inside premium (7 bookings and 14.5 hours, against 9pm at 7/9.3 and 4pm at
+// 13/20) and it is the one slot with no competition at any temperature, because
+// no outdoor course is open then. It was in the bargain bin. 11pm onward stays
+// cheap on purpose, as a night-owl rate worth marketing.
+export const PREMIUM_END_HOUR = 23
 
 // On-season months: October (10) through March (3)
 export const ON_SEASON_MONTHS = [10, 11, 12, 1, 2, 3]
