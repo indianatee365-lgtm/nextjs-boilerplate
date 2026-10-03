@@ -37,7 +37,6 @@ const RANKING: Record<string, { priority: number; changeFrequency: MetadataRoute
   "/": { priority: 1, changeFrequency: "weekly" },
   "/join": { priority: 0.9, changeFrequency: "weekly" },
   "/indoor-golf-simulator-south-bend": { priority: 0.9, changeFrequency: "weekly" },
-  "/founders": { priority: 0.9, changeFrequency: "weekly" },
   "/events": { priority: 0.8, changeFrequency: "monthly" },
   "/technology": { priority: 0.8, changeFrequency: "monthly" },
   "/league": { priority: 0.8, changeFrequency: "weekly" },
