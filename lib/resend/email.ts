@@ -857,12 +857,14 @@ ${founderNote}
 }
 
 export async function sendBookingPaymentFailedEmail({
-  to, firstName, bayName, startsAt,
+  to, firstName, bayName, startsAt, stillConfirmedBayNames,
 }: {
   to: string
   firstName: string
   bayName: string
   startsAt: Date
+  /** See sendBookingPaymentFailedSms for why this exists. */
+  stillConfirmedBayNames?: string[]
 }) {
   const timeStr = startsAt.toLocaleString("en-US", {
     weekday: "short",
@@ -883,6 +885,7 @@ export async function sendBookingPaymentFailedEmail({
 <h1 style="margin:0 0 12px;font-size:24px;color:#fff;">Your booking payment didn't go through</h1>
 <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Hi ${firstName},</p>
 <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your payment for <strong style="color:#fff;">${bayName}</strong> on <strong style="color:#fff;">${timeStr}</strong> didn't go through, so that time slot has been released back to the calendar. No charge was made.</p>
+${stillConfirmedBayNames?.length ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.6;">Your <strong style="color:#fff;">${stillConfirmedBayNames.join(" and ")}</strong> booking for that time is still confirmed and unaffected.</p>` : ""}
 <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.6;">If you'd still like to play, you're welcome to rebook, just know the slot isn't being held for you.</p>
 <table cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background:#4ade80;">
 <a href="https://tee365.org/book" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#111;text-decoration:none;">Rebook a bay</a>

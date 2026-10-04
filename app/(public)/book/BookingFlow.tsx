@@ -143,6 +143,9 @@ export default function BookingFlow({
   const [bookingError, setBookingError] = useState("")
   const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
   const [reserving, setReserving] = useState(false)
+  // Set once a booking has been created and we are leaving for the confirmation
+  // page. Never cleared: there is nothing left on this screen to reserve.
+  const [navigatingToBooking, setNavigatingToBooking] = useState(false)
   const [timeLeft, setTimeLeft] = useState(EXPIRY_SECONDS)
   const [expiredError, setExpiredError] = useState("")
   const [acknowledgedDisclosures, setAcknowledgedDisclosures] = useState<Set<string>>(new Set())
@@ -364,6 +367,10 @@ export default function BookingFlow({
     }
     setReserving(true)
     setBookingError("")
+    // Tracked locally as well as in state because the `finally` below runs
+    // before a state update would be visible, and it must not re-arm the button
+    // when a booking has already been made.
+    let booked = false
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
@@ -385,7 +392,11 @@ export default function BookingFlow({
         return
       }
       if (data.clientSecret === null) {
-        // Gift card covered full amount, booking already confirmed
+        // Hour credits or a gift card covered the full amount, so the booking
+        // is already confirmed. Nothing further can be reserved here, and the
+        // navigation takes a moment, so the button stays dead and says so.
+        booked = true
+        setNavigatingToBooking(true)
         router.push(`/account/bookings?confirmed=${data.bookingId}`)
         return
       }
@@ -398,7 +409,7 @@ export default function BookingFlow({
     } catch {
       setBookingError("Could not reserve slot. Please try again")
     } finally {
-      setReserving(false)
+      if (!booked) setReserving(false)
     }
   }
 
@@ -906,23 +917,32 @@ export default function BookingFlow({
 
           {/* Reserve button (before slot is held) */}
           {!reservedBooking && (
-            <button
-              onClick={handleReserve}
-              disabled={reserving}
-              className="btn-primary mt-5 w-full"
-            >
-              {reserving ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Reserving slot…
-                </span>
-              ) : (
-                !isAuthenticated ? "Sign in to reserve" : "Reserve slot"
+            <>
+              <button
+                onClick={handleReserve}
+                disabled={reserving || navigatingToBooking}
+                className="btn-primary mt-5 w-full"
+              >
+                {reserving || navigatingToBooking ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    {navigatingToBooking ? "Booked, opening your booking…" : "Reserving slot…"}
+                  </span>
+                ) : (
+                  !isAuthenticated ? "Sign in to reserve" : "Reserve slot"
+                )}
+              </button>
+              {navigatingToBooking && (
+                /* The button text alone is easy to miss on a phone, and missing it
+                   is exactly what caused the duplicate bookings. */
+                <p className="mt-2 text-center text-sm text-brand">
+                  Your booking is confirmed. Taking you to it now, no need to book again.
+                </p>
               )}
-            </button>
+            </>
           )}
 
           {/* Still waiting on acknowledgement - the payment form is not

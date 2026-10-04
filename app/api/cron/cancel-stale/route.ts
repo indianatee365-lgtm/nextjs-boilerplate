@@ -5,6 +5,7 @@ import { sendBookingPaymentFailedEmail } from "@/lib/resend/email"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import Stripe from "stripe"
 import { PENDING_HOLD_MINUTES } from "@/lib/bookings/pending-hold"
+import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   const { data: stale } = await serviceClient
     .from("bookings")
     .select(`
-      id, starts_at, stripe_payment_intent_id, user_id,
+      id, starts_at, ends_at, stripe_payment_intent_id, user_id,
       bays(name), profiles!user_id(first_name, phone, sms_consent)
     `)
     .eq("status", "pending")
@@ -37,14 +38,19 @@ export async function GET(request: NextRequest) {
   type StaleBooking = {
     id: string
     starts_at: string
+    ends_at: string
     stripe_payment_intent_id: string | null
     user_id: string
     bays: { name: string } | null
     profiles: { first_name: string; phone: string | null; sms_consent: boolean } | null
   }
 
+  const staleRows = stale as StaleBooking[]
+
+  // Release everything first, so the notifications below describe a settled
+  // state rather than racing the updates.
   await Promise.all(
-    (stale as StaleBooking[]).map(async (b) => {
+    staleRows.map(async (b) => {
       if (b.stripe_payment_intent_id) {
         await getStripe().paymentIntents.cancel(b.stripe_payment_intent_id).catch(() => {})
       }
@@ -52,41 +58,75 @@ export async function GET(request: NextRequest) {
         .from("bookings")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .eq("id", b.id)
+    })
+  )
+
+  // One notification per customer per start time, not per booking. Keyed on the
+  // slot as well as the customer so that two releases at genuinely different
+  // times still get their own accurate message.
+  const groups = new Map<string, StaleBooking[]>()
+  for (const b of staleRows) {
+    const key = `${b.user_id}|${b.starts_at}`
+    const list = groups.get(key)
+    if (list) list.push(b)
+    else groups.set(key, [b])
+  }
+
+  await Promise.all(
+    Array.from(groups.values()).map(async (group) => {
+      const first = group[0]
+      if (!first.bays || !first.profiles) return
+
+      const releasedBayNames = group
+        .map((g) => g.bays?.name)
+        .filter((n): n is string => Boolean(n))
+      const bayLabel = releasedBayNames.join(" and ") || first.bays.name
 
       // Abandoned checkout: nothing was ever charged, so this is a soft nudge to
       // rebook, not a cancellation notice. Reuses the same copy the Stripe
       // payment_intent.payment_failed webhook path already sends for a declined
       // card, since "your payment didn't go through" is true either way.
-      if (b.bays && b.profiles) {
-        if (b.profiles.phone && b.profiles.sms_consent) {
-          try {
-            await sendBookingPaymentFailedSms({
-              to: b.profiles.phone,
-              firstName: b.profiles.first_name,
-              bayName: b.bays.name,
-              startsAt: new Date(b.starts_at),
-            })
-          } catch (e) {
-            await logFailure(serviceClient, "cancel-stale-sms-FAILED",
-              `booking=${b.id} err=${String(e).slice(0, 200)}`)
-          }
-        }
+      const stillConfirmedBayNames = await getStillConfirmedBayNames(
+        serviceClient, first.user_id, first.starts_at, first.ends_at,
+      )
 
-        const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(b.user_id)
-        if (authUser?.email) {
-          try {
-            await sendBookingPaymentFailedEmail({
-              to: authUser.email,
-              firstName: b.profiles.first_name,
-              bayName: b.bays.name,
-              startsAt: new Date(b.starts_at),
-            })
-          } catch (e) {
-            await logFailure(serviceClient, "cancel-stale-email-FAILED",
-              `booking=${b.id} err=${String(e).slice(0, 200)}`)
-          }
+      if (first.profiles.phone && first.profiles.sms_consent) {
+        try {
+          await sendBookingPaymentFailedSms({
+            to: first.profiles.phone,
+            firstName: first.profiles.first_name,
+            bayName: bayLabel,
+            startsAt: new Date(first.starts_at),
+            stillConfirmedBayNames,
+          })
+        } catch (e) {
+          await logFailure(serviceClient, "cancel-stale-sms-FAILED",
+            `bookings=${group.map((g) => g.id).join(",")} err=${String(e).slice(0, 200)}`)
         }
       }
+
+      const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(first.user_id)
+      if (authUser?.email) {
+        try {
+          await sendBookingPaymentFailedEmail({
+            to: authUser.email,
+            firstName: first.profiles.first_name,
+            bayName: bayLabel,
+            startsAt: new Date(first.starts_at),
+            stillConfirmedBayNames,
+          })
+        } catch (e) {
+          await logFailure(serviceClient, "cancel-stale-email-FAILED",
+            `bookings=${group.map((g) => g.id).join(",")} err=${String(e).slice(0, 200)}`)
+        }
+      }
+
+      await logEvent(
+        serviceClient,
+        "cancel-stale-released",
+        `user=${first.user_id} starts=${first.starts_at} released=${releasedBayNames.join("+")} ` +
+          `still_confirmed=${stillConfirmedBayNames.join("+") || "none"} bookings=${group.map((g) => g.id).join(",")}`,
+      )
     })
   )
 

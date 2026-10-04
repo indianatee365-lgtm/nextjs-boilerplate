@@ -380,11 +380,22 @@ export async function sendBookingPaymentFailedSms({
   firstName,
   bayName,
   startsAt,
+  stillConfirmedBayNames,
 }: {
   to: string
   firstName: string
   bayName: string
   startsAt: Date
+  /**
+   * Bays this customer STILL holds confirmed for the same window. Added
+   * 2026-10-04: a customer whose accidental duplicate hold expired received
+   * "your payment didn't go through, that slot has been released" for a session
+   * he had in fact already booked successfully, could not reconcile the two,
+   * and phoned in. The message was accurate but incomplete. Naming what
+   * survives also helps the legitimate two-bay case, where knowing WHICH bay
+   * is still yours is the useful part.
+   */
+  stillConfirmedBayNames?: string[]
 }) {
   const timeStr = startsAt.toLocaleString("en-US", {
     weekday: "short",
@@ -397,7 +408,11 @@ export async function sendBookingPaymentFailedSms({
 
   await sendSms(
     to,
-    `Hi ${firstName}, your Tee365 payment for ${bayName} on ${timeStr} didn't go through, so that time slot has been released. No charge was made.\nWant to rebook? tee365.org/book\nQuestions? info@tee365.org\nReply STOP to opt out.`,
+    `Hi ${firstName}, your Tee365 payment for ${bayName} on ${timeStr} didn't go through, so that time slot has been released. No charge was made.` +
+      (stillConfirmedBayNames?.length
+        ? `\nYour ${stillConfirmedBayNames.join(" and ")} booking for that time is still confirmed.`
+        : "") +
+      `\nWant to rebook? tee365.org/book\nQuestions? info@tee365.org\nReply STOP to opt out.`,
     "booking-payment-failed"
   )
 }

@@ -609,6 +609,19 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     return { ok: false, status: 500, error: `Failed to create booking: ${bookingError?.message ?? "unknown"}` }
   }
 
+  // Every pending hold gets a log line. Until 2026-10-04 this path was silent,
+  // so when a customer ended up holding the same slot three times over there
+  // was no record of the requests arriving and no way to distinguish a client
+  // sending three from a person clicking three times. Cheap, and it makes the
+  // next occurrence answerable instead of guesswork.
+  await logEvent(
+    serviceClient,
+    "booking-hold-created",
+    `booking=${booking.id} user=${userId} bay=${bay.id} starts=${startDate.toISOString()} ` +
+      `duration=${durationMinutes} total=${pricing.total} credits=${pricing.creditHoursApplied} ` +
+      `pi=${paymentIntent.id} source=${source}`,
+  )
+
   // Record disclosure acknowledgments with body snapshot for audit trail
   if (Array.isArray(disclosureIds) && disclosureIds.length > 0) {
     const { data: disclosureBodies } = await serviceClient

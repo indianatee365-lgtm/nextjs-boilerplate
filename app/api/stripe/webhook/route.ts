@@ -10,6 +10,7 @@ import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/mem
 import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 import { consumeHourCredits } from "@/lib/hour-credits"
 import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
+import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -367,6 +368,13 @@ export async function POST(request: NextRequest) {
       if (lost && lostBay && lostProfile) {
         const { data: { user: lostAuthUser } } = await supabase.auth.admin.getUserById(lost.user_id)
 
+        // Losing one bay of a two-bay booking is the case this matters most in:
+        // the rest of their reservation survived and the bare message does not
+        // say so.
+        const lostStillConfirmed = await getStillConfirmedBayNames(
+          supabase, lost.user_id, lost.starts_at, lost.ends_at,
+        )
+
         if (lostProfile.phone && lostProfile.sms_consent) {
           try {
             await sendBookingPaymentFailedSms({
@@ -374,6 +382,7 @@ export async function POST(request: NextRequest) {
               firstName: lostProfile.first_name,
               bayName: lostBay.name,
               startsAt: new Date(lost.starts_at),
+              stillConfirmedBayNames: lostStillConfirmed,
             })
           } catch (err) {
             await logFailure(supabase, "booking-slot-taken-sms-FAILED",
@@ -388,6 +397,7 @@ export async function POST(request: NextRequest) {
               firstName: lostProfile.first_name,
               bayName: lostBay.name,
               startsAt: new Date(lost.starts_at),
+              stillConfirmedBayNames: lostStillConfirmed,
             })
           } catch (err) {
             await logFailure(supabase, "booking-slot-taken-email-FAILED",
@@ -642,6 +652,9 @@ export async function POST(request: NextRequest) {
         const bookingProfile = failedBookingProfile
         const bay = cancelledBooking.bays as { name: string } | null
         const { data: { user: authUser } } = await supabase.auth.admin.getUserById(cancelledBooking.user_id)
+        const stillConfirmedBayNames = await getStillConfirmedBayNames(
+          supabase, cancelledBooking.user_id, cancelledBooking.starts_at, cancelledBooking.ends_at,
+        )
 
         if (bay && bookingProfile?.phone && bookingProfile.sms_consent) {
           try {
@@ -650,6 +663,7 @@ export async function POST(request: NextRequest) {
               firstName: bookingProfile.first_name,
               bayName: bay.name,
               startsAt: new Date(cancelledBooking.starts_at),
+              stillConfirmedBayNames,
             })
           } catch (err) {
             await logFailure(supabase, "booking-payment-failed-sms-FAILED",
@@ -664,6 +678,7 @@ export async function POST(request: NextRequest) {
               firstName: bookingProfile.first_name,
               bayName: bay.name,
               startsAt: new Date(cancelledBooking.starts_at),
+              stillConfirmedBayNames,
             })
           } catch (err) {
             await logFailure(supabase, "booking-payment-failed-email-FAILED",
