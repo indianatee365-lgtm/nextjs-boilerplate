@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, DollarSign } from "lucide-react"
+import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, DollarSign, Users } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -37,6 +37,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <ClipboardList size={13} />
               Incidents
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
+            <Link
+              href="/admin/audience"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <Users size={13} />
+              Audience
             </Link>
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <Link
