@@ -55,7 +55,7 @@ export default function VeteranToggle({
     return (
       <div className="w-full min-w-[280px] sm:w-auto rounded-lg border border-brand/30 bg-brand/10 p-3">
         <p className="text-xs font-semibold text-brand">
-          Veteran verified &middot; {discountPercent}% off every booking
+          Military &amp; veteran &middot; {discountPercent}% off every booking
         </p>
         <p className="mt-1 text-xs text-neutral-400">
           Since {when}
@@ -66,7 +66,7 @@ export default function VeteranToggle({
           disabled={busy}
           className="mt-2 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:bg-white/5 disabled:opacity-50"
         >
-          {busy ? "Working..." : "Remove veteran status"}
+          {busy ? "Working..." : "Remove military discount"}
         </button>
         {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
       </div>
@@ -77,11 +77,13 @@ export default function VeteranToggle({
     return (
       <div className="w-full min-w-[280px] sm:w-auto rounded-lg border border-white/10 bg-white/[0.02] p-3">
         <p className="text-xs text-neutral-300">
-          Confirm you have seen proof of service for this customer. They will get{" "}
-          {discountPercent}% off every future booking.
+          Apply the military and veteran discount? They will get {discountPercent}% off
+          bay time on every future booking, permanently.
         </p>
         <p className="mt-1 text-xs text-neutral-500">
-          Do not save a copy of their DD-214, VA card or military ID anywhere. Look, verify, delete.
+          Never ask for or keep a DD-214, VA card or military ID. A DD-214 carries a full
+          SSN, and the discount is worth a few dollars a booking. If someone sends a photo
+          anyway, delete it and apply the discount.
         </p>
         <div className="mt-2 flex gap-2">
           <button
@@ -89,7 +91,7 @@ export default function VeteranToggle({
             disabled={busy}
             className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-black hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Working..." : "Confirm veteran status"}
+            {busy ? "Working..." : "Confirm and apply"}
           </button>
           <button
             onClick={() => setConfirming(false)}
@@ -108,7 +110,7 @@ export default function VeteranToggle({
       onClick={() => setConfirming(true)}
       className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition border-brand/30 text-brand hover:bg-brand/10"
     >
-      Grant veteran discount
+      Grant military discount
     </button>
   )
 }

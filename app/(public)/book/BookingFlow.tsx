@@ -798,7 +798,7 @@ export default function BookingFlow({
             )}
             {pricingPreview.veteranDiscount > 0 && (
               <div className="flex justify-between text-green-400">
-                <span>Veteran discount</span>
+                <span>Military &amp; veteran discount</span>
                 <span>−${pricingPreview.veteranDiscount.toFixed(2)}</span>
               </div>
             )}
