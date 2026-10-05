@@ -45,7 +45,7 @@ export default function ReinstateBlockToggle({
 
   if (blocked) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+      <div className="w-full min-w-[280px] sm:w-auto rounded-lg border border-red-500/30 bg-red-500/10 p-3">
         <p className="text-xs font-semibold text-red-300">Self-service restore is blocked</p>
         {reason && <p className="mt-1 text-xs text-neutral-400">Reason: {reason}</p>}
         <p className="mt-1 text-xs text-neutral-500">They can still book a bay. This only blocks restoring a lapsed membership from /account.</p>
@@ -63,7 +63,7 @@ export default function ReinstateBlockToggle({
 
   if (asking) {
     return (
-      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+      <div className="w-full min-w-[280px] sm:w-auto rounded-lg border border-white/10 bg-white/[0.02] p-3">
         <p className="text-xs text-neutral-300">Why is this account blocked from restoring its own membership?</p>
         <input
           value={why}

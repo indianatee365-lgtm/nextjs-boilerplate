@@ -140,7 +140,7 @@ export default async function AdminUserDetailPage({
           as one link. One per row, severity shown by colour. */}
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Account controls</h2>
-        <div className="flex flex-col items-start gap-2 rounded-xl border border-white/10 p-4">
+        <div className="flex flex-wrap items-start gap-2 rounded-xl border border-white/10 p-4">
           <VeteranToggle
             userId={t.id}
             verifiedAt={t.veteran_verified_at}

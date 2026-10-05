@@ -51,7 +51,7 @@ export default function BanCustomerPanel({
 
   if (stage === "done" && result) {
     return (
-      <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
+      <div className="w-full min-w-[280px] sm:w-auto rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
         <p className="text-xs leading-relaxed text-yellow-100">{result}</p>
       </div>
     )
@@ -59,7 +59,7 @@ export default function BanCustomerPanel({
 
   if (banned) {
     return (
-      <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3">
+      <div className="w-full min-w-[280px] sm:w-auto rounded-xl border border-red-500/40 bg-red-500/10 p-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-red-300">Banned</p>
         {reason && <p className="mt-1 text-xs text-neutral-300">Reason: {reason}</p>}
         {bannedAt && (
@@ -84,7 +84,7 @@ export default function BanCustomerPanel({
 
   if (stage === "form" || stage === "working") {
     return (
-      <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/5 p-3">
+      <div className="w-full min-w-[280px] sm:w-auto rounded-xl border border-red-500/40 bg-red-500/5 p-3">
         <p className="text-xs font-semibold text-red-300">Ban {name}?</p>
         <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-neutral-400">
           <li>Blocks booking on the website and by phone</li>
