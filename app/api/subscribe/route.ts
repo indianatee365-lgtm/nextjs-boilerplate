@@ -96,6 +96,14 @@ async function sendViaResend(to: string, subject: string, html: string) {
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`)
 }
 
+/**
+ * DEPRECATED 2026-10-05. Nothing in this app calls this any more: the homepage
+ * waitlist form was replaced with account signup, because the list was a dead
+ * end that 23 people never escaped. Kept alive only in case an old link or a
+ * printed QR code still points here, in which case the person still gets a
+ * welcome email and lands in `waitlist` where the audience page can see them.
+ * Safe to remove once you are sure nothing external posts to it.
+ */
 export async function POST(req: NextRequest) {
   const { email, firstName } = await req.json()
 

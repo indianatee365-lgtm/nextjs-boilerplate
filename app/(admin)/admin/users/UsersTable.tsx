@@ -11,6 +11,7 @@ export type UserRow = {
   role: string | null
   created_at: string
   bookingCount: number
+  cancelledCount: number
   firstBookedAt: string | null
   newThisMonth: boolean
   joinedAndBookedSameDay: boolean
@@ -21,6 +22,7 @@ type Segment =
   | "new_this_month"
   | "no_phone"
   | "never_booked"
+  | "cancelled_only"
   | "single_booking"
   | "same_day"
   | "repeat"
@@ -28,7 +30,8 @@ type Segment =
 const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
   { key: "new_this_month", label: "New this month", hint: "Accounts created this calendar month" },
   { key: "no_phone", label: "No phone number", hint: "Cannot be reached by SMS at all" },
-  { key: "never_booked", label: "Never booked", hint: "Made an account and never completed a booking" },
+  { key: "never_booked", label: "Never booked", hint: "Made an account and never started a booking at all" },
+  { key: "cancelled_only", label: "Only ever cancelled", hint: "Started a booking and backed out, never completed one. These tried, which makes them a different problem from the never booked." },
   { key: "single_booking", label: "Single booking", hint: "Came once and has not been back" },
   { key: "same_day", label: "Joined and booked same day", hint: "Signed up and booked on the same day, most likely only to book" },
   { key: "repeat", label: "Multiple bookings", hint: "Booked more than once" },
@@ -39,7 +42,11 @@ function matches(u: UserRow, segment: Segment): boolean {
     case "all": return true
     case "new_this_month": return u.newThisMonth
     case "no_phone": return !u.phone || u.phone.trim() === ""
-    case "never_booked": return u.bookingCount === 0
+    // Never booked means never tried. Someone who booked and cancelled gets
+    // their own segment, because lumping the two together hides the people who
+    // got all the way to the booking screen and then changed their mind.
+    case "never_booked": return u.bookingCount === 0 && u.cancelledCount === 0
+    case "cancelled_only": return u.bookingCount === 0 && u.cancelledCount > 0
     case "single_booking": return u.bookingCount === 1
     case "same_day": return u.joinedAndBookedSameDay
     case "repeat": return u.bookingCount > 1
@@ -135,7 +142,7 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
   return (
     <div>
       {/* Click a card to filter the list below, click it again to clear. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {SEGMENTS.map((s) => {
           const active = segment === s.key
           return (
@@ -202,6 +209,7 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
               <p className="mt-1 text-sm text-neutral-300">{u.phone ?? "No phone"}</p>
               <p className="mt-0.5 text-xs text-neutral-500">
                 Joined {fmtDate(u.created_at)} &middot; {u.bookingCount} booking{u.bookingCount === 1 ? "" : "s"}
+                {u.cancelledCount > 0 && `, ${u.cancelledCount} cancelled`}
                 {u.joinedAndBookedSameDay && " · booked same day"}
               </p>
             </Link>
@@ -236,6 +244,9 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
                   <td className="px-4 py-3">
                     <Link href={`/admin/users/${u.id}`} className="block">
                       {u.bookingCount}
+                      {u.cancelledCount > 0 && (
+                        <span className="ml-1 text-xs text-neutral-600">({u.cancelledCount} cancelled)</span>
+                      )}
                       {u.joinedAndBookedSameDay && (
                         <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-neutral-400">same day</span>
                       )}

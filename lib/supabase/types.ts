@@ -1530,6 +1530,8 @@ export type Database = {
           phone_verified: boolean
           reinstate_blocked: boolean
           reinstate_blocked_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           veteran_verified_at: string | null
           veteran_verified_by: string | null
           veteran_verification_source: string | null
@@ -1552,6 +1554,8 @@ export type Database = {
           phone_verified?: boolean
           reinstate_blocked?: boolean
           reinstate_blocked_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           veteran_verified_at?: string | null
           veteran_verified_by?: string | null
           veteran_verification_source?: string | null
@@ -1574,6 +1578,8 @@ export type Database = {
           phone_verified?: boolean
           reinstate_blocked?: boolean
           reinstate_blocked_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           veteran_verified_at?: string | null
           veteran_verified_by?: string | null
           veteran_verification_source?: string | null

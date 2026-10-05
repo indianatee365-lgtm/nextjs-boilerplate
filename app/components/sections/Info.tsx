@@ -1,6 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server"
 import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
-import WaitlistForm from "@/app/components/sections/WaitlistForm"
 
 export default async function Info() {
   const serviceClient = await createServiceClient()
@@ -97,15 +96,22 @@ export default async function Info() {
           <div
             className="w-full rounded-2xl border border-[color:var(--brandLine)] bg-white/5 p-6"
           >
-            <h3 className="text-lg font-semibold text-white">Stay in the loop</h3>
+            <h3 className="text-lg font-semibold text-white">Create your account</h3>
             <p className="mt-2 text-sm text-neutral-300">
-              Occasional email about leagues, events, and member deals. No spam,
-              unsubscribe any time.
+              Free to join, no card required. You need an account to book a bay,
+              and most people set one up and play the same day.
             </p>
 
-            <WaitlistForm />
+            <a
+              href="/signup"
+              className="mt-4 inline-block rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95"
+            >
+              Create account
+            </a>
 
-            <p className="mt-2 text-xs text-neutral-400"></p>
+            <p className="mt-3 text-xs text-neutral-400">
+              Already have one? <a href="/login" className="underline hover:text-white">Sign in</a>
+            </p>
           </div>
         </div>
 

@@ -27,10 +27,11 @@ export default async function AdminUsersPage() {
     db
       .from("profiles")
       .select("id, first_name, last_name, phone, role, created_at")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     // Confirmed only. A cancelled booking is not a customer who came in, and
     // every segment here is about whether somebody actually used the place.
-    db.from("bookings").select("user_id, created_at").eq("status", "confirmed"),
+    db.from("bookings").select("user_id, created_at, status").in("status", ["confirmed", "cancelled"]),
   ])
 
   type ProfileRow = {
@@ -41,16 +42,20 @@ export default async function AdminUsersPage() {
     role: string | null
     created_at: string
   }
-  type BookingRow = { user_id: string | null; created_at: string }
+  type BookingRow = { user_id: string | null; created_at: string; status: string }
 
   // count, and the earliest moment they booked, which is what "joined and
   // booked the same day" turns on.
-  const stats = new Map<string, { count: number; firstBookedAt: string | null }>()
+  const stats = new Map<string, { count: number; cancelled: number; firstBookedAt: string | null }>()
   for (const b of (bookings ?? []) as BookingRow[]) {
     if (!b.user_id) continue
-    const prev = stats.get(b.user_id) ?? { count: 0, firstBookedAt: null }
-    prev.count += 1
-    if (!prev.firstBookedAt || b.created_at < prev.firstBookedAt) prev.firstBookedAt = b.created_at
+    const prev = stats.get(b.user_id) ?? { count: 0, cancelled: 0, firstBookedAt: null }
+    if (b.status === "cancelled") {
+      prev.cancelled += 1
+    } else {
+      prev.count += 1
+      if (!prev.firstBookedAt || b.created_at < prev.firstBookedAt) prev.firstBookedAt = b.created_at
+    }
     stats.set(b.user_id, prev)
   }
 
@@ -62,6 +67,7 @@ export default async function AdminUsersPage() {
     return {
       ...p,
       bookingCount,
+      cancelledCount: s?.cancelled ?? 0,
       firstBookedAt: s?.firstBookedAt ?? null,
       newThisMonth: dayKey(p.created_at).slice(0, 7) === thisMonth,
       // Signed up and booked on the same Eastern calendar day. Jerrod's

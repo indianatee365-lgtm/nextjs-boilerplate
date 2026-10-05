@@ -36,14 +36,14 @@ export async function getAudience(): Promise<AudienceMember[]> {
     { data: memberships },
     { data: optOuts },
   ] = await Promise.all([
-    db.from("profiles").select("id, first_name, last_name, banned"),
+    db.from("profiles").select("id, first_name, last_name, banned, deleted_at"),
     db.from("waitlist").select("email, first_name, unsubscribed_at"),
     db.from("bookings").select("user_id, starts_at").eq("status", "confirmed"),
     db.from("memberships").select("user_id, plan_type, status").in("status", ["active", "past_due"]),
     db.from("email_opt_outs").select("email"),
   ])
 
-  type ProfileRow = { id: string; first_name: string | null; last_name: string | null; banned: boolean | null }
+  type ProfileRow = { id: string; first_name: string | null; last_name: string | null; banned: boolean | null; deleted_at: string | null }
   type WaitlistRow = { email: string; first_name: string | null; unsubscribed_at: string | null }
   type BookingRow = { user_id: string | null; starts_at: string }
   type MembershipRow = { user_id: string; plan_type: string; status: string }
@@ -80,8 +80,11 @@ export async function getAudience(): Promise<AudienceMember[]> {
   for (const user of authUsers) {
     const email = user.email?.trim()
     if (!email) continue
-    const key = email.toLowerCase()
     const profile = profileById.get(user.id)
+    // A deleted account keeps an auth row and a tombstone address so the
+    // booking history stays standing. It is not a person we can write to.
+    if (profile?.deleted_at) continue
+    const key = email.toLowerCase()
     const stats = bookingStats.get(user.id)
     const membership = membershipByUser.get(user.id)
     byEmail.set(key, {
