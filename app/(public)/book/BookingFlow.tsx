@@ -100,6 +100,7 @@ export default function BookingFlow({
   advanceDays,
   membershipSlug,
   membershipDiscountPercent = 0,
+  veteranDiscountPercent = 0,
   userName,
   disclosures,
   isAuthenticated,
@@ -113,6 +114,7 @@ export default function BookingFlow({
   advanceDays: number
   membershipSlug: string | null
   membershipDiscountPercent?: number
+  veteranDiscountPercent?: number
   userName: string
   disclosures: Disclosure[]
   isAuthenticated: boolean
@@ -529,6 +531,7 @@ export default function BookingFlow({
         pricePerHour: selectedStart.pricePerHour,
         durationMinutes: selectedDuration,
         membershipDiscountPercent,
+        veteranDiscountPercent,
         creditHours: useFreeHours ? availableCreditHours : 0,
         context: getPricingContext(new Date(selectedStart.startsAt)),
       })
@@ -791,6 +794,12 @@ export default function BookingFlow({
               <div className="flex justify-between text-green-400">
                 <span>Member discount</span>
                 <span>−${pricingPreview.membershipDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {pricingPreview.veteranDiscount > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Veteran discount</span>
+                <span>−${pricingPreview.veteranDiscount.toFixed(2)}</span>
               </div>
             )}
           </div>

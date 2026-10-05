@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
@@ -106,8 +107,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Extending mid-session is priced like any other booking, so the veteran
+    // discount has to apply here too. Keyed on booking.user_id rather than the
+    // caller, because a bay agent can trigger an extension on the customer's
+    // behalf and must not quietly charge them full price.
+    const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, booking.user_id)
+
     const pricing = calculateBookingPrice({
       pricePerHour, durationMinutes: extendMinutes, membershipDiscountPercent, context,
+      veteranDiscountPercent,
     })
 
     const netCharge = pricing.total

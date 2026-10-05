@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import { sendBookingCancellationSms, sendBookingRescheduledSms } from "@/lib/telnyx/sms"
 import { sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
@@ -212,12 +213,15 @@ export async function finalizeReschedule({
     }
   }
 
+  const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, user.id)
+
   // Carry the original booking's hour credits over so rescheduling never costs the
   // customer their free hours; value is recomputed at the new slot's rate.
   const carriedCreditHours = Number((original as { credit_hours_applied?: number }).credit_hours_applied ?? 0)
 
   const newPricing = calculateBookingPrice({
     pricePerHour, durationMinutes: original.duration_minutes, membershipDiscountPercent, context,
+    veteranDiscountPercent,
     creditHours: carriedCreditHours,
   })
 

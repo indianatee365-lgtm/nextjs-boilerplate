@@ -1,6 +1,7 @@
 import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
@@ -278,6 +279,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     }
   }
 
+  const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, userId)
+
   // Validate coupon
   let couponId: string | null = null
   let couponDiscountType: "percent" | "fixed" | undefined
@@ -357,6 +360,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     pricePerHour,
     durationMinutes,
     membershipDiscountPercent,
+    veteranDiscountPercent,
     promoDiscountPercent,
     couponDiscountType,
     couponDiscountValue,
@@ -383,6 +387,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         subtotal: pricing.subtotal,
         promo_discount: pricing.promoDiscount,
         membership_discount: pricing.membershipDiscount,
+        veteran_discount: pricing.veteranDiscount,
         coupon_discount: pricing.couponDiscount,
         tax: pricing.tax,
         gift_card_applied: pricing.giftCardApplied,
@@ -588,7 +593,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       price_per_hour: pricePerHour,
       subtotal: pricing.subtotal,
       promo_discount: pricing.promoDiscount,
-        membership_discount: pricing.membershipDiscount,
+      membership_discount: pricing.membershipDiscount,
+      veteran_discount: pricing.veteranDiscount,
       coupon_discount: pricing.couponDiscount,
       tax: pricing.tax,
       gift_card_applied: pricing.giftCardApplied,

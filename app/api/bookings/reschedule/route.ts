@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
@@ -106,10 +107,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, user.id)
+
     // Price the new slot with the original booking's hour credits still applied,
     // so the delta only reflects the rate difference, never lost free hours.
     const newPricing = calculateBookingPrice({
       pricePerHour, durationMinutes, membershipDiscountPercent, context,
+      veteranDiscountPercent,
       creditHours: Number((booking as { credit_hours_applied?: number }).credit_hours_applied ?? 0),
     })
 

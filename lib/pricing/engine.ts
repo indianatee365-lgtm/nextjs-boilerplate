@@ -22,7 +22,7 @@ export const PREMIUM_END_HOUR = 23
 // On-season months: October (10) through March (3)
 export const ON_SEASON_MONTHS = [10, 11, 12, 1, 2, 3]
 
-// Business timezone — all slot labels and pricing context use local time, not UTC
+// Business timezone: all slot labels and pricing context use local time, not UTC
 const BUSINESS_TZ = "America/Indiana/Indianapolis"
 
 function localParts(date: Date): { hour: number; weekday: number; month: number } {
@@ -52,6 +52,15 @@ export interface SlotPrice {
   context: PricingContext
 }
 
+// Veteran discount, 10% off bay time, set 2026-10-04.
+//
+// Stacks sequentially with everything else, which is the rule the rest of this
+// function already follows (Jerrod's call 2026-09-11: a 20% sale plus a 20%
+// member rate is 36% off, not 40%). So a founder on 30% who is also a veteran
+// pays 37% less, not 40% less. Exported so the marketing copy and the admin
+// screens quote the same number this function charges.
+export const VETERAN_DISCOUNT_PERCENT = 10
+
 // Tax disabled per Indiana DOR ruling 2026-05-30: no sales tax on hourly bay rental, memberships, or gift cards.
 // Keep the constant and the engine logic intact so tax can be re-enabled by changing this one line if the ruling ever shifts.
 export const TAX_RATE = 0
@@ -64,6 +73,7 @@ export interface BookingPrice {
   creditDiscount: number
   promoDiscount: number
   membershipDiscount: number
+  veteranDiscount: number
   couponDiscount: number
   taxableAmount: number
   tax: number
@@ -117,6 +127,7 @@ export function calculateBookingPrice({
   durationMinutes,
   membershipDiscountPercent = 0,
   promoDiscountPercent = 0,
+  veteranDiscountPercent = 0,
   couponDiscountType,
   couponDiscountValue = 0,
   giftCardBalance = 0,
@@ -127,6 +138,7 @@ export function calculateBookingPrice({
   durationMinutes: number
   membershipDiscountPercent?: number
   promoDiscountPercent?: number
+  veteranDiscountPercent?: number
   couponDiscountType?: "percent" | "fixed"
   couponDiscountValue?: number
   giftCardBalance?: number
@@ -160,16 +172,25 @@ export function calculateBookingPrice({
   )
   const afterMembership = afterPromo - membershipDiscount
 
-  // Coupon discount applied after membership
+  // Veteran discount, same sequential compounding as everything above it.
+  // Percentage stages are order independent, so this sits after membership for
+  // readability rather than for arithmetic: only the fixed-amount coupon below
+  // cares where it lands in the chain.
+  const veteranDiscount = parseFloat(
+    ((afterMembership * veteranDiscountPercent) / 100).toFixed(2)
+  )
+  const afterVeteran = afterMembership - veteranDiscount
+
+  // Coupon discount applied last of the percentage stages
   let couponDiscount = 0
   if (couponDiscountType === "percent") {
     couponDiscount = parseFloat(
-      ((afterMembership * couponDiscountValue) / 100).toFixed(2)
+      ((afterVeteran * couponDiscountValue) / 100).toFixed(2)
     )
   } else if (couponDiscountType === "fixed") {
-    couponDiscount = Math.min(couponDiscountValue, afterMembership)
+    couponDiscount = Math.min(couponDiscountValue, afterVeteran)
   }
-  const afterCoupon = afterMembership - couponDiscount
+  const afterCoupon = afterVeteran - couponDiscount
 
   // Tax applies on the discounted amount, before gift card (gift card is a payment method)
   const taxableAmount = parseFloat(afterCoupon.toFixed(2))
@@ -190,6 +211,7 @@ export function calculateBookingPrice({
     creditDiscount,
     promoDiscount,
     membershipDiscount,
+    veteranDiscount,
     couponDiscount,
     taxableAmount,
     tax,
@@ -206,7 +228,7 @@ export function calculateBookingPrice({
  */
 export function generateDaySlots(date: Date, extraHours = 4): { startsAt: Date; endsAt: Date; label: string }[] {
   const slots = []
-  // Use the date as-is — callers pass local midnight expressed in UTC,
+  // Use the date as-is, callers pass local midnight expressed in UTC,
   // so resetting hours here would snap to UTC midnight and lose the offset.
   const start = new Date(date)
   const labelFmt = new Intl.DateTimeFormat("en-US", {

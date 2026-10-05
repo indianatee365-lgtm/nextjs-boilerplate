@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
 import { hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 import { isInFirstYear } from "@/lib/membership/first-year"
+import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -43,6 +44,7 @@ export default async function BookPage({
   let membershipSlug: string | null = null
   let advanceDays = 7
   let membershipDiscountPercent = 0
+  const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, user?.id)
 
   {
     const { data: membership } = user
@@ -154,6 +156,7 @@ export default async function BookPage({
         advanceDays={advanceDays}
         membershipSlug={membershipSlug}
         membershipDiscountPercent={membershipDiscountPercent}
+        veteranDiscountPercent={veteranDiscountPercent}
         userName={userName}
         disclosures={disclosures ?? []}
         isAuthenticated={!!user}

@@ -6,6 +6,8 @@ import ReinstateMembershipButton from "./ReinstateMembershipButton"
 import SendCancelledNoticeButton from "./SendCancelledNoticeButton"
 import ReinstateBlockToggle from "./ReinstateBlockToggle"
 import BanCustomerPanel from "./BanCustomerPanel"
+import VeteranToggle from "./VeteranToggle"
+import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -25,11 +27,11 @@ export default async function AdminUserDetailPage({
   if ((meProfile as { role: string } | null)?.role !== "admin") redirect("/account")
 
   const [{ data: target }, { data: authUserRes }] = await Promise.all([
-    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at, reinstate_blocked, reinstate_blocked_reason, banned, banned_at, banned_reason").eq("id", id).single(),
+    serviceClient.from("profiles").select("id, first_name, last_name, phone, role, sms_consent, stripe_customer_id, created_at, reinstate_blocked, reinstate_blocked_reason, banned, banned_at, banned_reason, veteran_verified_at, veteran_verification_source").eq("id", id).single(),
     serviceClient.auth.admin.getUserById(id),
   ])
   if (!target) notFound()
-  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null; banned: boolean | null; banned_at: string | null; banned_reason: string | null }
+  const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null; banned: boolean | null; banned_at: string | null; banned_reason: string | null; veteran_verified_at: string | null; veteran_verification_source: string | null }
   const targetEmail = authUserRes?.user?.email ?? "N/A"
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
@@ -110,6 +112,12 @@ export default async function AdminUserDetailPage({
             reason={t.reinstate_blocked_reason}
           />
         )}
+        <VeteranToggle
+          userId={t.id}
+          verifiedAt={t.veteran_verified_at}
+          source={t.veteran_verification_source}
+          discountPercent={VETERAN_DISCOUNT_PERCENT}
+        />
         <BanCustomerPanel
           userId={t.id}
           name={`${t.first_name} ${t.last_name}`}
