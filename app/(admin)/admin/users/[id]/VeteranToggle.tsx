@@ -53,7 +53,7 @@ export default function VeteranToggle({
       timeZone: "America/Indiana/Indianapolis",
     })
     return (
-      <div className="mt-2 rounded-lg border border-brand/30 bg-brand/10 p-3">
+      <div className="rounded-lg border border-brand/30 bg-brand/10 p-3">
         <p className="text-xs font-semibold text-brand">
           Veteran verified &middot; {discountPercent}% off every booking
         </p>
@@ -75,7 +75,7 @@ export default function VeteranToggle({
 
   if (confirming) {
     return (
-      <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
         <p className="text-xs text-neutral-300">
           Confirm you have seen proof of service for this customer. They will get{" "}
           {discountPercent}% off every future booking.
@@ -106,7 +106,7 @@ export default function VeteranToggle({
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="mt-2 text-xs text-neutral-600 underline underline-offset-2 hover:text-brand"
+      className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition border-brand/30 text-brand hover:bg-brand/10"
     >
       Grant veteran discount
     </button>

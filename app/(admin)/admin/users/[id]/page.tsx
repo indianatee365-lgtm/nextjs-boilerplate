@@ -102,29 +102,6 @@ export default async function AdminUserDetailPage({
             </>
           )
         })()}
-        {/* A ban already blocks the self-service restore, so offering the
-            narrower toggle alongside it would just be a second switch for
-            something already off. */}
-        {!t.banned && (
-          <ReinstateBlockToggle
-            userId={t.id}
-            blocked={t.reinstate_blocked === true}
-            reason={t.reinstate_blocked_reason}
-          />
-        )}
-        <VeteranToggle
-          userId={t.id}
-          verifiedAt={t.veteran_verified_at}
-          source={t.veteran_verification_source}
-          discountPercent={VETERAN_DISCOUNT_PERCENT}
-        />
-        <BanCustomerPanel
-          userId={t.id}
-          name={`${t.first_name} ${t.last_name}`}
-          banned={t.banned === true}
-          reason={t.banned_reason}
-          bannedAt={t.banned_at}
-        />
         {memberships && memberships.length > 0 ? (
           <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
@@ -155,6 +132,39 @@ export default async function AdminUserDetailPage({
             </table>
           </div>
         ) : <p className="text-sm text-neutral-500">No memberships.</p>}
+      </section>
+
+      {/* Account controls. Deliberately their own section: a ban and a veteran
+          discount are not membership operations, and burying them under that
+          heading as a row of underlined text made three separate actions read
+          as one link. One per row, severity shown by colour. */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Account controls</h2>
+        <div className="flex flex-col items-start gap-2 rounded-xl border border-white/10 p-4">
+          <VeteranToggle
+            userId={t.id}
+            verifiedAt={t.veteran_verified_at}
+            source={t.veteran_verification_source}
+            discountPercent={VETERAN_DISCOUNT_PERCENT}
+          />
+          {/* A ban already blocks the self-service restore, so offering the
+              narrower toggle alongside it would just be a second switch for
+              something already off. */}
+          {!t.banned && (
+            <ReinstateBlockToggle
+              userId={t.id}
+              blocked={t.reinstate_blocked === true}
+              reason={t.reinstate_blocked_reason}
+            />
+          )}
+          <BanCustomerPanel
+            userId={t.id}
+            name={`${t.first_name} ${t.last_name}`}
+            banned={t.banned === true}
+            reason={t.banned_reason}
+            bannedAt={t.banned_at}
+          />
+        </div>
       </section>
 
       {/* Recent bookings */}

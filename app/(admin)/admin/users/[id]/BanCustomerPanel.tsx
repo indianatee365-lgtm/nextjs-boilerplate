@@ -126,7 +126,7 @@ export default function BanCustomerPanel({
   return (
     <button
       onClick={() => setStage("form")}
-      className="mt-4 text-xs text-neutral-600 underline underline-offset-2 hover:text-red-400"
+      className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition border-red-500/30 text-red-300 hover:bg-red-500/10"
     >
       Ban this customer
     </button>
