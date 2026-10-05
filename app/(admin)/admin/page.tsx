@@ -124,6 +124,7 @@ export default async function AdminPage() {
           href="/admin/logs?filter=communications"
         />
         <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
+        <StatCard icon={<UserCircle size={18} />} label="Users" value={String(userCount ?? 0)} href="/admin/users" />
         <StatCard icon={<Users size={18} />} label="All members" value={String(allMembersCount ?? 0)} href="/admin/members" />
         <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
       </div>
