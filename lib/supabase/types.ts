@@ -208,6 +208,8 @@ export type Database = {
           coupon_id: string | null
           created_at: string
           credit_discount: number
+          grounds_crew_discount: number
+          grounds_crew_minutes: number
           veteran_discount: number
           credit_hours_applied: number
           current_hitter: string | null
@@ -265,6 +267,8 @@ export type Database = {
           coupon_id?: string | null
           created_at?: string
           credit_discount?: number
+          grounds_crew_discount?: number
+          grounds_crew_minutes?: number
           veteran_discount?: number
           credit_hours_applied?: number
           current_hitter?: string | null
@@ -322,6 +326,8 @@ export type Database = {
           coupon_id?: string | null
           created_at?: string
           credit_discount?: number
+          grounds_crew_discount?: number
+          grounds_crew_minutes?: number
           veteran_discount?: number
           credit_hours_applied?: number
           current_hitter?: string | null
@@ -1282,6 +1288,7 @@ export type Database = {
           id: string
           joining_fee: number | null
           max_active_reservations: number | null
+          grounds_crew_daily_hours: number
           max_members: number | null
           name: string
           price_monthly: number
@@ -1300,6 +1307,7 @@ export type Database = {
           id?: string
           joining_fee?: number | null
           max_active_reservations?: number | null
+          grounds_crew_daily_hours?: number
           max_members?: number | null
           name: string
           price_monthly: number
@@ -1318,6 +1326,7 @@ export type Database = {
           id?: string
           joining_fee?: number | null
           max_active_reservations?: number | null
+          grounds_crew_daily_hours?: number
           max_members?: number | null
           name?: string
           price_monthly?: number

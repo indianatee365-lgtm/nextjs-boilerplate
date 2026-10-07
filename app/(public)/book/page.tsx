@@ -4,6 +4,8 @@ import BookingFlow from "./BookingFlow"
 import { hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
+import { groundsCrewDateKey } from "@/lib/membership/grounds-crew"
+import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -44,23 +46,25 @@ export default async function BookPage({
   let membershipSlug: string | null = null
   let advanceDays = 7
   let membershipDiscountPercent = 0
+  let groundsCrewAllowanceMinutes = 0
   const veteranDiscountPercent = await getVeteranDiscountPercent(serviceClient, user?.id)
 
   {
     const { data: membership } = user
       ? await supabase
           .from("memberships")
-          .select("id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+          .select("id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days, grounds_crew_daily_hours)")
           .eq("user_id", user.id)
           .eq("status", "active")
           .single()
       : { data: null }
 
     const plan = membership?.membership_plans as
-      { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
+      { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number; grounds_crew_daily_hours: number | null } | null
 
     membershipSlug = plan?.slug ?? null
     advanceDays = plan?.advance_booking_days ?? 7
+    groundsCrewAllowanceMinutes = Math.round(Number(plan?.grounds_crew_daily_hours ?? 0) * 60)
 
     if (plan) {
       const isFirstYear = isInFirstYear(
@@ -116,6 +120,24 @@ export default async function BookPage({
       : Promise.resolve({ data: [] }),
   ])
 
+  // Grounds Crew minutes this member already holds per morning, so the price
+  // preview takes off exactly what the server will. Free time can only be
+  // booked 24 hours out, so today and the next two mornings cover it.
+  const groundsCrewUsedByDay: Record<string, number> = {}
+  if (user && groundsCrewAllowanceMinutes > 0) {
+    const { data: ownFree } = await serviceClient
+      .from("bookings")
+      .select("starts_at, grounds_crew_minutes")
+      .eq("user_id", user.id)
+      .gt("grounds_crew_minutes", 0)
+      .or(holdsBayFilter())
+      .gte("starts_at", new Date(new Date(nowIso).getTime() - 24 * 3600 * 1000).toISOString())
+    for (const b of (ownFree ?? []) as { starts_at: string; grounds_crew_minutes: number }[]) {
+      const key = groundsCrewDateKey(new Date(b.starts_at))
+      groundsCrewUsedByDay[key] = (groundsCrewUsedByDay[key] ?? 0) + Number(b.grounds_crew_minutes)
+    }
+  }
+
   const availableCreditHours = (hourCredits ?? []).reduce(
     (sum, c) => sum + Number((c as { hours_remaining: number }).hours_remaining), 0)
 
@@ -161,6 +183,8 @@ export default async function BookPage({
         disclosures={disclosures ?? []}
         isAuthenticated={!!user}
         availableCreditHours={availableCreditHours}
+        groundsCrewAllowanceMinutes={groundsCrewAllowanceMinutes}
+        groundsCrewUsedByDay={groundsCrewUsedByDay}
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
         prefillDate={prefillDate}
         prefillDurationMinutes={prefillDurationMinutes}

@@ -68,7 +68,7 @@ export default async function AccountDashboard({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked, veteran_verified_at").eq("id", userId).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly)")
+        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly, grounds_crew_daily_hours)")
         .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(1)
@@ -123,7 +123,7 @@ export default async function AccountDashboard({
 
   const plan = membership?.membership_plans as {
     name: string; display_name: string | null; slug: string; discount_percent: number; first_year_discount: number | null
-    advance_booking_days: number; max_active_reservations: number
+    advance_booking_days: number; max_active_reservations: number; grounds_crew_daily_hours?: number | null
   } | null
   const membershipStatus = membership?.status as string | undefined
   const founderNumber = membership?.founder_number as number | null | undefined
@@ -220,6 +220,14 @@ export default async function AccountDashboard({
               <p className="text-neutral-500">Active reservations</p>
               <p className="text-white font-medium mt-0.5">Up to {plan.max_active_reservations}</p>
             </div>
+            {Number(plan.grounds_crew_daily_hours ?? 0) > 0 && (
+              <div className="col-span-2 rounded-lg bg-black/20 px-3 py-2">
+                <p className="text-neutral-500">Grounds Crew hours</p>
+                <p className="text-white font-medium mt-0.5">
+                  {Number(plan.grounds_crew_daily_hours)} free hrs every weekday morning, midnight to 8am. Book within 24 hours of start.
+                </p>
+              </div>
+            )}
             {founderNumber && (
               <div className="rounded-lg bg-black/20 px-3 py-2">
                 <p className="text-neutral-500">Member number</p>

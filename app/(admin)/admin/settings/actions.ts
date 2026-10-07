@@ -21,3 +21,19 @@ export async function setAdminSetting(key: string, value: boolean) {
     .upsert({ key, value, updated_at: new Date().toISOString() })
   revalidatePath("/admin/settings")
 }
+
+// Puts a membership plan on sale or takes it off, by flipping
+// membership_plans.active. Checkout refuses inactive plans and /join hides
+// them from customers, so this one switch is the whole launch (and the whole
+// rollback). Existing members keep their benefits either way: bookings read
+// the plan through the membership, not through `active`.
+// Allowlisted so a stray call can never pull Eagle or Birdie off sale.
+const SWITCHABLE_PLANS = ["albatross"]
+
+export async function setPlanOnSale(slug: string, onSale: boolean) {
+  if (!SWITCHABLE_PLANS.includes(slug)) throw new Error("Not a switchable plan")
+  const { serviceClient } = await assertAdmin()
+  await serviceClient.from("membership_plans").update({ active: onSale }).eq("slug", slug)
+  revalidatePath("/admin/settings")
+  revalidatePath("/join")
+}

@@ -152,13 +152,16 @@ export async function finalizeReschedule({
 
   const { data: original } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied")
+    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied, grounds_crew_minutes")
     .eq("id", originalBookingId)
     .eq("user_id", user.id)
     .single()
 
   if (!original) throw new Error("Booking not found")
   if (original.status === "cancelled") throw new Error("Booking is already cancelled")
+  if (Number((original as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {
+    throw new Error("Grounds Crew bookings can't be moved. Cancel this one and book the new time, it's still free.")
+  }
 
   const hoursUntil = (new Date(original.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   if (hoursUntil <= 4) throw new Error("Booking is within 4 hours and cannot be rescheduled")

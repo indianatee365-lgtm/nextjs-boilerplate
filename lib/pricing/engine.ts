@@ -69,6 +69,8 @@ export interface BookingPrice {
   pricePerHour: number
   durationHours: number
   subtotal: number
+  groundsCrewHoursApplied: number
+  groundsCrewDiscount: number
   creditHoursApplied: number
   creditDiscount: number
   promoDiscount: number
@@ -132,6 +134,7 @@ export function calculateBookingPrice({
   couponDiscountValue = 0,
   giftCardBalance = 0,
   creditHours = 0,
+  groundsCrewHours = 0,
   context,
 }: {
   pricePerHour: number
@@ -143,18 +146,29 @@ export function calculateBookingPrice({
   couponDiscountValue?: number
   giftCardBalance?: number
   creditHours?: number
+  groundsCrewHours?: number
   context: PricingContext
 }): BookingPrice {
   const durationHours = durationMinutes / 60
   const subtotal = parseFloat((pricePerHour * durationHours).toFixed(2))
 
+  // Grounds Crew hours (the Albatross perk, lib/membership/grounds-crew.ts)
+  // come off the top first, at the slot's rate. Hour credits then cover only
+  // what is left, so nobody spends a credit on time that was already free.
+  // With groundsCrewHours at 0, which is every booking outside Albatross,
+  // every line below works out exactly as it did before this existed.
+  const groundsCrewHoursApplied = Math.min(groundsCrewHours, durationHours)
+  const groundsCrewDiscount = parseFloat(
+    Math.min(pricePerHour * groundsCrewHoursApplied, subtotal).toFixed(2)
+  )
+
   // Hour credits come off the top: they reduce billable time at the slot's rate,
   // so all percentage discounts below only apply to hours actually being paid for.
-  const creditHoursApplied = Math.min(creditHours, durationHours)
+  const creditHoursApplied = Math.min(creditHours, durationHours - groundsCrewHoursApplied)
   const creditDiscount = parseFloat(
-    Math.min(pricePerHour * creditHoursApplied, subtotal).toFixed(2)
+    Math.min(pricePerHour * creditHoursApplied, subtotal - groundsCrewDiscount).toFixed(2)
   )
-  const afterCredits = subtotal - creditDiscount
+  const afterCredits = subtotal - groundsCrewDiscount - creditDiscount
 
   // Site-wide sale (admin-controlled, see /admin/discounts) comes off before
   // the membership discount, so the two stack sequentially rather than being
@@ -207,6 +221,8 @@ export function calculateBookingPrice({
     pricePerHour,
     durationHours,
     subtotal,
+    groundsCrewHoursApplied,
+    groundsCrewDiscount,
     creditHoursApplied,
     creditDiscount,
     promoDiscount,

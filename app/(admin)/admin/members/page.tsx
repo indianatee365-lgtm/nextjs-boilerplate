@@ -26,7 +26,7 @@ export default async function AdminMembersPage({
       profiles!user_id(first_name, last_name, phone, id)
     `)
     .order("started_at", { ascending: false })
-  if (plan === "founder" || plan === "eagle" || plan === "birdie") {
+  if (plan === "founder" || plan === "eagle" || plan === "birdie" || plan === "albatross") {
     query = query.eq("plan_type", plan)
   }
   const { data: memberships } = await query
@@ -40,6 +40,7 @@ export default async function AdminMembersPage({
           { slug: "founder", label: "Founder’s" },
           { slug: "eagle", label: "Eagle" },
           { slug: "birdie", label: "Birdie" },
+          { slug: "albatross", label: "Albatross" },
         ].map(f => (
           <a key={f.slug || "all"} href={f.slug ? `/admin/members?plan=${f.slug}` : "/admin/members"}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${

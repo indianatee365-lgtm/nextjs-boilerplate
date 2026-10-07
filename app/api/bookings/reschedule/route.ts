@@ -30,12 +30,17 @@ export async function POST(request: NextRequest) {
 
     const { data: booking } = await serviceClient
       .from("bookings")
-      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied")
+      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied, grounds_crew_minutes")
       .eq("id", bookingId)
       .eq("user_id", user.id)
       .single()
 
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    // The free part was priced against the original morning's allowance and the
+    // 2-bay limit at that time; repricing a move would have to redo both.
+    if (Number((booking as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {
+      return NextResponse.json({ error: "Grounds Crew bookings can't be moved. Cancel this one and book the new time, it's still free." }, { status: 400 })
+    }
     if (booking.status !== "confirmed" && booking.status !== "pending") {
       return NextResponse.json({ error: "Only active bookings can be rescheduled" }, { status: 400 })
     }

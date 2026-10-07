@@ -128,7 +128,7 @@ function CheckoutContent() {
   const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!["birdie", "eagle", "founder"].includes(planSlug)) {
+    if (!["birdie", "eagle", "founder", "albatross"].includes(planSlug)) {
       router.replace("/join")
       return
     }

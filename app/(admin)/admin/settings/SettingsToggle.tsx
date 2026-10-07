@@ -1,18 +1,22 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { setAdminSetting } from "./actions"
+import { setAdminSetting, setPlanOnSale } from "./actions"
 
 export default function SettingsToggle({
   settingKey,
   label,
   description,
   initialValue,
+  planSlug,
 }: {
   settingKey: string
   label: string
   description: string
   initialValue: boolean
+  // When set, the switch puts this membership plan on or off sale instead of
+  // writing an admin_settings key.
+  planSlug?: string
 }) {
   const [value, setValue] = useState(initialValue)
   const [isPending, startTransition] = useTransition()
@@ -21,7 +25,8 @@ export default function SettingsToggle({
     const next = !value
     setValue(next)
     startTransition(async () => {
-      await setAdminSetting(settingKey, next)
+      if (planSlug) await setPlanOnSale(planSlug, next)
+      else await setAdminSetting(settingKey, next)
     })
   }
 

@@ -355,7 +355,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
     .from("bookings")
     .select(`
       id, status, duration_minutes, user_id,
-      subtotal, membership_discount, coupon_discount, tax, gift_card_applied, credit_discount, total,
+      subtotal, membership_discount, coupon_discount, tax, gift_card_applied, credit_discount, grounds_crew_discount, total,
       bays(name), profiles!user_id(first_name, phone, sms_consent)
     `)
     .eq("id", bookingId)
@@ -364,7 +364,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   const b = booking as {
     id: string; status: string; duration_minutes: number; user_id: string
     subtotal: number; membership_discount: number; coupon_discount: number; tax: number
-    gift_card_applied: number; credit_discount: number; total: number
+    gift_card_applied: number; credit_discount: number; grounds_crew_discount: number; total: number
     bays: { name: string } | null
     profiles: { first_name: string; phone: string | null; sms_consent: boolean } | null
   } | null
@@ -433,7 +433,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
           couponDiscount: Number(b.coupon_discount ?? 0),
           tax: Number(b.tax ?? 0),
           giftCardApplied: Number(b.gift_card_applied ?? 0),
-          hourCreditDiscount: Number(b.credit_discount ?? 0),
+          hourCreditDiscount: Number(b.credit_discount ?? 0) + Number(b.grounds_crew_discount ?? 0),
           total: Number(b.total ?? 0),
         })
       } catch (emailError) {

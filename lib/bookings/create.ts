@@ -2,6 +2,13 @@ import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
+import {
+  GROUNDS_CREW_MAX_BAYS,
+  groundsCrewDateKey,
+  groundsCrewErrorMessage,
+  groundsCrewFreeMinutes,
+  minutesInGroundsCrewWindow,
+} from "@/lib/membership/grounds-crew"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
@@ -103,12 +110,12 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // copy, so a plan change only ever needs a DB update.
   const { data: membership } = await serviceClient
     .from("memberships")
-    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days)")
+    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days, grounds_crew_daily_hours)")
     .eq("user_id", userId)
     .eq("status", "active")
     .single()
   const membershipPlan = membership?.membership_plans as
-    { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number } | null
+    { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number; grounds_crew_daily_hours: number | null } | null
 
   // Booking window gate: admin only pre-launch, with four carve-outs -
   // (1) a founder can reserve specifically their Friends & Founders Day
@@ -349,6 +356,49 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     creditHours = Math.min(sumCreditHours(credits), durationMinutes / 60)
   }
 
+  // Grounds Crew hours (Albatross only). How much of this booking is free is
+  // worked out here; the 2-bay and per-morning limits are checked here too so
+  // the customer hears about it before any payment starts, but the database
+  // trigger bookings_grounds_crew_limits is what actually holds the line when
+  // two requests arrive together. See lib/membership/grounds-crew.ts.
+  let groundsCrewMinutes = 0
+  const groundsCrewAllowanceMinutes = Math.round(Number(membershipPlan?.grounds_crew_daily_hours ?? 0) * 60)
+  if (groundsCrewAllowanceMinutes > 0 && minutesInGroundsCrewWindow(startDate, durationMinutes) > 0) {
+    const dayKey = groundsCrewDateKey(startDate)
+    const { data: ownFree } = await serviceClient
+      .from("bookings")
+      .select("starts_at, grounds_crew_minutes")
+      .eq("user_id", userId)
+      .gt("grounds_crew_minutes", 0)
+      .or(holdsBayFilter())
+      .gte("starts_at", new Date(startDate.getTime() - 24 * 3600 * 1000).toISOString())
+      .lte("starts_at", new Date(startDate.getTime() + 24 * 3600 * 1000).toISOString())
+    const usedMinutesThatMorning = ((ownFree ?? []) as { starts_at: string; grounds_crew_minutes: number }[])
+      .filter((b) => groundsCrewDateKey(new Date(b.starts_at)) === dayKey)
+      .reduce((sum, b) => sum + Number(b.grounds_crew_minutes), 0)
+
+    groundsCrewMinutes = groundsCrewFreeMinutes({
+      startsAt: startDate,
+      durationMinutes,
+      now: new Date(),
+      dailyAllowanceMinutes: groundsCrewAllowanceMinutes,
+      usedMinutesThatMorning,
+    })
+
+    if (groundsCrewMinutes > 0) {
+      const { count: freeInUse } = await serviceClient
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .gt("grounds_crew_minutes", 0)
+        .or(holdsBayFilter())
+        .lt("starts_at", endDate.toISOString())
+        .gt("ends_at", startDate.toISOString())
+      if ((freeInUse ?? 0) >= GROUNDS_CREW_MAX_BAYS) {
+        return { ok: false, status: 409, error: groundsCrewErrorMessage("GROUNDS_CREW_FULL")! }
+      }
+    }
+  }
+
   // Site-wide sale, if one is running (see /admin/discounts). Read here rather
   // than passed in by the caller so every booking path gets the same price:
   // the web flow, the phone agent, and admin-created bookings all land here.
@@ -366,6 +416,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     couponDiscountValue,
     giftCardBalance,
     creditHours,
+    groundsCrewHours: groundsCrewMinutes / 60,
     context,
   })
 
@@ -384,6 +435,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         duration_minutes: durationMinutes,
         status: "confirmed",
         price_per_hour: pricePerHour,
+        grounds_crew_minutes: groundsCrewMinutes,
+        grounds_crew_discount: pricing.groundsCrewDiscount,
         subtotal: pricing.subtotal,
         promo_discount: pricing.promoDiscount,
         membership_discount: pricing.membershipDiscount,
@@ -405,6 +458,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       .single()
 
     if (bookingError || !booking) {
+      const groundsCrewError = groundsCrewErrorMessage(bookingError?.message)
+      if (groundsCrewError) return { ok: false, status: 409, error: groundsCrewError }
       return { ok: false, status: 500, error: "Failed to create booking" }
     }
 
@@ -479,7 +534,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
           subtotal: pricing.subtotal, membershipDiscount: pricing.membershipDiscount,
           couponDiscount: pricing.couponDiscount, tax: pricing.tax,
           giftCardApplied: pricing.giftCardApplied, total: pricing.total,
-          hourCreditDiscount: pricing.creditDiscount,
+          hourCreditDiscount: pricing.creditDiscount + pricing.groundsCrewDiscount,
         })
         await logEvent(serviceClient, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email} path=free source=${source}`)
       } catch (e) {
@@ -591,6 +646,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       duration_minutes: durationMinutes,
       status: "pending",
       price_per_hour: pricePerHour,
+      grounds_crew_minutes: groundsCrewMinutes,
+      grounds_crew_discount: pricing.groundsCrewDiscount,
       subtotal: pricing.subtotal,
       promo_discount: pricing.promoDiscount,
       membership_discount: pricing.membershipDiscount,
@@ -612,6 +669,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   if (bookingError || !booking) {
     await getStripe().paymentIntents.cancel(paymentIntent.id)
+    const groundsCrewError = groundsCrewErrorMessage(bookingError?.message)
+    if (groundsCrewError) return { ok: false, status: 409, error: groundsCrewError }
     return { ok: false, status: 500, error: `Failed to create booking: ${bookingError?.message ?? "unknown"}` }
   }
 

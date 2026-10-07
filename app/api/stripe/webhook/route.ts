@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
         id, user_id, bay_id, starts_at, ends_at,
         subtotal, tax, total, coupon_discount, membership_discount,
         coupon_id, gift_card_id, gift_card_applied,
-        credit_hours_applied, credit_discount,
+        credit_hours_applied, credit_discount, grounds_crew_discount,
         bays(name),
         profiles!user_id(first_name, last_name, phone, sms_consent)
       `)
@@ -450,7 +450,7 @@ export async function POST(request: NextRequest) {
     const b = booking as typeof booking & {
       subtotal: number; tax: number; total: number
       coupon_discount: number; membership_discount: number; gift_card_applied: number
-      credit_hours_applied: number; credit_discount: number
+      credit_hours_applied: number; credit_discount: number; grounds_crew_discount: number
     }
 
     // Record coupon use
@@ -524,7 +524,7 @@ export async function POST(request: NextRequest) {
           tax: Number(b.tax ?? 0),
           giftCardApplied: Number(b.gift_card_applied ?? 0),
           total: Number(b.total ?? 0),
-          hourCreditDiscount: Number(b.credit_discount ?? 0),
+          hourCreditDiscount: Number(b.credit_discount ?? 0) + Number(b.grounds_crew_discount ?? 0),
         })
         await logEvent(supabase, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email}`)
       } catch (emailError) {

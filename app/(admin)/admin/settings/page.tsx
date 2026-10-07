@@ -16,6 +16,8 @@ export default async function AdminSettingsPage() {
 
   const { data: settings } = await serviceClient.from("admin_settings").select("key, value")
   const settingsMap = Object.fromEntries((settings ?? []).map((s: { key: string; value: boolean }) => [s.key, s.value]))
+  const { data: albatrossPlan } = await serviceClient
+    .from("membership_plans").select("active").eq("slug", "albatross").maybeSingle()
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -23,6 +25,15 @@ export default async function AdminSettingsPage() {
       <p className="mt-1 text-sm text-neutral-500">Admin-only toggles - safe to flip anytime, no code changes needed.</p>
 
       <div className="mt-6 space-y-3">
+        {albatrossPlan && (
+          <SettingsToggle
+            settingKey="plan_on_sale_albatross"
+            planSlug="albatross"
+            label="Albatross membership on sale"
+            description="Off: only admins see the Albatross card on /join, marked as a preview, and nobody can buy it. On: it is on /join for everyone and checkout takes it. Turning it off later stops new sign-ups only; current Albatross members keep everything."
+            initialValue={!!(albatrossPlan as { active: boolean }).active}
+          />
+        )}
         <SettingsToggle
           settingKey="notify_new_bookings"
           label="Text me when someone books"

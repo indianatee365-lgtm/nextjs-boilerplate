@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
+import {
+  GROUNDS_CREW_BOOK_AHEAD_HOURS,
+  groundsCrewDateKey,
+  groundsCrewFreeMinutes,
+  minutesInGroundsCrewWindow,
+} from "@/lib/membership/grounds-crew"
 import { pickBestBay, slotGridGap, type BayUsage } from "@/lib/bookings/bay-selection"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -105,6 +111,8 @@ export default function BookingFlow({
   disclosures,
   isAuthenticated,
   availableCreditHours = 0,
+  groundsCrewAllowanceMinutes = 0,
+  groundsCrewUsedByDay = {},
   prefillCouponCode,
   minBookableDate,
   prefillDate,
@@ -119,6 +127,8 @@ export default function BookingFlow({
   disclosures: Disclosure[]
   isAuthenticated: boolean
   availableCreditHours?: number
+  groundsCrewAllowanceMinutes?: number
+  groundsCrewUsedByDay?: Record<string, number>
   prefillCouponCode?: string
   minBookableDate?: string | null
   prefillDate?: string | null
@@ -526,6 +536,24 @@ export default function BookingFlow({
     return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
   }
 
+  // Grounds Crew (Albatross): same function the server charges with.
+  const selectedStartDate = selectedStart ? new Date(selectedStart.startsAt) : null
+  const groundsCrewMinutes = selectedStartDate
+    ? groundsCrewFreeMinutes({
+        startsAt: selectedStartDate,
+        durationMinutes: selectedDuration,
+        now: new Date(),
+        dailyAllowanceMinutes: groundsCrewAllowanceMinutes,
+        usedMinutesThatMorning: groundsCrewUsedByDay[groundsCrewDateKey(selectedStartDate)] ?? 0,
+      })
+    : 0
+  const groundsCrewTooEarly =
+    !!selectedStartDate &&
+    groundsCrewAllowanceMinutes > 0 &&
+    groundsCrewMinutes === 0 &&
+    minutesInGroundsCrewWindow(selectedStartDate, selectedDuration) > 0 &&
+    selectedStartDate.getTime() - Date.now() > GROUNDS_CREW_BOOK_AHEAD_HOURS * 3600 * 1000
+
   const pricingPreview = selectedStart
     ? calculateBookingPrice({
         pricePerHour: selectedStart.pricePerHour,
@@ -533,6 +561,7 @@ export default function BookingFlow({
         membershipDiscountPercent,
         veteranDiscountPercent,
         creditHours: useFreeHours ? availableCreditHours : 0,
+        groundsCrewHours: groundsCrewMinutes / 60,
         context: getPricingContext(new Date(selectedStart.startsAt)),
       })
     : null
@@ -784,6 +813,12 @@ export default function BookingFlow({
               <span>Subtotal</span>
               <span>${pricingPreview.subtotal.toFixed(2)}</span>
             </div>
+            {pricingPreview.groundsCrewDiscount > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Grounds Crew ({pricingPreview.groundsCrewHoursApplied} hr{pricingPreview.groundsCrewHoursApplied !== 1 ? "s" : ""} free)</span>
+                <span>−${pricingPreview.groundsCrewDiscount.toFixed(2)}</span>
+              </div>
+            )}
             {pricingPreview.creditDiscount > 0 && (
               <div className="flex justify-between text-green-400">
                 <span>Free hours ({pricingPreview.creditHoursApplied} hr{pricingPreview.creditHoursApplied !== 1 ? "s" : ""})</span>
@@ -803,6 +838,12 @@ export default function BookingFlow({
               </div>
             )}
           </div>
+
+          {groundsCrewTooEarly && (
+            <p className="mt-3 text-xs text-neutral-400">
+              Grounds Crew time is free when booked within {GROUNDS_CREW_BOOK_AHEAD_HOURS} hours of the start. Book this one closer to the day and it comes off automatically.
+            </p>
+          )}
 
           {/* Free hour credits toggle */}
           {availableCreditHours > 0 && (

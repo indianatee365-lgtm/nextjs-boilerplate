@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { planSlug } = await request.json()
-    if (!["birdie", "eagle", "founder"].includes(planSlug)) {
+    if (!["birdie", "eagle", "founder", "albatross"].includes(planSlug)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
     }
 
