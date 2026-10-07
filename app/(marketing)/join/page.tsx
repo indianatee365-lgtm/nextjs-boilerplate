@@ -151,7 +151,7 @@ export default async function JoinPage() {
 
         {/* Founder's Club */}
         {founder && (
-          <div className="rounded-2xl bg-brand p-6 flex flex-col relative overflow-hidden">
+          <div className="rounded-2xl p-6 flex flex-col relative overflow-hidden">
             {/* Background texture */}
             <div className="absolute inset-0 opacity-10" style={{
               backgroundImage: "radial-gradient(circle at 70% 20%, white 0%, transparent 60%)"
