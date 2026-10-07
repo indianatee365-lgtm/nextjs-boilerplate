@@ -1,297 +1,280 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import LeagueSignupForm from "./LeagueSignupForm";
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
+import {
+  COMMISSIONER_NAME,
+  COMMISSIONER_PHONE_DISPLAY,
+  COMMISSIONER_PHONE_TEL,
+  LEAGUE_SLUG,
+  activePlanSlug,
+  canStartTeam,
+  hasCardOnFile,
+  inviteUrl,
+  leagueNights,
+  normalizeTeeTime,
+  signupWindow,
+  teamsPerTeeTime,
+  teeTimeLabel,
+  type League,
+} from "@/lib/league"
+import LeagueSignup, { type MyTeam } from "./LeagueSignup"
 
-export const dynamic = "force-dynamic";
-
-const LEAGUE_SLUG = "tuesday-night";
+export const dynamic = "force-dynamic"
 
 const DESCRIPTION =
-  "An 8 week indoor golf league at Tee365 in Mishawaka. Two-person teams, 9 holes a week, net best ball. $30 a week, no season fee up front.";
+  "Thursday Night League at Tee365 in Mishawaka. Two-person scramble, 9 holes, 8 weeks from October 22. $30 a week, and 100% of the pot is paid out in cash."
 
 export const metadata: Metadata = {
-  title: "Tuesday Night Golf League | Tee365 Indoor Golf Simulator",
+  title: "Thursday Night Golf League | Tee365 Indoor Golf Simulator",
   description: DESCRIPTION,
   alternates: { canonical: "https://tee365.org/league" },
   openGraph: {
     type: "website",
-    title: "Tuesday Night Golf League | Tee365 Indoor Golf Simulator",
+    title: "Thursday Night Golf League | Tee365 Indoor Golf Simulator",
     description: DESCRIPTION,
     url: "https://tee365.org/league",
     images: [{ url: "https://tee365.org/hero.jpg" }],
     siteName: "Tee365",
     locale: "en_US",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Tuesday Night Golf League | Tee365 Indoor Golf Simulator",
-    description: DESCRIPTION,
-    images: ["https://tee365.org/hero.jpg"],
-  },
-};
-
-// Postgres hands back plain YYYY-MM-DD. new Date() would read that as UTC
-// midnight and render a day early in Eastern, so build the date as local.
-function parseLocalDate(value: string): Date {
-  const [y, m, d] = value.split("-").map(Number);
-  return new Date(y, m - 1, d);
 }
 
-function formatDate(value: string): string {
-  return parseLocalDate(value).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
+const TZ = "America/Indiana/Indianapolis"
+
+// YYYY-MM-DD is a calendar day; build it at noon UTC so no timezone shifts it.
+function dayLabel(key: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" })
+}
+function instantLabel(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: TZ })
 }
 
-function weeklyDates(startsOn: string, endsOn: string): Date[] {
-  const out: Date[] = [];
-  const end = parseLocalDate(endsOn);
-  const cursor = parseLocalDate(startsOn);
-  while (cursor <= end) {
-    out.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 7);
-  }
-  return out;
-}
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
-const HOW_IT_WORKS = [
-  {
-    label: "Two-person teams",
-    body: "Bring a partner or we will pair you with one. Two teams share a bay, four players total, so nobody is standing around waiting on a foursome.",
-  },
-  {
-    label: "9 holes, net best ball",
-    body: "Your team takes the better net score on each hole. One blown hole does not wreck your night, which matters when the field runs from scratch to 25 handicap.",
-  },
-  {
-    label: "Handicaps after week two",
-    body: "Weeks one and two everybody plays it straight. From week three on you get a handicap off your own scoring average, recalculated every week.",
-  },
-  {
-    label: "Two tee times a night",
-    body: "5:30pm and 7:30pm across all four bays. Pick the one you want at signup and keep it all season.",
-  },
-  {
-    label: "Miss a week",
-    body: "Play your round any other time that week at league rate, or take a blind draw score. Tell us before Tuesday and it is handled.",
-  },
-];
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
 
 export default async function LeaguePage() {
-  const service = await createServiceClient();
+  // League tables are newer than lib/supabase/types.ts, so this client is untyped.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const service: any = await createServiceClient()
+  const { data: leagueRow } = await service.from("leagues").select("*").eq("slug", LEAGUE_SLUG).maybeSingle()
+  const league = leagueRow as League | null
+  if (!league) notFound()
 
-  const { data: league } = await service
-    .from("leagues")
-    .select("*")
-    .eq("slug", LEAGUE_SLUG)
-    .maybeSingle();
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!league) notFound();
-
-  const { count } = await service
-    .from("league_participants")
-    .select("id", { count: "exact", head: true })
-    .eq("league_id", league.id)
-    .eq("status", "registered");
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // A league stays a draft until active is flipped on. Admins can preview it,
-  // everyone else gets a 404 so an unfinished season never leaks.
-  let isAdmin = false;
+  let isAdmin = false
   if (user) {
-    const { data: profile } = await service
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    isAdmin = profile?.role === "admin";
+    const { data: profile } = await service.from("profiles").select("role").eq("id", user.id).maybeSingle()
+    isAdmin = (profile as { role: string } | null)?.role === "admin"
   }
+  // A draft until active is turned on: admins preview it, everyone else 404s.
+  if (!league.active && !isAdmin) notFound()
 
-  if (!league.active && !isAdmin) notFound();
+  const nights = leagueNights(league)
+  const weeks = nights.length
+  const perWeek = Number(league.price_per_session ?? 0)
+  const potPerWeek = Number(league.prize_pool_per_session ?? 0)
+  const maxPlayers = league.max_players ?? 32
+  const fullPot = potPerWeek * maxPlayers * weeks
+  const teeTimes = (league.tee_times ?? ["17:30", "19:30"]).map(normalizeTeeTime)
+  const counts = await teamsPerTeeTime(service, league.id)
+  const teamsLeft = teeTimes.reduce((sum, t) => sum + Math.max(league.teams_per_tee_time - (counts[t] ?? 0), 0), 0)
+  const window = signupWindow(league)
 
-  let alreadyIn = false;
+  // Who is looking, and where they stand.
+  let myTeam: MyTeam | null = null
+  let canStart = false
+  let hasCard = false
   if (user) {
     const { data: mine } = await service
-      .from("league_participants")
-      .select("id")
-      .eq("league_id", league.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    alreadyIn = Boolean(mine);
+      .from("league_participants").select("team_id, role").eq("league_id", league.id).eq("user_id", user.id).maybeSingle()
+    const m = mine as { team_id: string | null; role: "captain" | "partner" | null } | null
+    if (m?.team_id) {
+      const { data: t } = await service.from("league_teams")
+        .select("name, tee_time, status, invite_token, partner_invite_name, captain:profiles!league_teams_captain_user_id_fkey(first_name), partner:profiles!league_teams_partner_user_id_fkey(first_name)")
+        .eq("id", m.team_id).single()
+      const team = t as {
+        name: string; tee_time: string; status: MyTeam["status"]; invite_token: string; partner_invite_name: string | null
+        captain: { first_name: string } | null; partner: { first_name: string } | null
+      } | null
+      if (team) {
+        myTeam = {
+          name: team.name,
+          role: m.role ?? "captain",
+          teeTime: teeTimeLabel(team.tee_time),
+          status: team.status,
+          captainName: team.captain?.first_name ?? "Captain",
+          partnerName: team.partner?.first_name ?? team.partner_invite_name ?? "your partner",
+          inviteLink: m.role === "captain" ? inviteUrl(team.invite_token) : null,
+        }
+      }
+    } else {
+      canStart = isAdmin || (window !== "closed" && canStartTeam(window, await activePlanSlug(service, user.id)))
+      hasCard = await hasCardOnFile(service, user.id)
+    }
   }
 
-  const endsOn = league.ends_on ?? league.starts_on;
-  const dates = weeklyDates(league.starts_on, endsOn);
-  const weeks = dates.length;
-  const maxPlayers = league.max_players ?? 32;
-  const spotsLeft = Math.max(maxPlayers - (count ?? 0), 0);
+  const opens = {
+    founders: league.founders_opens_at ? instantLabel(league.founders_opens_at) : null,
+    members: league.members_opens_at ? instantLabel(league.members_opens_at) : null,
+    public: league.public_opens_at ? instantLabel(league.public_opens_at) : null,
+    closes: league.signup_closes_on ? dayLabel(league.signup_closes_on, { weekday: "short", month: "short", day: "numeric" }) : null,
+  }
+  const notOpenMessage =
+    window === "closed" ? "Signups for this season have closed."
+    : `Signups open to Founders ${opens.founders}, to Eagle and Albatross members ${opens.members}, and to everyone ${opens.public}.`
 
-  const perWeek = Number(league.price_per_session ?? 0);
-  const potPerWeek = Number(league.prize_pool_per_session ?? 0);
-  const bayPerWeek = perWeek - potPerWeek;
-  const seasonTotal = perWeek * weeks;
-  const totalPot = potPerWeek * maxPlayers * weeks;
+  const { data: disclosures } = await service.from("disclosures").select("id, title, body").eq("active", true).order("created_at")
+
+  const first = nights[0]
+  const last = nights[nights.length - 1]
+  const skipped = (league.skip_dates ?? []).map((d) => dayLabel(d, { month: "short", day: "numeric" }))
+  const chargeText =
+    `I authorize Tee365 to charge my card ${money.format(perWeek)} on each league night, ${weeks} nights from ` +
+    `${dayLabel(first, { month: "short", day: "numeric" })} to ${dayLabel(last, { month: "short", day: "numeric" })}` +
+    `${skipped.length ? ` (no league ${skipped.join(", ")})` : ""}. Once week one tees off I'm in for the season, missed weeks included.`
+
+  const teeOptions = teeTimes.map((t) => ({
+    value: t, label: teeTimeLabel(t), teamsLeft: Math.max(league.teams_per_tee_time - (counts[t] ?? 0), 0),
+  }))
 
   return (
-    <main className="mx-auto max-w-3xl space-y-10 py-12">
+    <main className="mx-auto max-w-3xl space-y-10 px-4 py-12">
       {!league.active && (
-        <div className="mx-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 md:mx-12">
-          Draft. Only admins can see this page. Set <code>active = true</code> on the league to
-          publish it.
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          Admin preview. Customers can&apos;t see this page until the league is turned on.
         </div>
       )}
-      <header className="px-6 md:px-12">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">
-          Fall {parseLocalDate(league.starts_on).getFullYear()} &middot; {weeks} weeks
+
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+          Fall {first.slice(0, 4)} &middot; {weeks} weeks &middot; Thursdays
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{league.name}</h1>
-        <p className="mt-4 text-sm leading-relaxed text-neutral-300">{league.description}</p>
-        <p className="mt-3 text-sm leading-relaxed text-neutral-300">
-          No season fee to write a check for on day one. You pay {currency.format(perWeek)} a week,
-          and {currency.format(bayPerWeek)} of that is your bay time. The other{" "}
-          {currency.format(potPerWeek)} goes straight into the pot.
+        <p className="mt-4 text-sm leading-relaxed text-neutral-300">
+          Two-person scramble, 9 holes, Thursday nights at {teeTimes.map(teeTimeLabel).join(" or ")}.
+          Eight weeks, {dayLabel(first, { month: "long", day: "numeric" })} to {dayLabel(last, { month: "long", day: "numeric" })}
+          {skipped.length ? `, no league on Thanksgiving` : ""}. Run start to finish by {COMMISSIONER_NAME}, the owner.
         </p>
       </header>
 
-      <section className="px-6 md:px-12">
-        <div className="rounded-2xl border border-[#00A651]/30 bg-[#00A651]/5 p-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">The deal</p>
-          <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
-            {currency.format(perWeek)}
-            <span className="text-lg font-normal text-neutral-400"> / week</span>
-          </p>
-          <p className="mt-2 text-sm text-neutral-300">
-            {currency.format(seasonTotal)} across the full season, billed weekly. Once week one tees
-            off you are in for all {weeks} weeks.
-          </p>
-          <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-6 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">Your cost</dt>
-              <dd className="mt-1 font-semibold text-white">$12.50 / hr</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">Booked solo</dt>
-              <dd className="mt-1 font-semibold text-neutral-400 line-through">$45 / hr</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">Season pot</dt>
-              <dd className="mt-1 font-semibold text-white">{currency.format(totalPot)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">Spots left</dt>
-              <dd className="mt-1 font-semibold text-white">
-                {spotsLeft} of {maxPlayers}
-              </dd>
-            </div>
-          </dl>
-        </div>
+      <section className="rounded-2xl border border-brand/30 bg-brand/5 p-6 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand">The deal</p>
+        <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
+          {money.format(perWeek)}<span className="text-lg font-normal text-neutral-400"> / week per player</span>
+        </p>
+        <p className="mt-2 text-sm text-neutral-300">
+          Charged to your card each league night. {money.format(perWeek - potPerWeek)} is your bay time,
+          {" "}{money.format(potPerWeek)} goes into the pot, and 100% of the pot is paid out in cash.
+        </p>
+        <dl className="mt-6 grid grid-cols-3 gap-4 border-t border-white/10 pt-6 text-sm">
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-neutral-500">Cash pot</dt>
+            <dd className="mt-1 font-semibold text-white">{money.format(fullPot)}</dd>
+            <dd className="text-xs text-neutral-500">at a full field</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-neutral-500">Format</dt>
+            <dd className="mt-1 font-semibold text-white">2-person scramble</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-neutral-500">Teams left</dt>
+            <dd className="mt-1 font-semibold text-white">{teamsLeft} of {league.teams_per_tee_time * teeTimes.length}</dd>
+          </div>
+        </dl>
       </section>
 
-      <section className="px-6 md:px-12 space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-          How it works
-        </h2>
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Prizes</h2>
+        <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-sm">
+          {[
+            ["Low gross", "50% of the pot, cash"],
+            ["Low net", "50% of the pot, cash"],
+            ["2nd place net", "A year of Eagle membership each (already a member? 10 free hours each instead)"],
+            ["3rd place net", "4 free hours each"],
+          ].map(([place, prize]) => (
+            <div key={place} className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between">
+              <span className="font-semibold text-white">{place}</span>
+              <span className="text-neutral-300 sm:text-right">{prize}</span>
+            </div>
+          ))}
+        </div>
+        <ul className="space-y-1.5 text-xs leading-relaxed text-neutral-400">
+          <li>One cash prize per team. If the same team wins low gross and low net, they take gross and the net prize goes to the next team.</li>
+          <li>Prizes go in order: low gross, then 1st, 2nd and 3rd net, skipping a team that already won.</li>
+          <li>Ties go to the lower score in the finale. Still tied, the prize is split.</li>
+          <li>Cash is paid to each player at the finale. Free hours are good through March 31.</li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">How it works</h2>
         <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-          {HOW_IT_WORKS.map(({ label, body }) => (
-            <div key={label} className="space-y-2 p-6">
-              <h3 className="text-sm font-semibold text-white">{label}</h3>
+          {[
+            ["Two-person scramble", "Both of you hit, pick the better shot, and both play the next one from there. One team score per hole."],
+            ["Two teams to a bay", "Four players, two hours, 9 holes. You keep your tee time all season."],
+            ["Your best 7 of 8", "Your season is your best seven weeks. Miss a week and that's your drop. No makeup rounds, no blind draws."],
+            ["Handicaps that run themselves", "Weeks one and two everyone plays straight. From week three each team gets a handicap from its own scores, 80% of what you average over par, capped at 8 strokes, updated every week. Standings show gross and net."],
+            ["Scores on your phone", "Right after your round, one team enters its score and the other team in your bay confirms with a tap. The leaderboard updates that night."],
+            ["You'll always know what's happening", "A text the night before with your tee time and bay, and a Friday recap with the week's results and standings."],
+          ].map(([title, body]) => (
+            <div key={title} className="space-y-1.5 p-5">
+              <h3 className="text-sm font-semibold text-white">{title}</h3>
               <p className="text-sm leading-relaxed text-neutral-300">{body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="px-6 md:px-12">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-          Schedule
-        </h2>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">Schedule</h2>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <ol className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-            {dates.map((d, i) => (
-              <li key={d.toDateString()} className="flex flex-col">
-                <span className="text-xs uppercase tracking-wider text-neutral-500">
-                  Week {i + 1}
-                </span>
-                <span className="font-medium text-white">
-                  {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
+            {nights.map((d, i) => (
+              <li key={d} className="flex flex-col">
+                <span className="text-xs uppercase tracking-wider text-neutral-500">{i === nights.length - 1 ? "Finale" : `Week ${i + 1}`}</span>
+                <span className="font-medium text-white">{dayLabel(d, { month: "short", day: "numeric" })}</span>
               </li>
             ))}
           </ol>
-          <p className="mt-6 border-t border-white/10 pt-4 text-xs leading-relaxed text-neutral-400">
-            Signups close{" "}
-            {league.signup_closes_on ? formatDate(league.signup_closes_on) : "when the league fills"}.
-            Week one is {formatDate(league.starts_on)}, finale is {formatDate(endsOn)}.
-          </p>
+          <div className="mt-5 space-y-1 border-t border-white/10 pt-4 text-xs leading-relaxed text-neutral-400">
+            <p>Signups open to Founders {opens.founders}, to Eagle and Albatross members {opens.members}, and to everyone {opens.public}.</p>
+            <p>Signups close {opens.closes}.</p>
+          </div>
         </div>
       </section>
 
-      <section className="px-6 md:px-12">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">
-            Claim your spot
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
-            {spotsLeft > 0 ? `${spotsLeft} spots left` : "The league is full"}
-          </h2>
-          <LeagueSignupForm
-            leagueId={league.id}
-            signedIn={Boolean(user)}
-            alreadyIn={alreadyIn}
-            full={spotsLeft <= 0}
-          />
-        </div>
-      </section>
-
-      <section className="px-6 md:px-12">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-          Good to know
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand">Sign up your team</p>
+        <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+          {teamsLeft > 0 ? `${teamsLeft} team spots left` : "Full, waitlist open"}
         </h2>
+        <LeagueSignup
+          leagueId={league.id}
+          signedIn={Boolean(user)}
+          canStart={canStart}
+          notOpenMessage={notOpenMessage}
+          hasCard={hasCard}
+          teeTimes={teeOptions}
+          myTeam={myTeam}
+          chargeText={chargeText}
+          disclosures={(disclosures ?? []) as { id: string; title: string; body: string }[]}
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">Good to know</h2>
         <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6 text-sm leading-relaxed text-neutral-300">
-          <p>
-            <span className="font-semibold text-white">Skill level.</span> All of them. That is what
-            the handicap is for. If you have never played a simulator before, week one is a fine
-            place to start.
-          </p>
-          <p>
-            <span className="font-semibold text-white">Clubs.</span> Bring your own or use our
-            loaners. No rental fee.
-          </p>
-          <p>
-            <span className="font-semibold text-white">Food and drinks.</span> We do not sell any,
-            but you are welcome to bring your own. No glass, and no alcohol at Tee365. Zero
-            tolerance, no exceptions.
-          </p>
-          <p>
-            <span className="font-semibold text-white">Prizes.</span> The season pot pays out as
-            Tee365 credit to the top finishers. There is also an optional $5 weekly skins and
-            closest-to-the-pin game, paid out in full every week.
-          </p>
-          <p>
-            <span className="font-semibold text-white">Questions.</span>{" "}
-            <a href="tel:+15744449365" className="text-neutral-200 underline transition hover:text-white">
-              (574) 444-9365
-            </a>{" "}
-            or{" "}
-            <a href="mailto:info@tee365.org" className="text-neutral-200 underline transition hover:text-white">
-              info@tee365.org
-            </a>
-            .
+          <p><span className="font-semibold text-white">Skill level.</span> All of them. That&apos;s what the handicap is for. Never played a simulator? Week one is a fine place to start.</p>
+          <p><span className="font-semibold text-white">Clubs.</span> Bring your own or use our loaners. No rental fee.</p>
+          <p><span className="font-semibold text-white">Food and drinks.</span> Bring your own snacks and soft drinks. No glass, and no alcohol at Tee365. Zero tolerance.</p>
+          <p><span className="font-semibold text-white">Side games.</span> Players often run their own skins game. Tee365 isn&apos;t involved and doesn&apos;t hold any money for it.</p>
+          <p><span className="font-semibold text-white">Your commissioner.</span> {COMMISSIONER_NAME} runs this league personally. Questions, problems or a score that looks wrong:{" "}
+            <a href={`tel:${COMMISSIONER_PHONE_TEL}`} className="text-white underline">{COMMISSIONER_PHONE_DISPLAY}</a> or{" "}
+            <a href="mailto:info@tee365.org" className="text-white underline">info@tee365.org</a>.
           </p>
         </div>
       </section>
     </main>
-  );
+  )
 }

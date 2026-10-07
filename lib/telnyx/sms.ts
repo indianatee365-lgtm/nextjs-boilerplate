@@ -241,6 +241,28 @@ export async function sendFounderMonthlyHoursNotice({
   await sendSms(to, message, "founder-monthly-hours-notice")
 }
 
+export async function sendLeagueTeamConfirmedSms({
+  to,
+  firstName,
+  partnerName,
+  teamName,
+  teeTime,
+  waitlisted,
+}: {
+  to: string
+  firstName: string
+  partnerName: string
+  teamName: string
+  teeTime: string
+  waitlisted: boolean
+}) {
+  const message = waitlisted
+    ? `Hi ${firstName}, ${partnerName} accepted. Team ${teamName} is complete and on the Thursday Night League waitlist. We'll text you the moment a spot opens.\n- jerrod`
+    : `Hi ${firstName}, ${partnerName} accepted. Team ${teamName} is confirmed for the Thursday Night League, ${teeTime} tee time. Week one is Oct 22.\n- jerrod`
+
+  await sendSms(to, message, "league-team-confirmed")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
