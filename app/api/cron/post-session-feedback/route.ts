@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
     .select("id, user_id, ends_at, bays(name), profiles!user_id(first_name)")
     .eq("status", "confirmed")
     .is("feedback_email_sent_at", null)
+    // One feedback email per group: the second bay of a two-bay booking is
+    // the same customer and the same session.
+    .is("parent_booking_id", null)
     .gte("ends_at", windowStart.toISOString())
     .lt("ends_at", windowEnd.toISOString())
 

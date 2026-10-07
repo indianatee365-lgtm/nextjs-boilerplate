@@ -7,6 +7,7 @@ import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 import { createBooking } from "@/lib/bookings/create"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { cancelBookingGroup, getBookingGroup, isGroupedBooking } from "@/lib/bookings/group"
 import { revokeBookingAccess, reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 
 function getStripe() {
@@ -50,6 +51,13 @@ export async function confirmBookingManually(bookingId: string) {
       paid_at: new Date().toISOString(),
     })
     .eq("id", bookingId)
+
+  // The second bay of a two-bay booking rides on this one.
+  await serviceClient
+    .from("bookings")
+    .update({ status: "confirmed", paid_at: new Date().toISOString() })
+    .eq("parent_booking_id", bookingId)
+    .eq("status", "pending")
 
   if (b.profiles?.phone && b.profiles.sms_consent && b.bays) {
     try {
@@ -259,6 +267,14 @@ export async function cancelBooking(bookingId: string) {
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") return
 
+  // Either bay of a two-bay booking: both cancel together with one refund of
+  // the payment that covered them. Admin cancels always refund, as below.
+  const group = await getBookingGroup(serviceClient, bookingId)
+  if (group.length > 1) {
+    await cancelBookingGroup(serviceClient, group, { actorId: user.id, refundEligible: true })
+    return
+  }
+
   if (b.status === "pending" && b.stripe_payment_intent_id) {
     // Cancel the PaymentIntent so the customer can't complete payment after cancellation
     try {
@@ -354,7 +370,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   const { data: booking } = await serviceClient
     .from("bookings")
     .select(`
-      id, status, duration_minutes, user_id,
+      id, status, duration_minutes, user_id, starts_at, parent_booking_id,
       subtotal, membership_discount, coupon_discount, tax, gift_card_applied, credit_discount, grounds_crew_discount, total,
       bays(name), profiles!user_id(first_name, phone, sms_consent)
     `)
@@ -363,6 +379,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
 
   const b = booking as {
     id: string; status: string; duration_minutes: number; user_id: string
+    starts_at: string; parent_booking_id: string | null
     subtotal: number; membership_discount: number; coupon_discount: number; tax: number
     gift_card_applied: number; credit_discount: number; grounds_crew_discount: number; total: number
     bays: { name: string } | null
@@ -370,6 +387,13 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   } | null
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") throw new Error("Cannot reschedule a cancelled booking")
+
+  // Either bay of a two-bay booking can be swapped to another bay at the same
+  // time, but not moved to a different time: that would split the group, and
+  // only the first bay gets a door code.
+  if (new Date(newStartsAt).getTime() !== new Date(b.starts_at).getTime() && await isGroupedBooking(serviceClient, b)) {
+    throw new Error("This is part of a two-bay booking. You can move it to another bay at the same time, but not to a different time.")
+  }
 
   const newStart = new Date(newStartsAt)
   const newEnd = new Date(newStart.getTime() + b.duration_minutes * 60000)
@@ -399,7 +423,9 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   // The old door code was minted against the OLD bay and time window, so it has
   // to be torn down and reminted, or the customer ends up with a code that
   // opens nothing at the new time and still works at the old one.
-  await reissueBookingAccessForNewWindow(serviceClient, bookingId)
+  // The second bay of a two-bay booking has no code of its own (the first bay's
+  // opens the door for the group), so a bay swap must not mint one.
+  if (!b.parent_booking_id) await reissueBookingAccessForNewWindow(serviceClient, bookingId)
 
   const { data: newBay } = await serviceClient.from("bays").select("name").eq("id", newBayId).single()
   const bayName = (newBay as { name: string } | null)?.name ?? b.bays?.name ?? "your bay"

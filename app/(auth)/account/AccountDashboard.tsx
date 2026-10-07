@@ -4,6 +4,7 @@ import Stripe from "stripe"
 import { logout } from "@/app/actions/auth"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
+import { mergeGroupedBookings } from "@/lib/bookings/group-display"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
@@ -75,7 +76,7 @@ export default async function AccountDashboard({
         .maybeSingle(),
       serviceClient
         .from("bookings")
-        .select("id, starts_at, ends_at, status, total, access_code, bays(name)")
+        .select("id, starts_at, ends_at, status, total, access_code, parent_booking_id, bays(name)")
         .eq("user_id", userId)
         .gte("starts_at", new Date().toISOString())
         .in("status", ["confirmed", "pending"])
@@ -317,15 +318,14 @@ export default async function AccountDashboard({
         <h2 className="mb-3 text-lg font-semibold text-white">Upcoming</h2>
         {upcomingBookings && upcomingBookings.length > 0 ? (
           <div className="space-y-3">
-            {upcomingBookings.map((b) => {
-              const bay = b.bays as { name: string } | null
+            {mergeGroupedBookings(upcomingBookings).map((b) => {
               const start = new Date(b.starts_at)
               const end = new Date(b.ends_at)
               return (
                 <div key={b.id} className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-white">{bay?.name}</p>
+                      <p className="font-medium text-white">{b.bayNames.join(" and ")}</p>
                       <p className="mt-0.5 text-sm text-neutral-400">
                         {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}{" · "}
                         {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
@@ -333,7 +333,7 @@ export default async function AccountDashboard({
                         {end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold text-white">${Number(b.total).toFixed(2)}</span>
+                    <span className="text-sm font-semibold text-white">${b.groupTotal.toFixed(2)}</span>
                   </div>
                   {b.access_code && (
                     <div className="mt-3 rounded-lg bg-black/30 px-3 py-2">

@@ -35,6 +35,12 @@ export default async function AdminSettingsPage() {
           />
         )}
         <SettingsToggle
+          settingKey="two_bay_booking"
+          label="Customers can add a second bay"
+          description="Off: only admins see Add a second bay on /book, so you can try it. On: every customer can book two bays at the same time on one payment. Turning it off later stops new two-bay bookings only; existing ones are untouched."
+          initialValue={settingsMap.two_bay_booking === true}
+        />
+        <SettingsToggle
           settingKey="notify_new_bookings"
           label="Text me when someone books"
           description="Sends your phone a text for every new confirmed booking (web, phone, and paid checkout). Turn off if it's a busy day and it's too much."

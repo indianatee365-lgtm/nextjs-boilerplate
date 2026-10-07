@@ -15,6 +15,7 @@ import {
   reservationLimitErrorMessage,
 } from "@/lib/bookings/reservation-limit"
 import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
+import { isTwoBayBookingOn } from "@/lib/bookings/group"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
@@ -50,6 +51,9 @@ export interface CreateBookingInput {
   // exception, or general founder early access), so it can't be bypassed by
   // adding a new channel later.
   source?: "web" | "phone" | "admin"
+  // Two-bay booking (lib/bookings/group.ts): a second bay at the same time,
+  // next to the first when one is free, paid for on the same payment.
+  secondBay?: boolean
 }
 
 export type CreateBookingResult =
@@ -59,6 +63,7 @@ export type CreateBookingResult =
       clientSecret: string | null
       pricing: ReturnType<typeof calculateBookingPrice>
       bay: { id: string; number: number; name: string }
+      secondBay?: { id: string; number: number; name: string }
       startsAt: string
       endsAt: string
     }
@@ -82,6 +87,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     disclosureIds,
     applyHourCredits,
     source = "web",
+    secondBay = false,
   } = input
 
   const { data: callerProfile } = await serviceClient
@@ -264,10 +270,28 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // future bookings either side of the request are already in hand.
   const adjacencyByBayId = buildAdjacencyGaps(recentBookings ?? [], startDate, endDate)
 
-  const bay = pickBestBay(candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
+  // Two-bay booking: only while the switch on /admin/settings is on (admins
+  // can always, which is how it gets previewed). The first bay is picked the
+  // usual way but only from bays that have a free neighbour, when any do, and
+  // the second is the closest free bay to it.
+  if (secondBay && !isAdmin && !(await isTwoBayBookingOn(serviceClient))) {
+    return { ok: false, status: 400, error: "Booking a second bay online isn't available yet." }
+  }
+  if (secondBay && candidates.length < 2) {
+    return { ok: false, status: 409, error: "Only one bay is open at that time. Pick another time for two bays, or book one." }
+  }
+  const pairable = secondBay
+    ? candidates.filter((c) => candidates.some((o) => Math.abs(o.number - c.number) === 1))
+    : []
+  const bay = pickBestBay(pairable.length > 0 ? pairable : candidates, busyBayNumbers, usageByBayId, adjacencyByBayId)
   if (!bay) {
     return { ok: false, status: 409, error: "Bay is not available for this time" }
   }
+  const secondBayRow = secondBay
+    ? candidates
+        .filter((c) => c.id !== bay.id)
+        .sort((a, b) => Math.abs(a.number - bay.number) - Math.abs(b.number - bay.number))[0] ?? null
+    : null
 
   // Get pricing rules
   const { data: pricingRules } = await serviceClient
@@ -417,6 +441,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       startsAt: startDate,
       slotLimit: membershipPlan?.max_active_reservations ?? NON_MEMBER_RESERVATION_LIMIT,
       planName: membershipPlan ? (membershipPlan.display_name ?? membershipPlan.name) : null,
+      bays: secondBayRow ? 2 : 1,
     })
     if (limitError) return { ok: false, status: 409, error: limitError }
   }
@@ -443,7 +468,28 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   })
 
   // Guard against zero/sub-minimum amounts
-  const amountCents = Math.round(pricing.total * 100)
+  // The second bay is priced like the first at its member, veteran and
+  // site-sale rates. Coupons, gift cards, hour credits and Grounds Crew time
+  // apply to the first bay only.
+  const secondBayPricing = secondBayRow
+    ? calculateBookingPrice({
+        pricePerHour,
+        durationMinutes,
+        membershipDiscountPercent,
+        veteranDiscountPercent,
+        promoDiscountPercent,
+        context,
+      })
+    : null
+
+  const amountCents = Math.round((pricing.total + (secondBayPricing?.total ?? 0)) * 100)
+
+  // The free path below confirms a single row with no payment. A group always
+  // goes through a payment, so a group that would cost nothing is turned away
+  // here rather than taught to that path.
+  if (secondBayRow && amountCents === 0) {
+    return { ok: false, status: 400, error: "A second bay can't be added to a free booking online. Text us and we'll set it up." }
+  }
 
   // $0 booking: gift card covers the full amount; skip Stripe entirely
   if (amountCents === 0) {
@@ -696,6 +742,49 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     return { ok: false, status: 500, error: `Failed to create booking: ${bookingError?.message ?? "unknown"}` }
   }
 
+  // Second bay: held on the same payment, pointing at the first through
+  // parent_booking_id. If it can't be held (taken a moment ago, or a limit),
+  // the whole reservation is released so nobody pays for half a group.
+  if (secondBayRow && secondBayPricing) {
+    const { error: secondError } = await serviceClient
+      .from("bookings")
+      .insert({
+        user_id: userId,
+        bay_id: secondBayRow.id,
+        parent_booking_id: booking.id,
+        starts_at: startDate.toISOString(),
+        ends_at: endDate.toISOString(),
+        duration_minutes: durationMinutes,
+        status: "pending",
+        price_per_hour: pricePerHour,
+        subtotal: secondBayPricing.subtotal,
+        promo_discount: secondBayPricing.promoDiscount,
+        membership_discount: secondBayPricing.membershipDiscount,
+        veteran_discount: secondBayPricing.veteranDiscount,
+        coupon_discount: 0,
+        tax: secondBayPricing.tax,
+        gift_card_applied: 0,
+        credit_hours_applied: 0,
+        credit_discount: 0,
+        total: secondBayPricing.total,
+        membership_id: membershipId,
+        stripe_payment_intent_id: null,
+        source,
+      })
+    if (secondError) {
+      await getStripe().paymentIntents.cancel(paymentIntent.id).catch(() => {})
+      await serviceClient.from("bookings")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .eq("id", booking.id)
+      const limitMessage = reservationLimitErrorMessage(secondError.message)
+      return {
+        ok: false,
+        status: 409,
+        error: limitMessage ?? "The second bay was just taken. Try again, or book one bay.",
+      }
+    }
+  }
+
   // Every pending hold gets a log line. Until 2026-10-04 this path was silent,
   // so when a customer ended up holding the same slot three times over there
   // was no record of the requests arriving and no way to distinguish a client
@@ -733,6 +822,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     clientSecret: paymentIntent.client_secret,
     pricing,
     bay,
+    ...(secondBayRow ? { secondBay: secondBayRow } : {}),
     startsAt: startDate.toISOString(),
     endsAt: endDate.toISOString(),
   }

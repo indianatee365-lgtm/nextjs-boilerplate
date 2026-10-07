@@ -113,6 +113,7 @@ export default function BookingFlow({
   availableCreditHours = 0,
   groundsCrewAllowanceMinutes = 0,
   groundsCrewUsedByDay = {},
+  twoBayEnabled = false,
   prefillCouponCode,
   minBookableDate,
   prefillDate,
@@ -129,6 +130,7 @@ export default function BookingFlow({
   availableCreditHours?: number
   groundsCrewAllowanceMinutes?: number
   groundsCrewUsedByDay?: Record<string, number>
+  twoBayEnabled?: boolean
   prefillCouponCode?: string
   minBookableDate?: string | null
   prefillDate?: string | null
@@ -149,6 +151,7 @@ export default function BookingFlow({
   const [couponCode, setCouponCode] = useState(prefillCouponCode ?? "")
   const [giftCardCode, setGiftCardCode] = useState("")
   const [useFreeHours, setUseFreeHours] = useState(true)
+  const [wantSecondBay, setWantSecondBay] = useState(false)
   const [availability, setAvailability] = useState<BayAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(prefilledDate ?? new Date())
@@ -394,6 +397,7 @@ export default function BookingFlow({
           couponCode: couponCode || undefined,
           giftCardCode: giftCardCode || undefined,
           applyHourCredits: useFreeHours && availableCreditHours > 0,
+          secondBay: secondBayOn,
           // Disclosures are acknowledged after the slot is held, immediately
           // before payment, and recorded through /api/bookings/[id]/complete.
         }),
@@ -439,6 +443,22 @@ export default function BookingFlow({
       }
     }
     return Array.from(seen.values())
+  }
+
+  // How many bays can take this whole booking, for "Add a second bay".
+  function countBaysFitting(slotStartsAt: string, durationMins: number): number {
+    const needed = durationMins / 30
+    let count = 0
+    for (const bayAvail of availability) {
+      const startIdx = bayAvail.slots.findIndex((s) => s.startsAt === slotStartsAt)
+      if (startIdx === -1) continue
+      let fits = true
+      for (let i = 0; i < needed; i++) {
+        if (!bayAvail.slots[startIdx + i]?.available) { fits = false; break }
+      }
+      if (fits) count++
+    }
+    return count
   }
 
   function canFitDurationOnAnyBay(slotStartsAt: string, durationMins: number): boolean {
@@ -568,6 +588,34 @@ export default function BookingFlow({
 
   const calendarDays = buildCalendarDays(calendarMonth)
   const mergedSlots = getMergedSlots()
+
+  // Two-bay booking. The second bay is quoted at the member, veteran and sale
+  // rate the server charges (coupons, gift cards, hour credits and Grounds
+  // Crew time stay with the first bay), and is only offered when a second
+  // bay really fits the whole booking. When it doesn't, the nearest times on
+  // the same day that do are offered instead.
+  const secondBayAvailable = twoBayEnabled && !!selectedStart && countBaysFitting(selectedStart.startsAt, selectedDuration) >= 2
+  const secondBayOn = wantSecondBay && secondBayAvailable
+  const secondBayQuote = selectedStart
+    ? calculateBookingPrice({
+        pricePerHour: selectedStart.pricePerHour,
+        durationMinutes: selectedDuration,
+        membershipDiscountPercent,
+        veteranDiscountPercent,
+        context: getPricingContext(new Date(selectedStart.startsAt)),
+      })
+    : null
+  const secondBayPreview = secondBayOn ? secondBayQuote : null
+  const displayTotal = (pricingPreview?.total ?? 0) + (secondBayPreview?.total ?? 0)
+  const twoBayAlternatives = twoBayEnabled && selectedStart && !secondBayAvailable
+    ? mergedSlots
+        .filter((s) => s.available && s.startsAt !== selectedStart.startsAt && countBaysFitting(s.startsAt, selectedDuration) >= 2)
+        .sort((a, b) =>
+          Math.abs(new Date(a.startsAt).getTime() - new Date(selectedStart.startsAt).getTime()) -
+          Math.abs(new Date(b.startsAt).getTime() - new Date(selectedStart.startsAt).getTime()))
+        .slice(0, 3)
+        .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    : []
   const urgentTimer = timeLeft <= 120
 
   return (
@@ -837,12 +885,77 @@ export default function BookingFlow({
                 <span>−${pricingPreview.veteranDiscount.toFixed(2)}</span>
               </div>
             )}
+            {secondBayPreview && (
+              <div className="flex justify-between text-neutral-300">
+                <span>Second bay, same time</span>
+                <span>+${secondBayPreview.total.toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           {groundsCrewTooEarly && (
             <p className="mt-3 text-xs text-neutral-400">
               Grounds Crew time is free when booked within {GROUNDS_CREW_BOOK_AHEAD_HOURS} hours of the start. Book this one closer to the day and it comes off automatically.
             </p>
+          )}
+
+          {/* Add a second bay (lib/bookings/group.ts). Locked once the slot is held. */}
+          {twoBayEnabled && !reservedBooking && (
+            secondBayOn ? (
+              <div className="mt-5 rounded-xl border border-brand bg-brand/10 px-4 py-4">
+                <p className="text-sm font-semibold text-white">Second bay added</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-300">
+                  Same time, side by side whenever two neighboring bays are open. Room for up to 8 players, and one door code gets your whole group in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setWantSecondBay(false)}
+                  className="mt-3 min-h-[44px] rounded-lg border border-white/20 px-4 text-xs font-semibold text-neutral-200 transition hover:bg-white/5"
+                >
+                  Remove second bay
+                </button>
+              </div>
+            ) : secondBayAvailable ? (
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+                <p className="text-sm font-semibold text-white">Bringing more than 4?</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-400">
+                  Each bay fits up to 4 players. Add a second bay for the same time.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setWantSecondBay(true)}
+                  className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border border-brand text-sm font-semibold text-brand transition hover:bg-brand/10"
+                >
+                  Add a second bay{secondBayQuote ? `, +$${secondBayQuote.total.toFixed(2)}` : ""}
+                </button>
+              </div>
+            ) : twoBayAlternatives.length > 0 && selectedStart ? (
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+                <p className="text-sm font-semibold text-white">Bringing more than 4?</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-400">
+                  Only one bay is open at {selectedStart.label}. These times have two bays open:
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {twoBayAlternatives.map((slot) => (
+                    <button
+                      key={slot.startsAt}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStart(slot)
+                        setSelectedBay(findBayForSlot(slot.startsAt, selectedDuration))
+                        setWantSecondBay(true)
+                      }}
+                      className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 text-sm font-semibold text-white transition hover:border-white/30"
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">
+                  Picking one moves your booking to that time with both bays. Or keep {selectedStart.label} with one bay.
+                </p>
+              </div>
+            ) : null
           )}
 
           {/* Free hour credits toggle */}
@@ -890,7 +1003,7 @@ export default function BookingFlow({
 
           <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
             <span className="font-semibold text-white">Total due</span>
-            <span className="text-xl font-bold text-white">${pricingPreview.total.toFixed(2)}</span>
+            <span className="text-xl font-bold text-white">${displayTotal.toFixed(2)}</span>
           </div>
 
           {/* A signed-out member is being quoted list price, which is correct
@@ -1014,7 +1127,7 @@ export default function BookingFlow({
             >
               <PaymentForm
                 returnUrl={`${window.location.origin}/account/bookings?confirmed=${reservedBooking.id}`}
-                total={pricingPreview.total}
+                total={displayTotal}
                 onError={setBookingError}
               />
             </Elements>

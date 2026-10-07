@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { mergeGroupedBookings } from "@/lib/bookings/group-display"
 import { CancelBookingButton } from "./CancelBookingButton"
 
 export const metadata = { title: "My Bookings | Tee365" }
@@ -19,17 +20,18 @@ export default async function BookingsPage({
 
   const { data: bookings } = await serviceClient
     .from("bookings")
-    .select("id, starts_at, ends_at, duration_minutes, status, total, access_code, bays(name)")
+    .select("id, starts_at, ends_at, duration_minutes, status, total, access_code, parent_booking_id, bays(name)")
     .eq("user_id", user.id)
     .order("starts_at", { ascending: false })
     .limit(50)
 
   const now = new Date()
-  const upcoming = (bookings ?? []).filter((b) => new Date(b.starts_at) >= now && b.status !== "cancelled")
-  const past = (bookings ?? []).filter((b) => new Date(b.starts_at) < now || b.status === "cancelled")
+  // A two-bay booking shows as one card. See lib/bookings/group-display.ts.
+  const merged = mergeGroupedBookings(bookings ?? [])
+  const upcoming = merged.filter((b) => new Date(b.starts_at) >= now && b.status !== "cancelled")
+  const past = merged.filter((b) => new Date(b.starts_at) < now || b.status === "cancelled")
 
-  function BookingCard({ b, isUpcoming }: { b: typeof bookings extends (infer T)[] | null ? T : never; isUpcoming: boolean }) {
-    const bay = b.bays as { name: string } | null
+  function BookingCard({ b, isUpcoming }: { b: (typeof merged)[number]; isUpcoming: boolean }) {
     const start = new Date(b.starts_at)
     const end = new Date(b.ends_at)
     const isCancelled = b.status === "cancelled"
@@ -38,7 +40,7 @@ export default async function BookingsPage({
       <div className={`rounded-xl border bg-white/5 px-4 py-4 ${isCancelled ? "border-white/5 opacity-50" : "border-white/10"}`}>
         <div className="flex items-start justify-between">
           <div>
-            <p className="font-medium text-white">{bay?.name ?? "Bay"}</p>
+            <p className="font-medium text-white">{b.bayNames.join(" and ")}</p>
             <p className="mt-0.5 text-sm text-neutral-400">
               {start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}
               {" · "}
@@ -48,7 +50,7 @@ export default async function BookingsPage({
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-white">${Number(b.total).toFixed(2)}</p>
+            <p className="text-sm font-semibold text-white">${b.groupTotal.toFixed(2)}</p>
             <p className={`mt-0.5 text-xs capitalize ${
               b.status === "confirmed" ? "text-green-400" :
               b.status === "pending" ? "text-yellow-400" :
@@ -64,10 +66,14 @@ export default async function BookingsPage({
         )}
         {isUpcoming && !isCancelled && (
           <div className="mt-3 flex items-center justify-between">
-            <Link href={`/account/bookings/${b.id}/reschedule`} className="text-xs text-neutral-500 hover:text-white underline transition-colors">
-              Reschedule
-            </Link>
-            <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={Number(b.total)} />
+            {b.isGroup ? (
+              <p className="text-xs text-neutral-500">Two-bay bookings can&apos;t be moved online</p>
+            ) : (
+              <Link href={`/account/bookings/${b.id}/reschedule`} className="text-xs text-neutral-500 hover:text-white underline transition-colors">
+                Reschedule
+              </Link>
+            )}
+            <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={b.groupTotal} />
           </div>
         )}
       </div>

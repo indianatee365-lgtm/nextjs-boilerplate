@@ -210,6 +210,7 @@ export type Database = {
           credit_discount: number
           grounds_crew_discount: number
           grounds_crew_minutes: number
+          parent_booking_id: string | null
           veteran_discount: number
           credit_hours_applied: number
           current_hitter: string | null
@@ -269,6 +270,7 @@ export type Database = {
           credit_discount?: number
           grounds_crew_discount?: number
           grounds_crew_minutes?: number
+          parent_booking_id?: string | null
           veteran_discount?: number
           credit_hours_applied?: number
           current_hitter?: string | null
@@ -328,6 +330,7 @@ export type Database = {
           credit_discount?: number
           grounds_crew_discount?: number
           grounds_crew_minutes?: number
+          parent_booking_id?: string | null
           veteran_discount?: number
           credit_hours_applied?: number
           current_hitter?: string | null

@@ -36,5 +36,12 @@ export async function DELETE(
     .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_by: user.id })
     .eq("id", id)
 
+  // A two-bay booking's second bay is held on the same payment: release it too.
+  await serviceClient
+    .from("bookings")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_by: user.id })
+    .eq("parent_booking_id", id)
+    .eq("status", "pending")
+
   return NextResponse.json({ ok: true })
 }

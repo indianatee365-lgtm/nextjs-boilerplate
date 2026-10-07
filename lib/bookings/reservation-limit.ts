@@ -27,11 +27,14 @@ export async function checkReservationLimit(
     startsAt,
     slotLimit,
     planName,
+    bays = 1,
   }: {
     userId: string
     startsAt: Date
     slotLimit: number
     planName: string | null
+    /** Bays this request adds to the slot: 2 for a two-bay booking. */
+    bays?: number
   },
 ): Promise<string | null> {
   const { data } = await db
@@ -44,7 +47,7 @@ export async function checkReservationLimit(
   const starts = ((data ?? []) as { starts_at: string }[]).map((b) => new Date(b.starts_at).getTime())
 
   const sameSlot = starts.filter((t) => t === startsAt.getTime()).length
-  if (sameSlot >= MAX_BAYS_PER_SLOT) return BAY_LIMIT_MESSAGE
+  if (sameSlot + bays > MAX_BAYS_PER_SLOT) return BAY_LIMIT_MESSAGE
   if (sameSlot > 0) return null
 
   if (new Set(starts).size < slotLimit) return null

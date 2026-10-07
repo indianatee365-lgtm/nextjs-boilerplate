@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
+import { GROUP_RESCHEDULE_MESSAGE, isGroupedBooking } from "@/lib/bookings/group"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
@@ -30,12 +31,15 @@ export async function POST(request: NextRequest) {
 
     const { data: booking } = await serviceClient
       .from("bookings")
-      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied, grounds_crew_minutes")
+      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied, grounds_crew_minutes, parent_booking_id")
       .eq("id", bookingId)
       .eq("user_id", user.id)
       .single()
 
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    if (await isGroupedBooking(serviceClient, booking as { id: string; parent_booking_id: string | null })) {
+      return NextResponse.json({ error: GROUP_RESCHEDULE_MESSAGE }, { status: 400 })
+    }
     // The free part was priced against the original morning's allowance and the
     // 2-bay limit at that time; repricing a move would have to redo both.
     if (Number((booking as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {

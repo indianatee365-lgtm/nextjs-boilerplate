@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
       profiles!user_id(first_name, last_name, phone, sms_consent)
     `)
     .eq("status", "confirmed")
+    // The second bay of a two-bay booking never gets a code of its own: the
+    // first bay's code opens the one front door for the whole group.
+    .is("parent_booking_id", null)
     .is("reminder_sent_at", null)
     .is("access_code", null)
     .gte("starts_at", windowStart.toISOString())
@@ -59,6 +62,21 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error("[cron/booking-reminders] query error", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Two-bay bookings: the reminder for the first bay names both bays.
+  const childNamesByParent = new Map<string, string[]>()
+  const parentIds = (bookings ?? []).map((b) => b.id)
+  if (parentIds.length > 0) {
+    const { data: kids } = await supabase
+      .from("bookings")
+      .select("parent_booking_id, bays(name)")
+      .in("parent_booking_id", parentIds)
+      .eq("status", "confirmed")
+    for (const k of (kids ?? []) as { parent_booking_id: string; bays: { name: string } | null }[]) {
+      if (!k.bays?.name) continue
+      childNamesByParent.set(k.parent_booking_id, [...(childNamesByParent.get(k.parent_booking_id) ?? []), k.bays.name])
+    }
   }
 
   const results: { id: string; sent: boolean; error?: string }[] = []
@@ -107,7 +125,7 @@ export async function GET(request: NextRequest) {
         await sendAccessCodeReminder({
           to: profile!.phone!,
           firstName: profile!.first_name,
-          bayName: bay.name,
+          bayName: [bay.name, ...(childNamesByParent.get(booking.id) ?? [])].join(" and "),
           accessCode: pinCode,
           startsAt: new Date(booking.starts_at),
         })
@@ -119,7 +137,7 @@ export async function GET(request: NextRequest) {
           await sendAccessCodeEmail({
             to: email,
             firstName: profile?.first_name ?? "there",
-            bayName: bay.name,
+            bayName: [bay.name, ...(childNamesByParent.get(booking.id) ?? [])].join(" and "),
             accessCode: pinCode,
             startsAt: new Date(booking.starts_at),
           })

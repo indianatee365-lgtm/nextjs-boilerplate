@@ -6,6 +6,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import { groundsCrewDateKey } from "@/lib/membership/grounds-crew"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { isTwoBayBookingOn } from "@/lib/bookings/group"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -96,6 +97,9 @@ export default async function BookPage({
   }
 
   const userName = p ? `${p.first_name} ${p.last_name}` : ""
+  // "Add a second bay": admins always (the preview), everyone once the
+  // switch on /admin/settings is on.
+  const twoBayEnabled = p?.role === "admin" || (await isTwoBayBookingOn(serviceClient))
 
   const nowIso = new Date().toISOString()
   const [{ data: bays }, { data: disclosures }, { data: hourCredits }] = await Promise.all([
@@ -185,6 +189,7 @@ export default async function BookPage({
         availableCreditHours={availableCreditHours}
         groundsCrewAllowanceMinutes={groundsCrewAllowanceMinutes}
         groundsCrewUsedByDay={groundsCrewUsedByDay}
+        twoBayEnabled={twoBayEnabled}
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
         prefillDate={prefillDate}
         prefillDurationMinutes={prefillDurationMinutes}

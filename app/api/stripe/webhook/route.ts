@@ -11,6 +11,7 @@ import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 import { consumeHourCredits } from "@/lib/hour-credits"
 import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
+import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -345,6 +346,28 @@ export async function POST(request: NextRequest) {
           .eq("id", lost.id)
       }
 
+      // A two-bay booking's second bay rides on this payment, which was just
+      // refunded in full, so it is released too and named in the messages.
+      const lostChildNames: string[] = []
+      if (lost) {
+        const { data: lostKids } = await supabase
+          .from("bookings")
+          .select("id, total, bays(name)")
+          .eq("parent_booking_id", lost.id)
+          .eq("status", "pending")
+        for (const kid of (lostKids ?? []) as { id: string; total: number; bays: { name: string } | null }[]) {
+          await supabase
+            .from("bookings")
+            .update({
+              status: "cancelled",
+              cancelled_at: new Date().toISOString(),
+              ...(refunded ? { refund_amount: kid.total, refunded_at: new Date().toISOString() } : {}),
+            })
+            .eq("id", kid.id)
+          if (kid.bays?.name) lostChildNames.push(kid.bays.name)
+        }
+      }
+
       const lostProfile = lost?.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
       const lostBay = lost?.bays as { name: string } | null
       const when = lost
@@ -380,7 +403,7 @@ export async function POST(request: NextRequest) {
             await sendBookingPaymentFailedSms({
               to: lostProfile.phone,
               firstName: lostProfile.first_name,
-              bayName: lostBay.name,
+              bayName: bayLabel([lostBay.name, ...lostChildNames]),
               startsAt: new Date(lost.starts_at),
               stillConfirmedBayNames: lostStillConfirmed,
             })
@@ -395,7 +418,7 @@ export async function POST(request: NextRequest) {
             await sendBookingPaymentFailedEmail({
               to: lostAuthUser.email,
               firstName: lostProfile.first_name,
-              bayName: lostBay.name,
+              bayName: bayLabel([lostBay.name, ...lostChildNames]),
               startsAt: new Date(lost.starts_at),
               stillConfirmedBayNames: lostStillConfirmed,
             })
@@ -447,6 +470,12 @@ export async function POST(request: NextRequest) {
 
     const profile = booking.profiles as { first_name: string; last_name: string; phone: string | null; sms_consent: boolean } | null
     const bay = booking.bays as { name: string } | null
+
+    // Two-bay booking: the second bay rides on this same payment. Confirm it,
+    // and make every message below name both bays and the combined amount.
+    // A no-op for every single-bay booking. See lib/bookings/group.ts.
+    const group = await confirmGroupChildren(supabase, booking, paymentIntent.id)
+    const groupBayLabel = bay ? bayLabel([bay.name, ...group.childBayNames]) : ""
     const b = booking as typeof booking & {
       subtotal: number; tax: number; total: number
       coupon_discount: number; membership_discount: number; gift_card_applied: number
@@ -497,7 +526,7 @@ export async function POST(request: NextRequest) {
         await sendBookingConfirmation({
           to: profile.phone,
           firstName: profile.first_name,
-          bayName: bay.name,
+          bayName: groupBayLabel,
           startsAt: new Date(booking.starts_at),
           endsAt: new Date(booking.ends_at),
         })
@@ -515,15 +544,15 @@ export async function POST(request: NextRequest) {
         await sendBookingConfirmationEmail({
           to: authUser.email,
           firstName: profile.first_name,
-          bayName: bay.name,
+          bayName: groupBayLabel,
           startsAt: new Date(booking.starts_at),
           endsAt: new Date(booking.ends_at),
-          subtotal: Number(b.subtotal ?? 0),
-          membershipDiscount: Number(b.membership_discount ?? 0),
+          subtotal: Number(b.subtotal ?? 0) + group.childSubtotal,
+          membershipDiscount: Number(b.membership_discount ?? 0) + group.childMembershipDiscount,
           couponDiscount: Number(b.coupon_discount ?? 0),
           tax: Number(b.tax ?? 0),
           giftCardApplied: Number(b.gift_card_applied ?? 0),
-          total: Number(b.total ?? 0),
+          total: Number(b.total ?? 0) + group.childTotal,
           hourCreditDiscount: Number(b.credit_discount ?? 0) + Number(b.grounds_crew_discount ?? 0),
         })
         await logEvent(supabase, "booking-confirmation-email-sent", `booking=${booking.id} to=${authUser.email}`)
@@ -543,9 +572,9 @@ export async function POST(request: NextRequest) {
     if (profile && bay && notifyNewBookings) {
       const durationMinutes = Math.round((new Date(booking.ends_at).getTime() - new Date(booking.starts_at).getTime()) / 60000)
       await notifyOwner(
-        `New booking: ${profile.first_name} ${profile.last_name}, ${bay.name}, ` +
+        `New booking: ${profile.first_name} ${profile.last_name}, ${groupBayLabel}, ` +
         `${new Date(booking.starts_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}, ` +
-        `${formatDuration(durationMinutes)}, $${Number(b.total ?? 0).toFixed(2)}`
+        `${formatDuration(durationMinutes)}, $${(Number(b.total ?? 0) + group.childTotal).toFixed(2)}`
       )
     } else {
       await logEvent(supabase, "owner-booking-notify-SKIPPED",
@@ -577,7 +606,7 @@ export async function POST(request: NextRequest) {
           await sendAccessCodeReminder({
             to: profile!.phone!,
             firstName: profile!.first_name,
-            bayName: bay.name,
+            bayName: groupBayLabel,
             accessCode: pinCode,
             startsAt: new Date(booking.starts_at),
           })
@@ -585,7 +614,7 @@ export async function POST(request: NextRequest) {
           await sendAccessCodeEmail({
             to: authUser.email,
             firstName: profile?.first_name ?? "there",
-            bayName: bay.name,
+            bayName: groupBayLabel,
             accessCode: pinCode,
             startsAt: new Date(booking.starts_at),
           })

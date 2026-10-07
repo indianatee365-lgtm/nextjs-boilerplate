@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds, applyHourCredits } = body
+    const { bayId, startsAt, durationMinutes, couponCode, giftCardCode, disclosureIds, applyHourCredits, secondBay } = body
 
     const result = await createBooking({
       serviceClient,
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       disclosureIds,
       applyHourCredits,
       source: "web",
+      secondBay: secondBay === true,
     })
 
     if (!result.ok) {
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       clientSecret: result.clientSecret,
       pricing: result.pricing,
       bay: result.bay,
+      secondBay: result.secondBay ?? null,
       startsAt: result.startsAt,
       endsAt: result.endsAt,
     })

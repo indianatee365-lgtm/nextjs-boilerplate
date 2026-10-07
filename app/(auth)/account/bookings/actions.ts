@@ -10,6 +10,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { restoreHourCredits, moveHourCreditUses } from "@/lib/hour-credits"
 import { revokeBookingAccess } from "@/lib/access-control/booking-access"
+import { GROUP_RESCHEDULE_MESSAGE, cancelBookingGroup, getBookingGroup, isGroupedBooking } from "@/lib/bookings/group"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -42,6 +43,14 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   // a pattern. Fix: add forfeit_on_cancel flag set at reschedule time when hoursUntil <= 24.
   const hoursUntil = (new Date(booking.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   const refundEligible = hoursUntil > 24
+
+  // Either bay of a two-bay booking: both cancel together, with one refund of
+  // the single payment that covered them. See lib/bookings/group.ts.
+  const group = await getBookingGroup(serviceClient, bookingId)
+  if (group.length > 1) {
+    await cancelBookingGroup(serviceClient, group, { actorId: user.id, refundEligible })
+    return { refunded: refundEligible }
+  }
 
   const b = booking as typeof booking & {
     stripe_payment_intent_id: string | null
@@ -152,13 +161,16 @@ export async function finalizeReschedule({
 
   const { data: original } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied, grounds_crew_minutes")
+    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied, grounds_crew_minutes, parent_booking_id")
     .eq("id", originalBookingId)
     .eq("user_id", user.id)
     .single()
 
   if (!original) throw new Error("Booking not found")
   if (original.status === "cancelled") throw new Error("Booking is already cancelled")
+  if (await isGroupedBooking(serviceClient, original as { id: string; parent_booking_id: string | null })) {
+    throw new Error(GROUP_RESCHEDULE_MESSAGE)
+  }
   if (Number((original as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {
     throw new Error("Grounds Crew bookings can't be moved. Cancel this one and book the new time, it's still free.")
   }
