@@ -89,7 +89,7 @@ export default function VeteranToggle({
           <button
             onClick={() => apply(true)}
             disabled={busy}
-            className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-black hover:opacity-90 disabled:opacity-50"
+            className="rounded-lg bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-black hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Working..." : "Confirm and apply"}
           </button>

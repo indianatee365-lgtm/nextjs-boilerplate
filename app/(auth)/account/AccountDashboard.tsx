@@ -3,6 +3,7 @@ import Link from "next/link"
 import Stripe from "stripe"
 import { logout } from "@/app/actions/auth"
 import { isInFirstYear } from "@/lib/membership/first-year"
+import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
@@ -64,7 +65,7 @@ export default async function AccountDashboard({
   const nowIso = new Date().toISOString()
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }, { data: hourCredits }] =
     await Promise.all([
-      serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked").eq("id", userId).single(),
+      serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked, veteran_verified_at").eq("id", userId).single(),
       serviceClient
         .from("memberships")
         .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly)")
@@ -265,6 +266,19 @@ export default async function AccountDashboard({
           <Nav interactive={interactive} href="/join" className="mt-2 inline-block text-xs text-brand hover:underline">
             View membership plans →
           </Nav>
+        </div>
+      )}
+
+      {/* Military and veteran discount. Stacks on top of any membership rate, so it
+          gets its own card rather than being folded into the membership badge. */}
+      {(profile as { veteran_verified_at?: string | null } | null)?.veteran_verified_at && (
+        <div className="mt-4 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand)]/10 px-4 py-4">
+          <p className="text-sm font-semibold text-white">Military &amp; veteran discount</p>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            {VETERAN_DISCOUNT_PERCENT}% off bay time on every booking, applied automatically at checkout
+            {plan && membershipStatus === "active" ? ", on top of your member rate" : ""}.
+            Thank you for your service.
+          </p>
         </div>
       )}
 
