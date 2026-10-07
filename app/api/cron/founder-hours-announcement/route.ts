@@ -13,6 +13,8 @@ import { logEvent, logFailure } from "@/lib/observability/notify"
 //   * each founder is marked in admin_logs BEFORE sending; a failed send
 //     removes the mark so a later call retries that founder only
 //   * ?only=<user id> sends to exactly one founder, for the first live test
+//   * ?preview=<user id> sends the exact text and email to that one ADMIN
+//     account instead, marks nothing, and touches no founder
 const EVENT = "founder-monthly-hours-announcement-sent"
 
 function emailParagraphs(): string[] {
@@ -38,6 +40,32 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(10, Math.max(1, Number(request.nextUrl.searchParams.get("limit") ?? 10) || 10))
 
   const serviceClient = await createServiceClient()
+
+  const previewTo = request.nextUrl.searchParams.get("preview")
+  if (previewTo) {
+    const { data: admin } = await serviceClient
+      .from("profiles").select("first_name, phone, sms_consent, role").eq("id", previewTo).maybeSingle()
+    const a = admin as { first_name: string; phone: string | null; sms_consent: boolean; role: string } | null
+    if (!a || a.role !== "admin") return NextResponse.json({ error: "Preview goes to admin accounts only" }, { status: 400 })
+    const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(previewTo)
+    await Promise.all([
+      authUser?.email
+        ? sendFounderMessage({
+            to: authUser.email,
+            firstName: a.first_name,
+            subject: "[Preview] A thank-you for our founders: 2 free hours every month",
+            heading: "2 free hours, every month",
+            paragraphs: emailParagraphs(),
+            ctaText: "Book your free hours",
+            ctaUrl: "https://tee365.org/book",
+            kind: "founder-message-preview",
+          })
+        : Promise.resolve(),
+      a.phone && a.sms_consent ? sendFounderMonthlyHoursNotice({ to: a.phone, firstName: a.first_name }) : Promise.resolve(),
+    ])
+    await logEvent(serviceClient, "founder-monthly-hours-announcement-preview", `to=${previewTo}`)
+    return NextResponse.json({ preview: true, email: Boolean(authUser?.email), sms: Boolean(a.phone && a.sms_consent) })
+  }
 
   const { data: founders } = await serviceClient
     .from("memberships")
