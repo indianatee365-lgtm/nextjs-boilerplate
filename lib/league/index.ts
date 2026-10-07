@@ -40,6 +40,8 @@ export interface League {
   founders_opens_at: string | null
   members_opens_at: string | null
   public_opens_at: string | null
+  /** Non-admins allowed to see the league while it is hidden. No other powers. */
+  preview_user_ids: string[] | null
 }
 
 export type SignupWindow = "not_open" | "founders" | "members" | "public" | "closed"

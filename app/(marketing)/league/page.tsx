@@ -67,8 +67,10 @@ export default async function LeaguePage() {
     const { data: profile } = await service.from("profiles").select("role").eq("id", user.id).maybeSingle()
     isAdmin = (profile as { role: string } | null)?.role === "admin"
   }
-  // A draft until active is turned on: admins preview it, everyone else 404s.
-  if (!league.active && !isAdmin) notFound()
+  // A draft until active is turned on: admins and anyone on the league's
+  // preview list (preview_user_ids, view only) see it, everyone else 404s.
+  const isPreviewer = Boolean(user && (league.preview_user_ids ?? []).includes(user.id))
+  if (!league.active && !isAdmin && !isPreviewer) notFound()
 
   const nights = leagueNights(league)
   const weeks = nights.length
