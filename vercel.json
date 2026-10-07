@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/founders-day-notice",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/founder-monthly-hours",
+      "schedule": "0 9 * * *"
     }
   ]
 }

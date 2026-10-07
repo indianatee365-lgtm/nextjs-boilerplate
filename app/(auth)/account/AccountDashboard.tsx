@@ -229,6 +229,14 @@ export default async function AccountDashboard({
                 </p>
               </div>
             )}
+            {plan.slug === "founder" && (
+              <div className="col-span-2 rounded-lg bg-black/20 px-3 py-2">
+                <p className="text-neutral-500">Founder perk</p>
+                <p className="text-white font-medium mt-0.5">
+                  2 free hours every month. They reset on the 1st and don&apos;t carry over, so use them before month end.
+                </p>
+              </div>
+            )}
             {founderNumber && (
               <div className="rounded-lg bg-black/20 px-3 py-2">
                 <p className="text-neutral-500">Member number</p>

@@ -229,6 +229,18 @@ export async function sendFoundersDayPersonalNotice({
   await sendSms(to, message, "founders-day-personal-notice")
 }
 
+export async function sendFounderMonthlyHoursNotice({
+  to,
+  firstName,
+}: {
+  to: string
+  firstName: string
+}) {
+  const message = `Hi ${firstName}, a thank-you for backing Tee365 from day one: starting this month, every founder gets 2 free hours of bay time every month. October's are already in your account. Book at tee365.org/book and they come off automatically. They reset on the 1st, so use October's by the 31st.\n- jerrod`
+
+  await sendSms(to, message, "founder-monthly-hours-notice")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
