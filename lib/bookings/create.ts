@@ -9,6 +9,12 @@ import {
   groundsCrewFreeMinutes,
   minutesInGroundsCrewWindow,
 } from "@/lib/membership/grounds-crew"
+import {
+  NON_MEMBER_RESERVATION_LIMIT,
+  checkReservationLimit,
+  reservationLimitErrorMessage,
+} from "@/lib/bookings/reservation-limit"
+import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
 import Stripe from "stripe"
 import { sendBookingConfirmation, sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { sendBookingConfirmationEmail } from "@/lib/resend/email"
@@ -110,12 +116,15 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // copy, so a plan change only ever needs a DB update.
   const { data: membership } = await serviceClient
     .from("memberships")
-    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, discount_percent, first_year_discount, advance_booking_days, grounds_crew_daily_hours)")
+    .select("id, plan_id, started_at, year_one_discount_expires_at, membership_plans(slug, display_name, name, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, grounds_crew_daily_hours)")
     .eq("user_id", userId)
     .eq("status", "active")
     .single()
   const membershipPlan = membership?.membership_plans as
-    { slug: string; discount_percent: number; first_year_discount: number | null; advance_booking_days: number; grounds_crew_daily_hours: number | null } | null
+    {
+      slug: string; display_name: string | null; name: string; discount_percent: number; first_year_discount: number | null
+      advance_booking_days: number; max_active_reservations: number | null; grounds_crew_daily_hours: number | null
+    } | null
 
   // Booking window gate: admin only pre-launch, with four carve-outs -
   // (1) a founder can reserve specifically their Friends & Founders Day
@@ -171,10 +180,12 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   // just the gate change in isolation).
   if (!isAdmin && !eligibleAsFriendsDayGuest) {
     const advanceBookingDays = membershipPlan?.advance_booking_days ?? 7
-    const maxBookableDate = new Date()
-    maxBookableDate.setDate(maxBookableDate.getDate() + advanceBookingDays)
-    maxBookableDate.setHours(23, 59, 59, 999)
-    if (startDate > maxBookableDate) {
+    // Compared as Eastern calendar dates. Until 2026-10-07 this was
+    // setHours(23, 59) on the server's clock, which on Vercel is UTC, so the
+    // last bookable day ended at 7:59pm Eastern and its evening slots, the
+    // busiest of the day, were refused while the calendar offered them.
+    const lastBookableDay = addDaysToDateKey(easternDateKey(new Date()), advanceBookingDays)
+    if (easternDateKey(startDate) > lastBookableDay) {
       return { ok: false, status: 403, error: `Bookings can only be made up to ${advanceBookingDays} days in advance` }
     }
   }
@@ -399,6 +410,17 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     }
   }
 
+  // Upcoming-reservation limit, by time slot. See lib/bookings/reservation-limit.ts.
+  if (source !== "admin" && !isAdmin && groundsCrewMinutes === 0) {
+    const limitError = await checkReservationLimit(serviceClient, {
+      userId,
+      startsAt: startDate,
+      slotLimit: membershipPlan?.max_active_reservations ?? NON_MEMBER_RESERVATION_LIMIT,
+      planName: membershipPlan ? (membershipPlan.display_name ?? membershipPlan.name) : null,
+    })
+    if (limitError) return { ok: false, status: 409, error: limitError }
+  }
+
   // Site-wide sale, if one is running (see /admin/discounts). Read here rather
   // than passed in by the caller so every booking path gets the same price:
   // the web flow, the phone agent, and admin-created bookings all land here.
@@ -458,7 +480,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       .single()
 
     if (bookingError || !booking) {
-      const groundsCrewError = groundsCrewErrorMessage(bookingError?.message)
+      const groundsCrewError = groundsCrewErrorMessage(bookingError?.message) ?? reservationLimitErrorMessage(bookingError?.message)
       if (groundsCrewError) return { ok: false, status: 409, error: groundsCrewError }
       return { ok: false, status: 500, error: "Failed to create booking" }
     }
@@ -669,7 +691,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   if (bookingError || !booking) {
     await getStripe().paymentIntents.cancel(paymentIntent.id)
-    const groundsCrewError = groundsCrewErrorMessage(bookingError?.message)
+    const groundsCrewError = groundsCrewErrorMessage(bookingError?.message) ?? reservationLimitErrorMessage(bookingError?.message)
     if (groundsCrewError) return { ok: false, status: 409, error: groundsCrewError }
     return { ok: false, status: 500, error: `Failed to create booking: ${bookingError?.message ?? "unknown"}` }
   }

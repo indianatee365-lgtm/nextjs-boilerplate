@@ -68,6 +68,9 @@ export async function startTestBooking(formData: FormData) {
     price_per_hour: 0,
     subtotal: 0,
     total: 0,
+    // Exempts it from the reservation limit, which only applies to bookings
+    // customers make themselves.
+    source: "admin",
   })
   if (error) throw new Error("Failed to create test booking")
 
