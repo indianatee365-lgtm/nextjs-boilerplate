@@ -12,6 +12,7 @@ import { consumeHourCredits } from "@/lib/hour-credits"
 import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
+import { announceExtension } from "@/lib/bookings/extension-notify"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -80,13 +81,27 @@ export async function POST(request: NextRequest) {
       // succeed. Only covers the case where the customer's phone drops connection
       // right after paying - idempotent, so it's a no-op if finalizeExtend already ran.
       const { bookingId, newEndsAt } = _pi.metadata
+      const extendAmount = (_pi.amount_received ?? _pi.amount ?? 0) / 100
       // Same guarded RPC finalizeExtend uses, so whichever path runs second
       // is a genuine no-op rather than double-counting the extension.
-      await supabase.rpc("apply_booking_extension", {
+      const { data: applied } = await supabase.rpc("apply_booking_extension", {
         p_booking_id: bookingId,
         p_new_ends_at: newEndsAt,
-        p_amount: (_pi.amount_received ?? _pi.amount ?? 0) / 100,
+        p_amount: extendAmount,
       })
+      // This path usually wins the race, so it has to announce too. Never
+      // let a notification problem fail the webhook: the extension is applied.
+      const extendResult = (Array.isArray(applied) ? applied[0] : applied) as { applied: boolean; added_minutes: number } | null
+      if (extendResult?.applied) {
+        try {
+          await announceExtension(supabase, {
+            bookingId, paymentIntentId: _pi.id, addedMinutes: extendResult.added_minutes,
+            amount: extendAmount, newEndsAt, via: "webhook",
+          })
+        } catch (e) {
+          await logFailure(supabase, "booking-extended-notify-FAILED", `booking=${bookingId} err=${String(e).slice(0, 200)}`)
+        }
+      }
       return NextResponse.json({ received: true })
     }
 

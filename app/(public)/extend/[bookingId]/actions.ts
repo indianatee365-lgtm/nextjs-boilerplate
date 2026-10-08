@@ -2,7 +2,8 @@
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
-import { logEvent, logFailure, notifyOwner, getAdminSetting, formatDuration } from "@/lib/observability/notify"
+import { logFailure } from "@/lib/observability/notify"
+import { announceExtension } from "@/lib/bookings/extension-notify"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -84,22 +85,10 @@ export async function finalizeExtend({
   // webhook backstop got there first the RPC is a no-op and the customer has
   // already been told once.
   if (result?.applied) {
-    await logEvent(serviceClient, "booking-extended",
-      `booking=${bookingId} pi=${paymentIntentId} addedMinutes=${result.added_minutes} ` +
-      `amount=$${amountPaid.toFixed(2)} newEndsAt=${newEndsAt}`)
-
-    if (await getAdminSetting(serviceClient, "notify_extensions")) {
-      const bay = (booking as unknown as { bays: { name: string } | null }).bays
-      const who = (booking as unknown as { profiles: { first_name: string; last_name: string } | null }).profiles
-      const name = who ? `${who.first_name} ${who.last_name}` : "A customer"
-      const endsLocal = new Date(newEndsAt).toLocaleTimeString("en-US", {
-        hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis",
-      })
-      await notifyOwner(
-        `Session extended: ${name}, ${bay?.name ?? "a bay"}, ` +
-        `+${formatDuration(result.added_minutes)} for $${amountPaid.toFixed(2)}. Now ends ${endsLocal}.`
-      )
-    }
+    await announceExtension(serviceClient, {
+      bookingId, paymentIntentId, addedMinutes: result.added_minutes,
+      amount: amountPaid, newEndsAt, via: "finalize",
+    })
   }
 
   return { newEndsAt }
