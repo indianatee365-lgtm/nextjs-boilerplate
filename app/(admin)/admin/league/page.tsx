@@ -42,6 +42,17 @@ async function setLeagueReady(formData: FormData) {
   revalidatePath("/admin/league")
 }
 
+// Approval switches for the later announcements. The pg_cron jobs send
+// nothing unless the matching switch is on and the league is published.
+async function setAnnounceApproval(formData: FormData) {
+  "use server"
+  const service = await requireAdmin()
+  const key = String(formData.get("key") ?? "")
+  if (key !== "league_members_announce_ok" && key !== "league_public_announce_ok") return
+  await service.from("admin_settings").upsert({ key, value: formData.get("value") === "true", updated_at: new Date().toISOString() })
+  revalidatePath("/admin/league")
+}
+
 async function setLeagueActive(formData: FormData) {
   "use server"
   const service = await requireAdmin()
@@ -68,6 +79,8 @@ export default async function AdminLeaguePage() {
   const active = rows.filter((r) => r.status === "confirmed" || r.status === "pending_partner")
   const { data: readyRow } = await service.from("admin_settings").select("value").eq("key", "league_ready").maybeSingle()
   const ready = (readyRow as { value: boolean } | null)?.value === true
+  const { data: approvals } = await service.from("admin_settings").select("key, value").in("key", ["league_members_announce_ok", "league_public_announce_ok"])
+  const approved = Object.fromEntries(((approvals ?? []) as { key: string; value: boolean }[]).map((r) => [r.key, r.value === true]))
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -98,6 +111,21 @@ export default async function AdminLeaguePage() {
           </button>
         </form>
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+        {([
+          ["league_members_announce_ok", "Members announcement, Mon Oct 12 9am"],
+          ["league_public_announce_ok", "Public announcement, Wed Oct 14 9am"],
+        ] as const).map(([key, label]) => (
+          <form key={key} action={setAnnounceApproval}>
+            <input type="hidden" name="key" value={key} />
+            <input type="hidden" name="value" value={approved[key] ? "false" : "true"} />
+            <button className={approved[key] ? "btn-primary px-4 py-2 text-sm" : "btn-secondary px-4 py-2 text-sm"}>
+              {label}: {approved[key] ? "APPROVED" : "not approved"}
+            </button>
+          </form>
+        ))}
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-white/10">

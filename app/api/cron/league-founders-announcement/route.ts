@@ -19,7 +19,7 @@ function paragraphs(): string[] {
   return [
     "Tee365's first league starts Thursday, October 22, and as a founder your spot is guaranteed. Signup is open to founders only until Monday morning, before anyone else can get in.",
     "It's two-person teams, everyone plays their own ball, 9 holes a night on a different course each week. A/B match play with handicaps, so every skill level has a shot.",
-    "$30 a week per player, charged each league night, and you can cover your partner too. 100% of the pot is paid out in cash.",
+    "$30 a week per player, charged each league night, and 100% of the pot is paid out in cash.",
     "I'm running it personally. Every rule is written down on the league page before anyone tees off.",
   ]
 }

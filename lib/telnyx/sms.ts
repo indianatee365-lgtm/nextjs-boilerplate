@@ -268,6 +268,16 @@ export async function sendLeagueFoundersNotice({ to, firstName }: { to: string; 
   await sendSms(to, message, "league-founders-notice")
 }
 
+export async function sendLeagueMembersNotice({ to, firstName }: { to: string; firstName: string }) {
+  const message = `Hi ${firstName}, it's Jerrod at Tee365. As a member you get early signup for our Thursday Night League, two days before it opens to everyone. Starts Oct 22: two-person teams, 9 holes, A/B match play, $30 a week, 100% of the pot paid out in cash. tee365.org/league\n- jerrod`
+  await sendSms(to, message, "league-members-notice")
+}
+
+export async function sendLeaguePublicNotice({ to }: { to: string }) {
+  const message = `Tee365: our Thursday Night League is open! Starts Oct 22. Two-person teams, 9 holes on a new course each week, A/B match play with handicaps, $30 a week, 100% of the pot paid out in cash. 16 teams max, signup closes Oct 20: tee365.org/league Reply STOP to opt out`
+  await sendSms(to, message, "league-public-notice")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
