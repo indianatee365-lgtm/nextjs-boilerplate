@@ -14,7 +14,7 @@ import {
 } from "@/lib/league"
 import { recordLeagueWaiver } from "@/lib/league/waiver"
 import { startingNineHoleHandicap } from "@/lib/league/handicap"
-import { sendLeaguePartnerInviteEmail } from "@/lib/league/messages"
+import { sendLeagueCaptainSignedUpEmail, sendLeaguePartnerInviteEmail } from "@/lib/league/messages"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
 /**
@@ -135,6 +135,18 @@ export async function POST(req: NextRequest) {
       })
     } catch (e) {
       await logFailure(service, "league-invite-email-FAILED", `team=${team.id} err=${String(e).slice(0, 200)}`)
+    }
+  }
+
+  if (user.email && p) {
+    try {
+      await sendLeagueCaptainSignedUpEmail({
+        to: user.email, firstName: p.first_name, teamName, teeTime: teeTimeLabel(team.tee_time),
+        partnerName, link, waitlisted: team.status === "waitlisted", payingForBoth,
+        perWeek: Number(league.price_per_session ?? 0),
+      })
+    } catch (e) {
+      await logFailure(service, "league-captain-email-FAILED", `team=${team.id} err=${String(e).slice(0, 200)}`)
     }
   }
 

@@ -32,6 +32,16 @@ async function removeTeam(formData: FormData) {
   revalidatePath("/league")
 }
 
+// Gate for the one-time pg_cron job that publishes the league at 8:55am ET on
+// Fri Oct 9 and sends the founders announcement at 9:00. If this is off at
+// that moment, the job publishes nothing and sends nothing.
+async function setLeagueReady(formData: FormData) {
+  "use server"
+  const service = await requireAdmin()
+  await service.from("admin_settings").upsert({ key: "league_ready", value: formData.get("ready") === "true", updated_at: new Date().toISOString() })
+  revalidatePath("/admin/league")
+}
+
 async function setLeagueActive(formData: FormData) {
   "use server"
   const service = await requireAdmin()
@@ -56,6 +66,8 @@ export default async function AdminLeaguePage() {
     partner_invite_name: string | null; captain_pays_for_both: boolean; captain: P; partner: P
   }[]
   const active = rows.filter((r) => r.status === "confirmed" || r.status === "pending_partner")
+  const { data: readyRow } = await service.from("admin_settings").select("value").eq("key", "league_ready").maybeSingle()
+  const ready = (readyRow as { value: boolean } | null)?.value === true
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -68,12 +80,24 @@ export default async function AdminLeaguePage() {
             {" "}{(l.tee_times ?? []).map((t) => `${teeTimeLabel(t)}: ${active.filter((r) => r.tee_time.slice(0, 5) === t.slice(0, 5)).length}/${l.teams_per_tee_time}`).join(", ")}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <a href="/admin/league/card" className="btn-secondary px-4 py-2 text-sm">Print bay card</a>
+        {!l.active && (
+          <form action={setLeagueReady}>
+            <input type="hidden" name="ready" value={ready ? "false" : "true"} />
+            <button className={ready ? "btn-primary px-4 py-2 text-sm" : "btn-secondary px-4 py-2 text-sm"}
+              title="Fri Oct 9: publishes at 8:55am ET and texts/emails founders at 9:00, only if this is on">
+              {ready ? "Ready: auto-publish Fri 8:55am is ON" : "Not ready: auto-publish is OFF"}
+            </button>
+          </form>
+        )}
         <form action={setLeagueActive}>
           <input type="hidden" name="active" value={l.active ? "false" : "true"} />
           <button className={l.active ? "btn-secondary px-4 py-2 text-sm" : "btn-primary px-4 py-2 text-sm"}>
             {l.active ? "League is LIVE. Hide it" : "League is hidden. Publish it"}
           </button>
         </form>
+        </div>
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-white/10">

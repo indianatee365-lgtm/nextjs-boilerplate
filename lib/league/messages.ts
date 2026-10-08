@@ -45,3 +45,81 @@ export async function sendLeaguePartnerInviteEmail({
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
+
+/** To the captain right after they sign a team up. */
+export async function sendLeagueCaptainSignedUpEmail({
+  to,
+  firstName,
+  teamName,
+  teeTime,
+  partnerName,
+  link,
+  waitlisted,
+  payingForBoth,
+  perWeek,
+}: {
+  to: string
+  firstName: string
+  teamName: string
+  teeTime: string
+  partnerName: string
+  link: string
+  waitlisted: boolean
+  payingForBoth: boolean
+  perWeek: number
+}) {
+  const fee = payingForBoth
+    ? `You're covering both of you, so you'll be charged $${perWeek * 2} each league night ($${perWeek} for you and $${perWeek} for ${escapeHtml(partnerName)}).`
+    : `You'll each be charged $${perWeek} on each league night.`
+  await sendFounderMessage({
+    to,
+    firstName,
+    subject: waitlisted ? `Team ${teamName} is on the league waitlist` : `Team ${teamName} is signed up. One step left.`,
+    heading: waitlisted ? "You're on the waitlist" : "One step left: your partner",
+    paragraphs: [
+      waitlisted
+        ? `Both tee times are full, so team <strong>${escapeHtml(teamName)}</strong> is on the waitlist. We'll text you the moment a spot opens.`
+        : `Team <strong>${escapeHtml(teamName)}</strong> is holding a spot at the <strong>${teeTime}</strong> tee time for the Thursday Night League.`,
+      `Your team is confirmed once ${escapeHtml(partnerName)} accepts. Send them this link if you haven't already: <a href="${link}" style="color:#4ade80;">${link}</a>`,
+      fee,
+      "Week one is Thursday, October 22. Every rule is written down on the rules page, so give it a read before then.",
+    ],
+    ctaText: "Read the league rules",
+    ctaUrl: "https://tee365.org/league/rules",
+    kind: "league-captain-signed-up",
+  })
+}
+
+/** To both players when the partner accepts and the team is complete. */
+export async function sendLeagueTeamConfirmedEmail({
+  to,
+  firstName,
+  teamName,
+  teeTime,
+  teammateName,
+  waitlisted,
+}: {
+  to: string
+  firstName: string
+  teamName: string
+  teeTime: string
+  teammateName: string
+  waitlisted: boolean
+}) {
+  await sendFounderMessage({
+    to,
+    firstName,
+    subject: waitlisted ? `Team ${teamName} is complete and on the waitlist` : `Team ${teamName} is confirmed for Thursday Night League`,
+    heading: waitlisted ? "Your team is complete" : "You're in",
+    paragraphs: [
+      waitlisted
+        ? `You and ${escapeHtml(teammateName)} are team <strong>${escapeHtml(teamName)}</strong>. Both tee times are full right now, so you're on the waitlist. We'll text you the moment a spot opens.`
+        : `You and ${escapeHtml(teammateName)} are team <strong>${escapeHtml(teamName)}</strong>, confirmed for the <strong>${teeTime}</strong> tee time.`,
+      "Week one is Thursday, October 22. The night before each league night you'll get a text with your tee time, bay, opponent and the course.",
+      "Weeks 1 and 2 are learning weeks. After that, A/B match play begins. Every rule is on the rules page.",
+    ],
+    ctaText: "Read the league rules",
+    ctaUrl: "https://tee365.org/league/rules",
+    kind: "league-team-confirmed",
+  })
+}

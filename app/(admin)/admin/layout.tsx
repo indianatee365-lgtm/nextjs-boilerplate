@@ -4,7 +4,7 @@ import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, Dol
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-white/10 bg-black/40 px-4 py-3">
+      <nav className="border-b border-white/10 bg-black/40 px-4 py-3 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link

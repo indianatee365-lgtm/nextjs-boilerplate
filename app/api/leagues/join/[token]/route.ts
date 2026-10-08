@@ -4,6 +4,7 @@ import { hasCardOnFile, teeTimeLabel } from "@/lib/league"
 import { recordLeagueWaiver } from "@/lib/league/waiver"
 import { startingNineHoleHandicap } from "@/lib/league/handicap"
 import { sendLeagueTeamConfirmedSms } from "@/lib/telnyx/sms"
+import { sendLeagueTeamConfirmedEmail } from "@/lib/league/messages"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
 /** The partner accepts their captain's invite. That confirms the team. */
@@ -95,6 +96,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       })
     } catch (e) {
       await logFailure(service, "league-team-confirmed-sms-FAILED", `team=${team.id} err=${String(e).slice(0, 200)}`)
+    }
+  }
+
+  // Both players get the confirmation by email too.
+  const { data: { user: captainAuth } } = await service.auth.admin.getUserById(team.captain_user_id)
+  const confirmations = [
+    { to: captainAuth?.email, firstName: c?.first_name ?? "there", teammateName: pt?.first_name ?? "your partner" },
+    { to: user.email, firstName: pt?.first_name ?? "there", teammateName: c?.first_name ?? "your captain" },
+  ]
+  for (const r of confirmations) {
+    if (!r.to) continue
+    try {
+      await sendLeagueTeamConfirmedEmail({
+        to: r.to, firstName: r.firstName, teamName: team.name, teeTime: teeTimeLabel(team.tee_time),
+        teammateName: r.teammateName, waitlisted: !confirmed,
+      })
+    } catch (e) {
+      await logFailure(service, "league-team-confirmed-email-FAILED", `team=${team.id} err=${String(e).slice(0, 200)}`)
     }
   }
 

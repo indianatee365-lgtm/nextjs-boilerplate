@@ -263,6 +263,11 @@ export async function sendLeagueTeamConfirmedSms({
   await sendSms(to, message, "league-team-confirmed")
 }
 
+export async function sendLeagueFoundersNotice({ to, firstName }: { to: string; firstName: string }) {
+  const message = `Hi ${firstName}, it's Jerrod. Tee365's Thursday Night League starts Oct 22, and as a founder your spot is guaranteed: signup is open to founders only until Monday morning. Two-person teams, 9 holes, A/B match play, $30 a week, 100% of the pot paid out in cash. Details and signup: tee365.org/league\n- jerrod`
+  await sendSms(to, message, "league-founders-notice")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
