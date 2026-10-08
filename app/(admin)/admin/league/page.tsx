@@ -81,6 +81,19 @@ async function generateSchedule() {
   revalidatePath("/admin/league")
 }
 
+// Moves a team to the other tee time (to even out the counts). The capacity
+// trigger refuses it if the other tee time is full.
+async function moveTeeTime(formData: FormData) {
+  "use server"
+  const service = await requireAdmin()
+  const id = String(formData.get("teamId") ?? "")
+  const to = String(formData.get("to") ?? "")
+  if (!id || !/^\d\d:\d\d$/.test(to)) return
+  await service.from("league_teams").update({ tee_time: to }).eq("id", id)
+  await service.from("league_participants").update({ preferred_slot: to }).eq("team_id", id)
+  revalidatePath("/admin/league")
+}
+
 async function setLeagueActive(formData: FormData) {
   "use server"
   const service = await requireAdmin()
@@ -185,7 +198,16 @@ export default async function AdminLeaguePage() {
                   {r.partner ? `${r.partner.first_name} ${r.partner.last_name}` : <span className="text-amber-300">Invited: {r.partner_invite_name}</span>}
                   <div className="text-xs text-neutral-500">{r.partner ? r.partner.phone : inviteUrl(r.invite_token)}</div>
                 </td>
-                <td className="px-3 py-2">{teeTimeLabel(r.tee_time)}</td>
+                <td className="px-3 py-2">
+                  {teeTimeLabel(r.tee_time)}
+                  {(l.tee_times ?? []).filter((t) => t.slice(0, 5) !== r.tee_time.slice(0, 5)).map((t) => (
+                    <form key={t} action={moveTeeTime}>
+                      <input type="hidden" name="teamId" value={r.id} />
+                      <input type="hidden" name="to" value={t.slice(0, 5)} />
+                      <button className="text-xs text-neutral-400 underline hover:text-white">Move to {teeTimeLabel(t)}</button>
+                    </form>
+                  ))}
+                </td>
                 <td className="px-3 py-2">{r.status.replace("_", " ")}</td>
                 <td className="px-3 py-2 text-right">
                   <form action={removeTeam}>
