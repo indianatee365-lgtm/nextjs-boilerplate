@@ -14,8 +14,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (!user) return NextResponse.json({ error: "Sign in to accept" }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
-  if (body.agreedToWaiver !== true || body.authorizedCharges !== true) {
-    return NextResponse.json({ error: "Agree to the waiver and the weekly charge to continue" }, { status: 400 })
+  if (body.agreedToWaiver !== true) {
+    return NextResponse.json({ error: "Agree to the waiver to continue" }, { status: 400 })
   }
   const startHcp = startingNineHoleHandicap(body.handicapBasis, body.handicapValue)
   if (!startHcp) return NextResponse.json({ error: "Enter your handicap or your typical score" }, { status: 400 })
@@ -25,12 +25,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const service: any = await createServiceClient()
   const { data: teamRow } = await service
     .from("league_teams")
-    .select("id, league_id, name, captain_user_id, partner_user_id, tee_time, status")
+    .select("id, league_id, name, captain_user_id, partner_user_id, tee_time, status, captain_pays_for_both")
     .eq("invite_token", token)
     .maybeSingle()
   const team = teamRow as {
     id: string; league_id: string; name: string; captain_user_id: string
-    partner_user_id: string | null; tee_time: string; status: string
+    partner_user_id: string | null; tee_time: string; status: string; captain_pays_for_both: boolean
   } | null
   if (!team || team.status === "withdrawn") return NextResponse.json({ error: "This invite isn't valid anymore" }, { status: 404 })
   if (team.captain_user_id === user.id) return NextResponse.json({ error: "That's your own team. Send this link to your partner." }, { status: 400 })
@@ -40,8 +40,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .from("league_participants").select("id").eq("league_id", team.league_id).eq("user_id", user.id).maybeSingle()
   if (existing) return NextResponse.json({ error: "You're already signed up for this league" }, { status: 409 })
 
-  if (!(await hasCardOnFile(service, user.id))) {
-    return NextResponse.json({ error: "Add a card first. The weekly fee is charged to it." }, { status: 400 })
+  // When the captain pays for both, the partner authorizes nothing and needs no card.
+  if (!team.captain_pays_for_both) {
+    if (body.authorizedCharges !== true) {
+      return NextResponse.json({ error: "Agree to the weekly charge to continue" }, { status: 400 })
+    }
+    if (!(await hasCardOnFile(service, user.id))) {
+      return NextResponse.json({ error: "Add a card first. The weekly fee is charged to it." }, { status: 400 })
+    }
   }
 
   const confirmed = team.status === "pending_partner"
@@ -61,7 +67,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const { error: partErr } = await service.from("league_participants").insert({
     league_id: team.league_id, user_id: user.id, team_id: team.id, role: "partner",
     status: confirmed ? "registered" : "waitlisted", preferred_slot: team.tee_time,
-    charges_authorized_at: new Date().toISOString(), active: true,
+    charges_authorized_at: team.captain_pays_for_both ? null : new Date().toISOString(), active: true,
+    payer_user_id: team.captain_pays_for_both ? team.captain_user_id : user.id,
     starting_handicap: startHcp.nine, starting_handicap_basis: startHcp.basis, starting_handicap_input: startHcp.value,
     forward_tees: body.forwardTees === true,
   })

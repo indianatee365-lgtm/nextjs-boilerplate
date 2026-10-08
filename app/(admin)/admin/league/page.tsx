@@ -47,13 +47,13 @@ export default async function AdminLeaguePage() {
 
   const { data: teams } = await service
     .from("league_teams")
-    .select("id, name, tee_time, status, created_at, invite_token, partner_invite_name, captain:profiles!league_teams_captain_user_id_fkey(first_name, last_name, phone), partner:profiles!league_teams_partner_user_id_fkey(first_name, last_name, phone)")
+    .select("id, name, tee_time, status, created_at, invite_token, partner_invite_name, captain_pays_for_both, captain:profiles!league_teams_captain_user_id_fkey(first_name, last_name, phone), partner:profiles!league_teams_partner_user_id_fkey(first_name, last_name, phone)")
     .eq("league_id", l.id)
     .order("created_at")
   type P = { first_name: string; last_name: string; phone: string | null } | null
   const rows = (teams ?? []) as {
     id: string; name: string; tee_time: string; status: string; created_at: string; invite_token: string
-    partner_invite_name: string | null; captain: P; partner: P
+    partner_invite_name: string | null; captain_pays_for_both: boolean; captain: P; partner: P
   }[]
   const active = rows.filter((r) => r.status === "confirmed" || r.status === "pending_partner")
 
@@ -85,7 +85,7 @@ export default async function AdminLeaguePage() {
             {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-neutral-500">No teams yet.</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="text-neutral-300">
-                <td className="px-3 py-2 font-medium text-white">{r.name}</td>
+                <td className="px-3 py-2 font-medium text-white">{r.name}{r.captain_pays_for_both && <div className="text-xs font-normal text-amber-300">Captain pays both</div>}</td>
                 <td className="px-3 py-2">{r.captain ? `${r.captain.first_name} ${r.captain.last_name}` : "?"}<div className="text-xs text-neutral-500">{r.captain?.phone}</div></td>
                 <td className="px-3 py-2">
                   {r.partner ? `${r.partner.first_name} ${r.partner.last_name}` : <span className="text-amber-300">Invited: {r.partner_invite_name}</span>}

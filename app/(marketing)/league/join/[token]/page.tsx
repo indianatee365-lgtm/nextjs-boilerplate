@@ -18,12 +18,13 @@ export default async function JoinTeamPage({ params }: { params: Promise<{ token
   const service: any = await createServiceClient()
   const { data: teamRow } = await service
     .from("league_teams")
-    .select("id, name, tee_time, status, partner_user_id, captain_user_id, league_id, captain:profiles!league_teams_captain_user_id_fkey(first_name, last_name)")
+    .select("id, name, tee_time, status, partner_user_id, captain_user_id, league_id, captain_pays_for_both, captain:profiles!league_teams_captain_user_id_fkey(first_name, last_name)")
     .eq("invite_token", token)
     .maybeSingle()
   const team = teamRow as {
     id: string; name: string; tee_time: string; status: string; partner_user_id: string | null
-    captain_user_id: string; league_id: string; captain: { first_name: string; last_name: string } | null
+    captain_user_id: string; league_id: string; captain_pays_for_both: boolean
+    captain: { first_name: string; last_name: string } | null
   } | null
   if (!team || team.status === "withdrawn") notFound()
 
@@ -45,7 +46,8 @@ export default async function JoinTeamPage({ params }: { params: Promise<{ token
   else {
     const { data: existing } = await service.from("league_participants").select("id").eq("league_id", team.league_id).eq("user_id", user.id).maybeSingle()
     if (existing) state = "already_in"
-    else hasCard = await hasCardOnFile(service, user.id)
+    // No card needed when the captain pays for both.
+    else hasCard = team.captain_pays_for_both ? true : await hasCardOnFile(service, user.id)
   }
 
   const { data: disclosures } = await service.from("disclosures").select("id, title, body").eq("active", true).order("created_at")
@@ -61,14 +63,15 @@ export default async function JoinTeamPage({ params }: { params: Promise<{ token
       <h1 className="mt-2 text-2xl font-semibold text-white">Join team {team.name}</h1>
       <p className="mt-3 text-sm leading-relaxed text-neutral-300">
         {captainName} picked you as their partner. Two-person teams, A/B match play, 9 holes, Thursdays at {teeTimeLabel(team.tee_time)},
-        {" "}{dayLabel(nights[0])} to {dayLabel(nights[nights.length - 1])}. ${perWeek} a week each, and 100% of the pot is paid out in cash.
+        {" "}{dayLabel(nights[0])} to {dayLabel(nights[nights.length - 1])}.
+        {team.captain_pays_for_both ? ` ${captainName} is covering your $${perWeek} a week.` : ` $${perWeek} a week each.`} 100% of the pot is paid out in cash.
         {" "}<a href="/league/rules" className="text-white underline">Read the rules</a>
       </p>
 
       <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
         {state === "sign_in" && (
           <div className="space-y-3">
-            <p className="text-sm text-neutral-300">Sign in or create a Tee365 account to accept. Every player needs their own account and a card on file.</p>
+            <p className="text-sm text-neutral-300">Sign in or create a Tee365 account to accept. Every player needs their own account{team.captain_pays_for_both ? "" : " and a card on file"}.</p>
             <a href={`/login?return=${encodeURIComponent(`/league/join/${token}`)}`} className="btn-primary inline-flex px-5 py-2.5">Sign in to accept</a>
           </div>
         )}
@@ -81,6 +84,8 @@ export default async function JoinTeamPage({ params }: { params: Promise<{ token
             token={token}
             hasCard={hasCard}
             chargeText={chargeText}
+            captainPays={team.captain_pays_for_both}
+            captainName={captainName}
             disclosures={(disclosures ?? []) as { id: string; title: string; body: string }[]}
           />
         )}

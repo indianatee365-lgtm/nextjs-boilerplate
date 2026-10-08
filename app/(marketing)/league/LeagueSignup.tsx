@@ -13,6 +13,8 @@ export interface MyTeam {
   captainName: string
   partnerName: string
   inviteLink: string | null
+  /** The captain pays both players' weekly fee. */
+  captainPaysBoth: boolean
 }
 
 interface TeeTimeOption { value: string; label: string; teamsLeft: number }
@@ -27,6 +29,7 @@ export default function LeagueSignup({
   teeTimes,
   myTeam,
   chargeText,
+  chargeTextBoth,
   disclosures,
 }: {
   leagueId: string
@@ -37,6 +40,7 @@ export default function LeagueSignup({
   teeTimes: TeeTimeOption[]
   myTeam: MyTeam | null
   chargeText: string
+  chargeTextBoth: string
   disclosures: Disclosure[]
 }) {
   const router = useRouter()
@@ -51,6 +55,7 @@ export default function LeagueSignup({
   const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
   const [handicap, setHandicap] = useState<HandicapAnswer>({ basis: "index", value: "", forwardTees: false })
+  const [payingForBoth, setPayingForBoth] = useState(false)
 
   if (myTeam) return <TeamCard team={myTeam} copied={copied} onCopy={() => setCopied(true)} />
 
@@ -83,6 +88,7 @@ export default function LeagueSignup({
         body: JSON.stringify({
           leagueId, teamName, teeTime, partnerName, partnerEmail, agreedToWaiver, authorizedCharges,
           handicapBasis: handicap.basis, handicapValue: handicap.value, forwardTees: handicap.forwardTees,
+          payingForBoth,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -158,6 +164,15 @@ export default function LeagueSignup({
             <AddCardInline onSaved={() => setCardSaved(true)} />
           </div>
         )}
+        <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-white/10 pt-4 text-sm text-neutral-300">
+          <input type="checkbox" checked={payingForBoth}
+            onChange={(e) => { setPayingForBoth(e.target.checked); setAuthorizedCharges(false) }}
+            className="mt-0.5 h-4 w-4 accent-brand" />
+          <span>
+            <span className="font-semibold text-white">Paying for both?</span> I&apos;ll cover my partner&apos;s weekly fee too.
+            They still sign up, but won&apos;t need a card.
+          </span>
+        </label>
       </div>
 
       <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
@@ -175,7 +190,7 @@ export default function LeagueSignup({
         <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-300">
           <input type="checkbox" checked={authorizedCharges} onChange={(e) => setAuthorizedCharges(e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-brand" />
-          {chargeText}
+          {payingForBoth ? chargeTextBoth : chargeText}
         </label>
       </div>
 
@@ -192,6 +207,9 @@ function TeamCard({ team, copied, onCopy }: { team: MyTeam; copied: boolean; onC
     team.status === "confirmed" ? `Confirmed for the ${team.teeTime} tee time.`
     : team.status === "waitlisted" ? "On the waitlist. We'll text you the moment a spot opens."
     : `Holding a spot at ${team.teeTime}. Waiting on ${team.partnerName} to accept.`
+  const payLine = team.captainPaysBoth
+    ? team.role === "captain" ? "You're covering both players' weekly fee." : `${team.captainName} is covering your weekly fee.`
+    : null
   const smsBody = team.inviteLink
     ? `I signed us up for the Tee365 Thursday Night League as team "${team.name}". Accept here so we're confirmed: ${team.inviteLink}`
     : ""
@@ -203,6 +221,7 @@ function TeamCard({ team, copied, onCopy }: { team: MyTeam; copied: boolean; onC
         <p className="mt-1 text-lg font-semibold text-white">{team.name}</p>
         <p className="mt-1 text-sm text-neutral-300">{team.captainName} and {team.partnerName}</p>
         <p className="mt-2 text-sm text-neutral-300">{statusLine}</p>
+        {payLine && <p className="mt-1 text-sm text-neutral-400">{payLine}</p>}
       </div>
       {team.role === "captain" && team.status === "pending_partner" && team.inviteLink && (
         <div className="space-y-2">

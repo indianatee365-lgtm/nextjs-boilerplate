@@ -95,10 +95,11 @@ export default async function LeaguePage() {
     const m = mine as { team_id: string | null; role: "captain" | "partner" | null } | null
     if (m?.team_id) {
       const { data: t } = await service.from("league_teams")
-        .select("name, tee_time, status, invite_token, partner_invite_name, captain:profiles!league_teams_captain_user_id_fkey(first_name), partner:profiles!league_teams_partner_user_id_fkey(first_name)")
+        .select("name, tee_time, status, invite_token, partner_invite_name, captain_pays_for_both, captain:profiles!league_teams_captain_user_id_fkey(first_name), partner:profiles!league_teams_partner_user_id_fkey(first_name)")
         .eq("id", m.team_id).single()
       const team = t as {
         name: string; tee_time: string; status: MyTeam["status"]; invite_token: string; partner_invite_name: string | null
+        captain_pays_for_both: boolean
         captain: { first_name: string } | null; partner: { first_name: string } | null
       } | null
       if (team) {
@@ -110,6 +111,7 @@ export default async function LeaguePage() {
           captainName: team.captain?.first_name ?? "Captain",
           partnerName: team.partner?.first_name ?? team.partner_invite_name ?? "your partner",
           inviteLink: m.role === "captain" ? inviteUrl(team.invite_token) : null,
+          captainPaysBoth: team.captain_pays_for_both,
         }
       }
     } else {
@@ -137,6 +139,11 @@ export default async function LeaguePage() {
     `I authorize Tee365 to charge my card ${money.format(perWeek)} on each league night, ${weeks} nights from ` +
     `${dayLabel(first, { month: "short", day: "numeric" })} to ${dayLabel(last, { month: "short", day: "numeric" })}` +
     `${skipped.length ? ` (no league ${skipped.join(", ")})` : ""}. Once week one tees off I'm in for the season, missed weeks included.`
+  // Same authorization when the captain covers both players, at twice the amount.
+  const chargeTextBoth = chargeText.replace(
+    `charge my card ${money.format(perWeek)} on each league night`,
+    `charge my card ${money.format(perWeek * 2)} on each league night (${money.format(perWeek)} for me and ${money.format(perWeek)} for my partner)`,
+  )
 
   const teeOptions = teeTimes.map((t) => ({
     value: t, label: teeTimeLabel(t), teamsLeft: Math.max(league.teams_per_tee_time - (counts[t] ?? 0), 0),
@@ -267,6 +274,7 @@ export default async function LeaguePage() {
           teeTimes={teeOptions}
           myTeam={myTeam}
           chargeText={chargeText}
+          chargeTextBoth={chargeTextBoth}
           disclosures={(disclosures ?? []) as { id: string; title: string; body: string }[]}
         />
       </section>

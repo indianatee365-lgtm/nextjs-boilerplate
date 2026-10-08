@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Agree to the waiver and the weekly charge to continue" }, { status: 400 })
   }
   const startHcp = startingNineHoleHandicap(body.handicapBasis, body.handicapValue)
+  const payingForBoth = body.payingForBoth === true
   if (!startHcp) return NextResponse.json({ error: "Enter your handicap or your typical score" }, { status: 400 })
 
   // League tables are newer than lib/supabase/types.ts, so this client is untyped.
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await service.from("league_teams").insert({
       league_id: league.id, name: teamName, captain_user_id: user.id,
       partner_invite_name: partnerName, partner_invite_email: partnerEmail,
-      invite_token: token, tee_time: t, status: "pending_partner",
+      invite_token: token, tee_time: t, status: "pending_partner", captain_pays_for_both: payingForBoth,
     }).select("id, tee_time, status").single()
     if (!error && data) { team = data; break }
     if (!String(error?.message).includes("LEAGUE_TEE_TIME_FULL")) {
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await service.from("league_teams").insert({
       league_id: league.id, name: teamName, captain_user_id: user.id,
       partner_invite_name: partnerName, partner_invite_email: partnerEmail,
-      invite_token: token, tee_time: order[0], status: "waitlisted",
+      invite_token: token, tee_time: order[0], status: "waitlisted", captain_pays_for_both: payingForBoth,
     }).select("id, tee_time, status").single()
     if (error || !data) {
       await logFailure(service, "league-team-create-FAILED", `user=${user.id} waitlist err=${String(error?.message).slice(0, 200)}`)
@@ -116,6 +117,7 @@ export async function POST(req: NextRequest) {
     charges_authorized_at: new Date().toISOString(), active: true,
     starting_handicap: startHcp.nine, starting_handicap_basis: startHcp.basis, starting_handicap_input: startHcp.value,
     forward_tees: body.forwardTees === true,
+    payer_user_id: user.id,
   })
   if (partErr) {
     await service.from("league_teams").delete().eq("id", team.id)
@@ -129,7 +131,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendLeaguePartnerInviteEmail({
         to: partnerEmail, partnerName, captainName: `${p.first_name} ${p.last_name}`.trim(),
-        teamName, teeTime: teeTimeLabel(team.tee_time), link,
+        teamName, teeTime: teeTimeLabel(team.tee_time), link, captainPays: payingForBoth,
       })
     } catch (e) {
       await logFailure(service, "league-invite-email-FAILED", `team=${team.id} err=${String(e).slice(0, 200)}`)
@@ -137,7 +139,7 @@ export async function POST(req: NextRequest) {
   }
 
   await logEvent(service, "league-team-created", `team=${team.id} captain=${user.id} tee=${team.tee_time} status=${team.status}`)
-  await notifyOwner(`League: ${p?.first_name ?? "Someone"} ${p?.last_name ?? ""} started team "${teamName}" (${teeTimeLabel(team.tee_time)}${team.status === "waitlisted" ? ", WAITLIST" : ""}). Waiting on partner ${partnerName}.`)
+  await notifyOwner(`League: ${p?.first_name ?? "Someone"} ${p?.last_name ?? ""} started team "${teamName}" (${teeTimeLabel(team.tee_time)}${team.status === "waitlisted" ? ", WAITLIST" : ""}). Waiting on partner ${partnerName}.${payingForBoth ? " Captain pays for both." : ""}`)
 
   return NextResponse.json({ ok: true, teamId: team.id, status: team.status, teeTime: team.tee_time, inviteLink: link })
 }

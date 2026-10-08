@@ -121,6 +121,7 @@ export const RULES: RuleSection[] = [
     title: "Money",
     rules: [
       "$30 per player, charged to your card on file each league night, 8 nights. $25 is bay time and $5 goes into the pot.",
+      "One player can pay for both. The captain chooses this at signup and is charged $60 each league night; their partner doesn't need a card.",
       "Pull out before week one and nothing is charged. Once week one tees off, you're in for the season.",
       "If Tee365 has to cancel a league night, nobody is charged for it and no points are awarded. The season isn't extended.",
       "100% of the pot is paid out in cash. The pot grows each week and its running total is on the leaderboard.",
@@ -156,6 +157,7 @@ export const FAQ: [string, string][] = [
   ["I don't have an official handicap.", "That's fine, most people don't. Tell us your typical 18-hole score at signup and we'll set your starting handicap from it."],
   ["Can I sandbag the learning weeks?", "It won't work. The learning weeks still earn points, your handicap uses your best 2 of your last 4 rounds, and it can't climb more than 3 strokes above your starting number without the commissioner's OK."],
   ["Who's my opponent each week?", "The other team in your bay. You'll get it by text the night before, with your bay and the course."],
+  ["Can one of us pay for both?", "Yes. The captain ticks \"Paying for both?\" at signup and is charged $60 each league night. Their partner still signs up (account, waiver, starting handicap) but doesn't need a card."],
   ["What if I'm sick?", "Send a sub, or your opponent wins your match. Either way your card is charged that night."],
   ["Is my weekly fee refundable?", "Only if you pull out before week one, or if Tee365 cancels a night."],
   ["How is the cash paid?", "To each player individually at the finale."],

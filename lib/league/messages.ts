@@ -14,6 +14,7 @@ export async function sendLeaguePartnerInviteEmail({
   teamName,
   teeTime,
   link,
+  captainPays = false,
 }: {
   to: string
   partnerName: string
@@ -21,6 +22,7 @@ export async function sendLeaguePartnerInviteEmail({
   teamName: string
   teeTime: string
   link: string
+  captainPays?: boolean
 }) {
   await sendFounderMessage({
     to,
@@ -30,7 +32,9 @@ export async function sendLeaguePartnerInviteEmail({
     paragraphs: [
       `${captainName} signed up team <strong>${escapeHtml(teamName)}</strong> for the Tee365 Thursday Night League and named you as their partner.`,
       `It's two-person teams, A/B match play, 9 holes on a different course every week, Thursday nights at ${teeTime}, October 22 to December 17 (no league on Thanksgiving). $30 a week, and 100% of the pot is paid out in cash.`,
-      "Your team is confirmed once you accept. You'll need a Tee365 account and a card on file for the weekly fee. It takes a couple of minutes.",
+      captainPays
+        ? `${captainName} is covering your weekly fee. Your team is confirmed once you accept; you'll just need a Tee365 account. It takes a couple of minutes.`
+        : "Your team is confirmed once you accept. You'll need a Tee365 account and a card on file for the weekly fee. It takes a couple of minutes.",
     ],
     ctaText: "Accept and join the team",
     ctaUrl: link,
