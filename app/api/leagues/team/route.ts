@@ -13,6 +13,7 @@ import {
   type League,
 } from "@/lib/league"
 import { recordLeagueWaiver } from "@/lib/league/waiver"
+import { startingNineHoleHandicap } from "@/lib/league/handicap"
 import { sendLeaguePartnerInviteEmail } from "@/lib/league/messages"
 import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (body.agreedToWaiver !== true || body.authorizedCharges !== true) {
     return NextResponse.json({ error: "Agree to the waiver and the weekly charge to continue" }, { status: 400 })
   }
+  const startHcp = startingNineHoleHandicap(body.handicapBasis, body.handicapValue)
+  if (!startHcp) return NextResponse.json({ error: "Enter your handicap or your typical score" }, { status: 400 })
 
   // League tables are newer than lib/supabase/types.ts, so this client is untyped.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,6 +114,8 @@ export async function POST(req: NextRequest) {
     status: team.status === "waitlisted" ? "waitlisted" : "registered",
     preferred_slot: team.tee_time, partner_name: partnerName,
     charges_authorized_at: new Date().toISOString(), active: true,
+    starting_handicap: startHcp.nine, starting_handicap_basis: startHcp.basis, starting_handicap_input: startHcp.value,
+    forward_tees: body.forwardTees === true,
   })
   if (partErr) {
     await service.from("league_teams").delete().eq("id", team.id)

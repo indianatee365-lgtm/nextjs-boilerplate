@@ -60,9 +60,9 @@ export default async function JoinTeamPage({ params }: { params: Promise<{ token
       <p className="text-xs font-semibold uppercase tracking-wider text-brand">{league.name}</p>
       <h1 className="mt-2 text-2xl font-semibold text-white">Join team {team.name}</h1>
       <p className="mt-3 text-sm leading-relaxed text-neutral-300">
-        {captainName} picked you as their partner. Two-person scramble, 9 holes, Thursdays at {teeTimeLabel(team.tee_time)},
+        {captainName} picked you as their partner. Two-person teams, A/B match play, 9 holes, Thursdays at {teeTimeLabel(team.tee_time)},
         {" "}{dayLabel(nights[0])} to {dayLabel(nights[nights.length - 1])}. ${perWeek} a week each, and 100% of the pot is paid out in cash.
-        {" "}<a href="/league" className="text-white underline">All the details</a>
+        {" "}<a href="/league/rules" className="text-white underline">Read the rules</a>
       </p>
 
       <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">

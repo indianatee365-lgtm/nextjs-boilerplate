@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import AddCardInline from "@/app/components/payments/AddCardInline"
+import HandicapFields, { handicapAnswerValid, type HandicapAnswer } from "@/app/(marketing)/league/HandicapFields"
 
 export default function JoinTeamForm({
   token,
@@ -21,6 +22,7 @@ export default function JoinTeamForm({
   const [authorizedCharges, setAuthorizedCharges] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [handicap, setHandicap] = useState<HandicapAnswer>({ basis: "index", value: "", forwardTees: false })
 
   async function accept() {
     if (submitting) return
@@ -30,7 +32,10 @@ export default function JoinTeamForm({
       const res = await fetch(`/api/leagues/join/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agreedToWaiver, authorizedCharges }),
+        body: JSON.stringify({
+          agreedToWaiver, authorizedCharges,
+          handicapBasis: handicap.basis, handicapValue: handicap.value, forwardTees: handicap.forwardTees,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -47,6 +52,7 @@ export default function JoinTeamForm({
 
   return (
     <div className="space-y-5">
+      <HandicapFields value={handicap} onChange={setHandicap} />
       <div className="rounded-xl border border-white/10 bg-black/20 p-4">
         <p className="text-sm font-semibold text-white">Card for the weekly fee</p>
         {cardSaved ? (
@@ -74,7 +80,7 @@ export default function JoinTeamForm({
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
-      <button type="button" onClick={accept} disabled={!cardSaved || !agreedToWaiver || !authorizedCharges || submitting} className="btn-primary w-full py-3">
+      <button type="button" onClick={accept} disabled={!handicapAnswerValid(handicap) || !cardSaved || !agreedToWaiver || !authorizedCharges || submitting} className="btn-primary w-full py-3">
         {submitting ? "Joining..." : "Accept and join the team"}
       </button>
     </div>

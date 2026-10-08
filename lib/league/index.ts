@@ -7,7 +7,7 @@ type SupabaseClient = any
 /**
  * Thursday Night League, decided with Jerrod 2026-10-07.
  *
- * Two-person scramble teams, 9 holes, two tee times a night across all four
+ * Two-person teams, A/B match play (changed from scramble 2026-10-07), 9 holes, two tee times a night across all four
  * bays (two teams per bay). A captain signs up and invites a partner; the team
  * is confirmed once the partner accepts. Every player needs an account, a
  * card on file (the weekly fee is charged to it) and the waiver.

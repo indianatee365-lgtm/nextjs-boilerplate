@@ -18,11 +18,13 @@ import {
   type League,
 } from "@/lib/league"
 import LeagueSignup, { type MyTeam } from "./LeagueSignup"
+import Link from "next/link"
+import { COURSE_SCHEDULE } from "@/lib/league/rules"
 
 export const dynamic = "force-dynamic"
 
 const DESCRIPTION =
-  "Thursday Night League at Tee365 in Mishawaka. Two-person scramble, 9 holes, 8 weeks from October 22. $30 a week, and 100% of the pot is paid out in cash."
+  "Thursday Night League at Tee365 in Mishawaka. Two-person teams, A/B match play, 9 holes, 8 weeks from October 22. $30 a week, and 100% of the pot is paid out in cash."
 
 export const metadata: Metadata = {
   title: "Thursday Night Golf League | Tee365 Indoor Golf Simulator",
@@ -154,10 +156,13 @@ export default async function LeaguePage() {
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{league.name}</h1>
         <p className="mt-4 text-sm leading-relaxed text-neutral-300">
-          Two-person scramble, 9 holes, Thursday nights at {teeTimes.map(teeTimeLabel).join(" or ")}.
+          Two-person teams, everyone plays their own ball, A/B match play. 9 holes on a different course every week, Thursday nights at {teeTimes.map(teeTimeLabel).join(" or ")}.
           Eight weeks, {dayLabel(first, { month: "long", day: "numeric" })} to {dayLabel(last, { month: "long", day: "numeric" })}
           {skipped.length ? `, no league on Thanksgiving` : ""}. Run start to finish by {COMMISSIONER_NAME}, the owner.
         </p>
+        <Link href="/league/rules" className="mt-4 inline-flex text-sm font-semibold text-brand underline underline-offset-4">
+          Read every rule before you sign up
+        </Link>
       </header>
 
       <section className="rounded-2xl border border-brand/30 bg-brand/5 p-6 sm:p-8">
@@ -177,7 +182,7 @@ export default async function LeaguePage() {
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wider text-neutral-500">Format</dt>
-            <dd className="mt-1 font-semibold text-white">2-person scramble</dd>
+            <dd className="mt-1 font-semibold text-white">A/B match play</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wider text-neutral-500">Teams left</dt>
@@ -190,10 +195,10 @@ export default async function LeaguePage() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Prizes</h2>
         <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-sm">
           {[
-            ["Low gross", "50% of the pot, cash"],
-            ["Low net", "50% of the pot, cash"],
-            ["2nd place net", "A year of Eagle membership each (already a member? 10 free hours each instead)"],
-            ["3rd place net", "4 free hours each"],
+            ["Most points (team)", "50% of the pot, cash"],
+            ["Low gross (team)", "50% of the pot, cash"],
+            ["2nd in points", "A year of Eagle membership each (already a member? 10 free hours each instead)"],
+            ["3rd in points", "4 free hours each"],
           ].map(([place, prize]) => (
             <div key={place} className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between">
               <span className="font-semibold text-white">{place}</span>
@@ -202,9 +207,9 @@ export default async function LeaguePage() {
           ))}
         </div>
         <ul className="space-y-1.5 text-xs leading-relaxed text-neutral-400">
-          <li>One cash prize per team. If the same team wins low gross and low net, they take gross and the net prize goes to the next team.</li>
-          <li>Prizes go in order: low gross, then 1st, 2nd and 3rd net, skipping a team that already won.</li>
-          <li>Ties go to the lower score in the finale. Still tied, the prize is split.</li>
+          <li>One cash prize per team. A team that wins both takes the points prize, and the gross prize goes to the next team.</li>
+          <li>Low gross is the team&apos;s combined gross per round, averaged, with at least 6 of 8 rounds played by both rostered players.</li>
+          <li>Points ties go to the head-to-head result, then lower season gross. Still tied, the prize is split.</li>
           <li>Cash is paid to each player at the finale. Free hours are good through March 31.</li>
         </ul>
       </section>
@@ -213,12 +218,13 @@ export default async function LeaguePage() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">How it works</h2>
         <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
           {[
-            ["Two-person scramble", "Both of you hit, pick the better shot, and both play the next one from there. One team score per hole."],
-            ["Two teams to a bay", "Four players, two hours, 9 holes. You keep your tee time all season."],
-            ["Your best 7 of 8", "Your season is your best seven weeks. Miss a week and that's your drop. No makeup rounds, no blind draws."],
-            ["Handicaps that run themselves", "Weeks one and two everyone plays straight. From week three each team gets a handicap from its own scores, 80% of what you average over par, capped at 8 strokes, updated every week. Standings show gross and net."],
-            ["Scores on your phone", "Right after your round, one team enters its score and the other team in your bay confirms with a tap. The leaderboard updates that night."],
-            ["You'll always know what's happening", "A text the night before with your tee time and bay, and a Friday recap with the week's results and standings."],
+            ["Everyone plays their own ball", "Two teams share a bay, four players, 9 holes, two hours. Every score is recorded, hole by hole."],
+            ["Weeks 1 and 2: learning weeks", "No A/B matches yet. Your team plays the other team in your bay on combined net score for 4 points, so the learning weeks still count."],
+            ["Weeks 3 to 8: A/B match play", "After week 2, each team's lower handicap is its A player and the other is its B, fixed for the season. A plays A, B plays B, 1 point per hole on net score, plus 2 points for the lower team total. 20 points a week."],
+            ["Handicaps that run themselves", "You give a starting handicap at signup. From week 3 it comes from your league scores: 90% of your best 2 of your last 4 rounds, and it can't climb more than 3 strokes above where you started."],
+            ["A new course every week", "Same course in every bay on the night, same settings, published in advance. The finale is Pebble Beach."],
+            ["Can't make it?", "Send a sub who plays at your handicap, or your opponent wins your match. Your card is charged either way."],
+            ["You'll always know what's happening", "Scores entered right after the round and confirmed by the other team. A text the night before with your tee time, bay and course, and a Friday recap with results and standings."],
           ].map(([title, body]) => (
             <div key={title} className="space-y-1.5 p-5">
               <h3 className="text-sm font-semibold text-white">{title}</h3>
@@ -236,6 +242,7 @@ export default async function LeaguePage() {
               <li key={d} className="flex flex-col">
                 <span className="text-xs uppercase tracking-wider text-neutral-500">{i === nights.length - 1 ? "Finale" : `Week ${i + 1}`}</span>
                 <span className="font-medium text-white">{dayLabel(d, { month: "short", day: "numeric" })}</span>
+                <span className="text-xs text-neutral-400">{COURSE_SCHEDULE.find((c) => c.date === d)?.course ?? ""}</span>
               </li>
             ))}
           </ol>

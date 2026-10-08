@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import AddCardInline from "@/app/components/payments/AddCardInline"
+import HandicapFields, { handicapAnswerValid, type HandicapAnswer } from "@/app/(marketing)/league/HandicapFields"
 
 export interface MyTeam {
   name: string
@@ -49,6 +50,7 @@ export default function LeagueSignup({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
+  const [handicap, setHandicap] = useState<HandicapAnswer>({ basis: "index", value: "", forwardTees: false })
 
   if (myTeam) return <TeamCard team={myTeam} copied={copied} onCopy={() => setCopied(true)} />
 
@@ -78,7 +80,10 @@ export default function LeagueSignup({
       const res = await fetch("/api/leagues/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId, teamName, teeTime, partnerName, partnerEmail, agreedToWaiver, authorizedCharges }),
+        body: JSON.stringify({
+          leagueId, teamName, teeTime, partnerName, partnerEmail, agreedToWaiver, authorizedCharges,
+          handicapBasis: handicap.basis, handicapValue: handicap.value, forwardTees: handicap.forwardTees,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -93,7 +98,7 @@ export default function LeagueSignup({
     }
   }
 
-  const ready = teamName.trim() && partnerName.trim() && cardSaved && agreedToWaiver && authorizedCharges
+  const ready = teamName.trim() && partnerName.trim() && handicapAnswerValid(handicap) && cardSaved && agreedToWaiver && authorizedCharges
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-5">
@@ -141,6 +146,8 @@ export default function LeagueSignup({
       <p className="-mt-2 text-xs text-neutral-500">
         Next you&apos;ll get a link to text your partner. Your team is confirmed when they accept.
       </p>
+
+      <HandicapFields value={handicap} onChange={setHandicap} />
 
       <div className="rounded-xl border border-white/10 bg-black/20 p-4">
         <p className="text-sm font-semibold text-white">Card for the weekly fee</p>
