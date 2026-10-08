@@ -243,7 +243,7 @@ export default function RescheduleFlow({
   }
 
   function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Indiana/Indianapolis" })
   }
 
   const calendarDays = buildCalendarDays(calendarMonth)

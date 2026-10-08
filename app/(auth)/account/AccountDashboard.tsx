@@ -252,7 +252,7 @@ export default async function AccountDashboard({
           </div>
           {membershipStatus === "active" && membership?.current_period_end && !(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && (
             <p className="mt-3 text-xs text-neutral-500">
-              Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              Renews {new Date(membership.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}
             </p>
           )}
           {membershipStatus === "cancelled" && !(profile as { reinstate_blocked?: boolean } | null)?.reinstate_blocked && (

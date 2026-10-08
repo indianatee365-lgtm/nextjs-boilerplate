@@ -64,7 +64,7 @@ export default function BanCustomerPanel({
         {reason && <p className="mt-1 text-xs text-neutral-300">Reason: {reason}</p>}
         {bannedAt && (
           <p className="mt-0.5 text-xs text-neutral-500">
-            Since {new Date(bannedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+            Since {new Date(bannedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
           </p>
         )}
         <p className="mt-1.5 text-xs text-neutral-500">

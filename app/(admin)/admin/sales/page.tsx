@@ -163,8 +163,8 @@ export default async function AdminSalesPage() {
               {subs.map(s => {
                 const p = s.profiles
                 const name = p ? `${p.first_name} ${p.last_name}`.trim() : "—"
-                const started = s.started_at ? new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"
-                const renewal = s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"
+                const started = s.started_at ? new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "—"
+                const renewal = s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "—"
                 const contribution = mrrContribution(s)
                 return (
                   <tr key={s.id} className="border-t border-white/5 hover:bg-white/[0.02]">

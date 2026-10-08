@@ -139,7 +139,7 @@ export default async function AdminHourCreditsPage() {
                     <td className="px-4 py-3">{Number(c.hours_remaining)} / {Number(c.hours)}</td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">{c.reason ?? ""}</td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
+                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "Never"}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
@@ -184,10 +184,10 @@ export default async function AdminHourCreditsPage() {
                     <td className="px-4 py-3 text-white">{holder ? `${holder.first_name} ${holder.last_name}` : "Unknown"}</td>
                     <td className="px-4 py-3">{Number(u.hours_used)}h</td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">
-                      {booking ? `${booking.bays?.name ?? "Bay"} - ${new Date(booking.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "N/A"}
+                      {booking ? `${booking.bays?.name ?? "Bay"} - ${new Date(booking.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}` : "N/A"}
                     </td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">
-                      {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}
                     </td>
                   </tr>
                 )

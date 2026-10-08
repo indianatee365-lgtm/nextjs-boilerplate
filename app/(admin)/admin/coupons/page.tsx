@@ -52,7 +52,7 @@ export default async function AdminCouponsPage() {
                   <td className="px-4 py-3">{fmt(c)}</td>
                   <td className="px-4 py-3">{c.uses_count}{c.max_uses ? ` / ${c.max_uses}` : ""}</td>
                   <td className="px-4 py-3 text-neutral-400">{c.max_uses_per_user ?? "Unlimited"}</td>
-                  <td className="px-4 py-3 text-neutral-400">{c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}</td>
+                  <td className="px-4 py-3 text-neutral-400">{c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "Never"}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                       {c.active ? "Active" : "Inactive"}

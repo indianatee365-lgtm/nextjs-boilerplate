@@ -1,5 +1,6 @@
 "use client"
 
+import { addDaysToDateKey } from "@/lib/time/eastern"
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -169,13 +170,11 @@ export default function BookingsManager({
   })
 
   function navigateDate(offset: number) {
-    const d = new Date(`${selectedDate}T00:00:00`)
-    d.setDate(d.getDate() + offset)
     // This component only ever renders in day view (month view renders
     // MonthCalendar instead) - dropping view=day here fell back to
     // page.tsx's default (month), so Next/Prev silently bounced out of
     // day view instead of moving a day.
-    router.push(`/admin/bookings?view=day&date=${d.toISOString().split("T")[0]}`)
+    router.push(`/admin/bookings?view=day&date=${addDaysToDateKey(selectedDate, offset)}`)
   }
 
   function handleSendSms(bookingId: string) {

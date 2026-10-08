@@ -851,7 +851,7 @@ export default function BookingFlow({
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Start time</span>
-              <span>{new Date(selectedStart.startsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+              <span>{new Date(selectedStart.startsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Duration</span>

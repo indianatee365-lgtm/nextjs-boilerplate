@@ -72,7 +72,7 @@ export default async function AdminUserDetailPage({
         <Field label="Email" value={targetEmail} />
         <Field label="Phone" value={t.phone ?? "N/A"} />
         <Field label="Role" value={t.role ?? "user"} />
-        <Field label="Joined" value={new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} />
+        <Field label="Joined" value={new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })} />
         <Field label="SMS consent" value={t.sms_consent ? "Yes" : "No"} />
         <Field label="Stripe customer" value={t.stripe_customer_id ?? "N/A"} />
       </div>
@@ -122,8 +122,8 @@ export default async function AdminUserDetailPage({
                           "bg-red-500/20 text-red-400"
                         }`}>{m.status}{m.cancellation_requested_at ? " · cancel pending" : ""}</span>
                       </td>
-                      <td className="px-4 py-2 text-xs text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                      <td className="px-4 py-2 text-xs text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}</td>
+                      <td className="px-4 py-2 text-xs text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}</td>
+                      <td className="px-4 py-2 text-xs text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "N/A"}</td>
                       <td className="px-4 py-2 text-xs text-brand font-semibold">{m.founder_number ? `#${m.founder_number}` : "N/A"}</td>
                       <td className="px-4 py-2 font-mono text-xs text-neutral-500 break-all">{m.stripe_subscription_id ?? "N/A"}</td>
                     </tr>
@@ -217,7 +217,7 @@ export default async function AdminUserDetailPage({
                     <td className="px-4 py-2 text-xs">{g.recipient_name} ({g.recipient_email})</td>
                     <td className="px-4 py-2 text-xs">${Number(g.original_amount).toFixed(2)}</td>
                     <td className="px-4 py-2 text-xs">${Number(g.balance).toFixed(2)}</td>
-                    <td className="px-4 py-2 text-xs text-neutral-400">{new Date(g.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                    <td className="px-4 py-2 text-xs text-neutral-400">{new Date(g.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}</td>
                   </tr>
                 ))}
               </tbody>

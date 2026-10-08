@@ -42,7 +42,7 @@ export default function HourCreditsSection({
       </div>
       {availableHours > 0 && nextExpiry && (
         <p className="mt-2 text-xs text-neutral-500">
-          Next expiration: {new Date(nextExpiry).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          Use by {new Date(new Date(nextExpiry).getTime() - 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}
         </p>
       )}
       <div className="mt-3 flex gap-2">

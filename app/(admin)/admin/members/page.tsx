@@ -84,8 +84,8 @@ export default async function AdminMembersPage({
                         "bg-red-500/20 text-red-400"
                       }`}>{m.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                    <td className="px-4 py-3 text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}</td>
+                    <td className="px-4 py-3 text-neutral-400">{new Date(m.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })}</td>
+                    <td className="px-4 py-3 text-neutral-400">{m.current_period_end ? new Date(m.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "N/A"}</td>
                   </tr>
                 )
               })}

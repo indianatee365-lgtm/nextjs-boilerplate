@@ -120,7 +120,7 @@ export default async function AdminMembershipGiveawaysPage() {
                     </td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">{c.note ?? ""}</td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
+                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "Never"}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
