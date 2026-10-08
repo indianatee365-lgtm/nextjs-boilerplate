@@ -664,6 +664,10 @@ export async function POST(request: NextRequest) {
       await logFailure(supabase, "membership-payment-FAILED",
         `pi=${pi.id} user=${user_id} plan=${plan_slug} amount=$${amount} err=${errMsg}`,
         `ALERT Membership purchase FAILED, ${plan_slug ?? "?"} attempt by ${custName} $${amount}. Reason: ${errMsg}. Consider reaching out.`)
+    } else if (piType === "league") {
+      // Weekly league charge (lib/league/charges.ts). The charge job already
+      // texted the payer and alerted Jerrod; this only leaves a trail.
+      await logEvent(supabase, "league-charge-payment-failed-webhook", `pi=${pi.id} amount=$${amount} err=${errMsg}`)
     } else if (piType === "gift_card") {
       const { recipientEmail, senderName } = pi.metadata
       await logFailure(supabase, "gift-card-payment-FAILED",

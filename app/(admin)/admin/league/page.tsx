@@ -2,6 +2,9 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { LEAGUE_SLUG, inviteUrl, teeTimeLabel } from "@/lib/league"
+import { buildSeason } from "@/lib/league/schedule"
+import { planLeagueCharges } from "@/lib/league/charges"
+import { easternDateKey } from "@/lib/time/eastern"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "League | Tee365 Admin" }
@@ -53,6 +56,31 @@ async function setAnnounceApproval(formData: FormData) {
   revalidatePath("/admin/league")
 }
 
+// Builds weeks 1-7 from the confirmed teams in each tee time (round robin,
+// bays rotating). Allowed until week one starts; regenerating replaces it.
+async function generateSchedule() {
+  "use server"
+  const service = await requireAdmin()
+  const { data: league } = await service.from("leagues").select("id").eq("slug", LEAGUE_SLUG).single()
+  const leagueId = (league as { id: string }).id
+  const { data: weeks } = await service.from("league_weeks").select("id, week_no, play_date").eq("league_id", leagueId).order("week_no")
+  const ws = (weeks ?? []) as { id: string; week_no: number; play_date: string }[]
+  if (!ws.length || easternDateKey(new Date()) >= ws[0].play_date) return
+  const { data: teams } = await service.from("league_teams").select("id, tee_time").eq("league_id", leagueId).eq("status", "confirmed").order("created_at")
+  const byTee: Record<string, string[]> = {}
+  for (const t of (teams ?? []) as { id: string; tee_time: string }[]) (byTee[t.tee_time] ??= []).push(t.id)
+  const season = buildSeason(byTee)
+  const weekId = new Map(ws.map((w) => [w.week_no, w.id]))
+  await service.from("league_matches").delete().eq("league_id", leagueId)
+  if (season.length) {
+    await service.from("league_matches").insert(season.map((m) => ({
+      league_id: leagueId, week_id: weekId.get(m.weekNo), tee_time: m.teeTime, bay_number: m.bayNumber,
+      home_team_id: m.home, away_team_id: m.away,
+    })))
+  }
+  revalidatePath("/admin/league")
+}
+
 async function setLeagueActive(formData: FormData) {
   "use server"
   const service = await requireAdmin()
@@ -79,6 +107,17 @@ export default async function AdminLeaguePage() {
   const active = rows.filter((r) => r.status === "confirmed" || r.status === "pending_partner")
   const { data: readyRow } = await service.from("admin_settings").select("value").eq("key", "league_ready").maybeSingle()
   const ready = (readyRow as { value: boolean } | null)?.value === true
+  // Schedule and next charges, for the commissioner's view.
+  const { data: weekRows } = await service.from("league_weeks").select("id, week_no, play_date, course, nine, cancelled").eq("league_id", l.id).order("week_no")
+  const weekList = (weekRows ?? []) as { id: string; week_no: number; play_date: string; course: string; nine: string; cancelled: boolean }[]
+  const { data: matchRows } = await service.from("league_matches").select("week_id, tee_time, bay_number, home_team_id, away_team_id").eq("league_id", l.id)
+  const matches = (matchRows ?? []) as { week_id: string; tee_time: string; bay_number: number | null; home_team_id: string; away_team_id: string | null }[]
+  const teamName = new Map(rows.map((r) => [r.id, r.name]))
+  const today = easternDateKey(new Date())
+  const nextNight = weekList.find((w) => w.play_date >= today && !w.cancelled)
+  const chargePlan = nextNight ? await planLeagueCharges(service, nextNight.play_date) : null
+  const canGenerate = weekList.length > 0 && today < weekList[0].play_date
+
   const { data: approvals } = await service.from("admin_settings").select("key, value").in("key", ["league_members_announce_ok", "league_public_announce_ok"])
   const approved = Object.fromEntries(((approvals ?? []) as { key: string; value: boolean }[]).map((r) => [r.key, r.value === true]))
 
@@ -95,6 +134,7 @@ export default async function AdminLeaguePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
         <a href="/admin/league/card" className="btn-secondary px-4 py-2 text-sm">Print bay card</a>
+        <a href="/admin/league/weeks" className="btn-secondary px-4 py-2 text-sm">Weeks and courses</a>
         {!l.active && (
           <form action={setLeagueReady}>
             <input type="hidden" name="ready" value={ready ? "false" : "true"} />
@@ -156,6 +196,54 @@ export default async function AdminLeaguePage() {
           </tbody>
         </table>
       </div>
+      <section className="mt-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">Schedule</h2>
+          {canGenerate && (
+            <form action={generateSchedule}>
+              <button className="btn-secondary px-4 py-2 text-sm">{matches.length ? "Regenerate schedule" : "Generate schedule"} from confirmed teams</button>
+            </form>
+          )}
+        </div>
+        {matches.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-500">No schedule yet. Generate it once signups close (Oct 20). Weeks 1 to 7 are a round robin inside each tee time; week 8 is set from the standings after week 7.</p>
+        ) : (
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {weekList.filter((w) => matches.some((m) => m.week_id === w.id)).map((w) => (
+              <div key={w.id} className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-neutral-300">
+                <p className="mb-1 text-sm font-semibold text-white">Week {w.week_no} &middot; {w.course} ({w.nine}){w.cancelled ? " \u00b7 CANCELLED" : ""}</p>
+                {matches.filter((m) => m.week_id === w.id).sort((a, b) => a.tee_time.localeCompare(b.tee_time) || (a.bay_number ?? 9) - (b.bay_number ?? 9)).map((m, i) => (
+                  <p key={i}>{teeTimeLabel(m.tee_time)} &middot; {m.bay_number ? `Bay ${m.bay_number}` : "Bye"}: {teamName.get(m.home_team_id) ?? "?"}{m.away_team_id ? ` vs ${teamName.get(m.away_team_id) ?? "?"}` : " (bye)"}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold text-white">Next charges</h2>
+        {!nextNight || !chargePlan ? (
+          <p className="mt-2 text-sm text-neutral-500">No league nights left.</p>
+        ) : (
+          <div className="mt-2 text-sm text-neutral-300">
+            <p className="text-neutral-400">
+              Week {nextNight.week_no}, {new Date(`${nextNight.play_date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}, charged that morning around 9 to 10am.
+              {" "}{l.active ? "" : "The league is hidden, so nothing would be charged right now."}
+            </p>
+            {chargePlan.rows.length === 0 ? (
+              <p className="mt-2 text-neutral-500">No confirmed teams, so nobody would be charged.</p>
+            ) : (
+              <ul className="mt-2 space-y-1">
+                {chargePlan.rows.map((r) => (
+                  <li key={r.payerUserId}>{r.payerName}: ${r.amount.toFixed(2)} <span className="text-neutral-500">({r.players.join(", ")}){r.existing ? ` \u00b7 already ${r.existing}` : ""}</span></li>
+                ))}
+                <li className="pt-1 font-semibold text-white">Total: ${chargePlan.rows.reduce((t, r) => t + r.amount, 0).toFixed(2)}</li>
+              </ul>
+            )}
+          </div>
+        )}
+      </section>
     </main>
   )
 }

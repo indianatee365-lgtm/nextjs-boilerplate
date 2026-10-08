@@ -278,6 +278,11 @@ export async function sendLeaguePublicNotice({ to }: { to: string }) {
   await sendSms(to, message, "league-public-notice")
 }
 
+export async function sendLeagueChargeFailedSms({ to, firstName, amount }: { to: string; firstName: string; amount: number }) {
+  const message = `Hi ${firstName}, your $${amount.toFixed(2)} Thursday Night League charge for tonight didn't go through. Please update your card at tee365.org/account and we'll sort it out. Questions: just reply.\n- Tee365`
+  await sendSms(to, message, "league-charge-failed")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,
