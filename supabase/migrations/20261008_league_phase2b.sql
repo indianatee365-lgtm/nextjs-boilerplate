@@ -1,0 +1,2 @@
+-- League phase 2B (2026-10-08): applied via Supabase MCP as league_phase2b_scores.
+-- league_participants.ab, league_scorecards, league_results. See lib/league/matches.ts.

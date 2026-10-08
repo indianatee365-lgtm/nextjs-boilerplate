@@ -117,6 +117,8 @@ export default async function AdminLeaguePage() {
   const nextNight = weekList.find((w) => w.play_date >= today && !w.cancelled)
   const chargePlan = nextNight ? await planLeagueCharges(service, nextNight.play_date) : null
   const canGenerate = weekList.length > 0 && today < weekList[0].play_date
+  const { data: disputedRows } = await service.from("league_results").select("match_id, dispute_note").eq("status", "disputed")
+  const disputed = (disputedRows ?? []) as { match_id: string; dispute_note: string | null }[]
 
   const { data: approvals } = await service.from("admin_settings").select("key, value").in("key", ["league_members_announce_ok", "league_public_announce_ok"])
   const approved = Object.fromEntries(((approvals ?? []) as { key: string; value: boolean }[]).map((r) => [r.key, r.value === true]))
@@ -196,6 +198,19 @@ export default async function AdminLeaguePage() {
           </tbody>
         </table>
       </div>
+      {disputed.length > 0 && (
+        <section className="mt-8 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+          <h2 className="text-sm font-semibold text-red-200">Disputed scores ({disputed.length})</h2>
+          <ul className="mt-2 space-y-1 text-sm text-neutral-200">
+            {disputed.map((d) => (
+              <li key={d.match_id}>
+                <a href={`/league/play?match=${d.match_id}`} className="underline">Fix and confirm</a>: {d.dispute_note ?? "no note"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-white">Schedule</h2>

@@ -222,6 +222,12 @@ function TeamCard({ team, copied, onCopy }: { team: MyTeam; copied: boolean; onC
         <p className="mt-1 text-sm text-neutral-300">{team.captainName} and {team.partnerName}</p>
         <p className="mt-2 text-sm text-neutral-300">{statusLine}</p>
         {payLine && <p className="mt-1 text-sm text-neutral-400">{payLine}</p>}
+        {team.status === "confirmed" && (
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <a href="/league/play" className="font-semibold text-brand underline underline-offset-4">Enter tonight&apos;s scores</a>
+            <a href="/league/standings" className="text-neutral-300 underline underline-offset-4">Standings</a>
+          </div>
+        )}
       </div>
       {team.role === "captain" && team.status === "pending_partner" && team.inviteLink && (
         <div className="space-y-2">

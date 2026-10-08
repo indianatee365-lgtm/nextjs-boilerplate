@@ -56,6 +56,7 @@ export const RULES: RuleSection[] = [
       "Teams of two. Two teams share a bay, four players, 9 holes, two hours.",
       "Every player plays their own ball and every score is recorded, hole by hole.",
       "Up to 8 teams per tee time, 16 teams and 32 players in all.",
+      "If a tee time ends up with an odd number of teams, one team each week has a bye: they still play their round (it counts for handicaps and the gross prize) and get half the points on offer that week, 2 in a learning week and 10 in a match week.",
     ],
   },
   {
