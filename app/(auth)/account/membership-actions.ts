@@ -13,7 +13,24 @@ function getStripe() {
   })
 }
 
-export async function cancelMembership(): Promise<{ error?: string; ok?: boolean }> {
+// Why members cancel, asked in the cancel box (optional). Added 2026-10-08
+// after both Birdie members ever sold cancelled within two minutes of joining
+// and nobody knew why. Keep these in sync with REASONS in CancelMembershipSection.
+const CANCEL_REASON_LABELS: Record<string, string> = {
+  auto_renew: "just didn't want it to auto-renew",
+  not_worth_it: "not worth it for how often they play",
+  one_booking: "only needed it for one booking",
+  mistake: "signed up by mistake",
+  other: "something else",
+}
+
+const CANCEL_REASONS = new Set([
+  "auto_renew", "not_worth_it", "one_booking", "mistake", "other",
+])
+
+export async function cancelMembership(
+  reason?: { choice?: string; note?: string },
+): Promise<{ error?: string; ok?: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Not authenticated" }
@@ -57,6 +74,16 @@ export async function cancelMembership(): Promise<{ error?: string; ok?: boolean
     .update({ cancellation_requested_at: new Date().toISOString() })
     .eq("id", m.id)
 
+  const choice = reason?.choice && CANCEL_REASONS.has(reason.choice) ? reason.choice : null
+  const note = typeof reason?.note === "string" ? reason.note.trim().slice(0, 500) : ""
+  if (choice || note) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (serviceClient as any).from("memberships")
+      .update({ cancellation_reason: choice, cancellation_note: note || null })
+      .eq("id", m.id)
+  }
+  const reasonText = [CANCEL_REASON_LABELS[choice ?? ""] ?? null, note ? `"${note}"` : null].filter(Boolean).join(", ")
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (serviceClient as any).from("admin_logs").insert({
     event: "membership-cancel-requested",
@@ -82,7 +109,7 @@ export async function cancelMembership(): Promise<{ error?: string; ok?: boolean
     })(),
     (async () => {
       const custName = await getCustomerName(serviceClient, user.id)
-      await notifyOwner(`Cancellation requested, ${planName} ${custName}. Active until ${endDate}.`)
+      await notifyOwner(`Cancellation requested, ${planName} ${custName}. Active until ${endDate}. Reason: ${reasonText || "not given"}.`)
     })(),
   ])
 
