@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { findPlayerMatchId, loadMatch } from "@/lib/league/matches"
+import { findPlayerMatchId, loadMatch, playerMaxes } from "@/lib/league/matches"
 import { teeTimeLabel } from "@/lib/league"
 import ScoreEntry from "./ScoreEntry"
 
@@ -36,15 +36,19 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
   const myTeamId = view.home.players.some((p) => p.userId === user.id) ? view.home.teamId
     : view.away?.players.some((p) => p.userId === user.id) ? view.away.teamId : null
   const status = view.result?.status ?? null
+  // The commissioner can fix anything, except his own match, which follows
+  // the same rules as everyone else's.
+  const commissioner = isAdmin && !myTeamId
   const mode: "enter" | "confirm" | "view" =
-    status === "confirmed" ? (isAdmin ? "enter" : "view")
-    : status === "entered" ? (isAdmin || (myTeamId && myTeamId !== view.result!.enteredTeamId) ? "confirm" : "view")
-    : status === "disputed" ? (isAdmin ? "enter" : "view")
+    status === "confirmed" ? (commissioner ? "enter" : "view")
+    : status === "entered" ? (commissioner || (myTeamId && myTeamId !== view.result!.enteredTeamId) ? "confirm" : "view")
+    : status === "disputed" ? (commissioner ? "enter" : "view")
     : "enter"
   const players = [
-    ...view.home.players.map((p) => ({ userId: p.userId, name: p.name, teamName: view.home.name })),
-    ...(view.away?.players ?? []).map((p) => ({ userId: p.userId, name: p.name, teamName: view.away!.name })),
+    ...view.home.players.map((p) => ({ userId: p.userId, name: p.name, teamName: view.home.name, ab: p.ab, handicap: p.handicap })),
+    ...(view.away?.players ?? []).map((p) => ({ userId: p.userId, name: p.name, teamName: view.away!.name, ab: p.ab, handicap: p.handicap })),
   ]
+  const maxes = playerMaxes(view)
   const startHole = view.week.nine === "Back 9" ? 10 : 1
   const statusLine =
     status === "confirmed" ? `Confirmed. ${view.home.name} ${view.result!.homePoints} pts${view.away ? `, ${view.away.name} ${view.result!.awayPoints} pts` : ""}.`
@@ -62,7 +66,11 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
         {view.week.course}, {view.week.nine} &middot; {teeTimeLabel(view.teeTime)}{view.bayNumber ? ` · Bay ${view.bayNumber}` : ""}
       </p>
       <p className="mt-4 text-sm text-neutral-300">{statusLine}</p>
-      {isAdmin && <p className="mt-1 text-xs text-amber-300">Commissioner view: anything you save is confirmed immediately.</p>}
+      {commissioner && <p className="mt-1 text-xs text-amber-300">Commissioner view: anything you save is confirmed immediately.</p>}
+      <p className="mt-2 text-xs text-neutral-400">
+        Max on any hole is net double bogey: par + 2, plus your stroke on that hole. The small number under each box is your max; pick up when you hit it.
+        {Object.values(maxes).some((m) => m === null) ? " (This week's holes aren't entered yet, so no max is shown.)" : ""}
+      </p>
       <div className="mt-5">
         <ScoreEntry
           matchId={view.matchId}
@@ -70,6 +78,8 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
           holesLabel={Array.from({ length: 9 }, (_, i) => startHole + i)}
           pars={Array.from({ length: 9 }, (_, i) => view.week.holes?.[i]?.par ?? null)}
           initial={view.cards}
+          initialSubs={view.subs}
+          maxes={maxes}
           mode={mode}
           canEdit={mode !== "view"}
         />

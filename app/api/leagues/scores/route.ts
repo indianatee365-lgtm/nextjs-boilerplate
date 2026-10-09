@@ -34,11 +34,12 @@ export async function POST(request: NextRequest) {
   const who = `${(prof as { first_name: string }).first_name} ${(prof as { last_name: string }).last_name}`.trim()
 
   if (action === "enter") {
-    if (view.result?.status === "confirmed" && !isAdmin) {
+    if (view.result?.status === "confirmed" && !(isAdmin && !myTeamId)) {
       return NextResponse.json({ error: "These scores are already confirmed. Ask the commissioner if something's wrong." }, { status: 409 })
     }
     const allPlayers = [...view.home.players.map((p) => ({ ...p, teamId: view.home.teamId })), ...(view.away?.players ?? []).map((p) => ({ ...p, teamId: view.away!.teamId }))]
     const cards = (body.cards ?? {}) as Record<string, unknown>
+    const subs = (body.subs ?? {}) as Record<string, unknown>
     const rows = []
     for (const p of allPlayers) {
       const c = cards[p.userId]
@@ -52,21 +53,26 @@ export async function POST(request: NextRequest) {
       } else if (c !== null) {
         return NextResponse.json({ error: `Enter ${p.name}'s scores, or mark them absent.` }, { status: 400 })
       }
-      rows.push({ match_id: matchId, team_id: p.teamId, user_id: p.userId, strokes, entered_by: user.id, updated_at: new Date().toISOString() })
+      const subName = typeof subs[p.userId] === "string" ? (subs[p.userId] as string).trim().slice(0, 60) : ""
+      if (subName && !strokes) return NextResponse.json({ error: `Enter the sub's scores for ${p.name}, or mark them absent.` }, { status: 400 })
+      rows.push({ match_id: matchId, team_id: p.teamId, user_id: p.userId, strokes, sub_name: subName || null, entered_by: user.id, updated_at: new Date().toISOString() })
     }
     await db.from("league_scorecards").upsert(rows, { onConflict: "match_id,user_id" })
     await db.from("league_results").upsert({
       match_id: matchId, status: "entered", entered_by: user.id, entered_team_id: myTeamId,
       entered_at: new Date().toISOString(), confirmed_by: null, confirmed_at: null, dispute_note: null,
     })
-    if (isAdmin) await confirmMatch(db, matchId, user.id)
-    await logEvent(db, "league-scores-entered", `match=${matchId} by=${user.id} admin=${isAdmin}`)
-    return NextResponse.json({ ok: true, status: isAdmin ? "confirmed" : "entered" })
+    // The commissioner's save is final, unless it's his own match: then the
+    // other team still confirms, like anyone else's.
+    const commissionerFinal = isAdmin && !myTeamId
+    if (commissionerFinal) await confirmMatch(db, matchId, user.id)
+    await logEvent(db, "league-scores-entered", `match=${matchId} by=${user.id} final=${commissionerFinal}`)
+    return NextResponse.json({ ok: true, status: commissionerFinal ? "confirmed" : "entered" })
   }
 
   if (action === "confirm" || action === "dispute") {
     if (!view.result || view.result.status !== "entered") return NextResponse.json({ error: "Nothing to confirm" }, { status: 400 })
-    if (!isAdmin && myTeamId === view.result.enteredTeamId) {
+    if (myTeamId && myTeamId === view.result.enteredTeamId) {
       return NextResponse.json({ error: "The other team confirms your scores, not your own team." }, { status: 403 })
     }
     if (action === "confirm") {

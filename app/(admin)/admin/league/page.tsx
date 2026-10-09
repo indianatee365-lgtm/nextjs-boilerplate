@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { sendLeagueSpotOpenedSms } from "@/lib/telnyx/sms"
 import { revalidatePath } from "next/cache"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { LEAGUE_SLUG, inviteUrl, teeTimeLabel } from "@/lib/league"
@@ -29,6 +30,11 @@ async function removeTeam(formData: FormData) {
   const service = await requireAdmin()
   const id = String(formData.get("teamId") ?? "")
   if (!id) return
+  // Removing a scheduled team would delete its matches, and with them the
+  // other teams' results. Once scheduled, a team that leaves forfeits instead.
+  const { count } = await service.from("league_matches").select("id", { count: "exact", head: true })
+    .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+  if ((count ?? 0) > 0) redirect("/admin/league?error=" + encodeURIComponent("That team is on the schedule, so it can't be removed (its opponents' results would go with it). If they drop out, they forfeit their matches; mark players absent on the score card."))
   await service.from("league_participants").delete().eq("team_id", id)
   await service.from("league_teams").delete().eq("id", id)
   revalidatePath("/admin/league")
@@ -89,8 +95,31 @@ async function moveTeeTime(formData: FormData) {
   const id = String(formData.get("teamId") ?? "")
   const to = String(formData.get("to") ?? "")
   if (!id || !/^\d\d:\d\d$/.test(to)) return
+  const { count } = await service.from("league_matches").select("id", { count: "exact", head: true }).or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+  if ((count ?? 0) > 0) redirect("/admin/league?error=" + encodeURIComponent("The schedule is already built. Move the team, then press Regenerate schedule (allowed until week one)."))
   await service.from("league_teams").update({ tee_time: to }).eq("id", id)
   await service.from("league_participants").update({ preferred_slot: to }).eq("team_id", id)
+  revalidatePath("/admin/league")
+}
+
+// Moves a waitlisted team in. The capacity trigger refuses it if the tee
+// time is full; the captain gets a text either way it succeeds.
+async function promoteTeam(formData: FormData) {
+  "use server"
+  const service = await requireAdmin()
+  const id = String(formData.get("teamId") ?? "")
+  const { data: team } = await service.from("league_teams").select("id, name, tee_time, status, partner_user_id, captain_user_id").eq("id", id).single()
+  const t = team as { id: string; name: string; tee_time: string; status: string; partner_user_id: string | null; captain_user_id: string } | null
+  if (!t || t.status !== "waitlisted") return
+  const next = t.partner_user_id ? "confirmed" : "pending_partner"
+  const { error } = await service.from("league_teams").update({ status: next, ...(next === "confirmed" ? { confirmed_at: new Date().toISOString() } : {}) }).eq("id", id)
+  if (error) redirect("/admin/league?error=" + encodeURIComponent(String(error.message).includes("LEAGUE_TEE_TIME_FULL") ? "That tee time is full. Move the team to the other tee time first." : "Couldn't promote that team."))
+  await service.from("league_participants").update({ status: "registered" }).eq("team_id", id)
+  const { data: cap } = await service.from("profiles").select("first_name, phone, sms_consent").eq("id", t.captain_user_id).single()
+  const c = cap as { first_name: string; phone: string | null; sms_consent: boolean } | null
+  if (c?.phone && c.sms_consent) {
+    try { await sendLeagueSpotOpenedSms({ to: c.phone, firstName: c.first_name, teamName: t.name, teeTime: teeTimeLabel(t.tee_time) }) } catch { /* logged by sendSms */ }
+  }
   revalidatePath("/admin/league")
 }
 
@@ -102,7 +131,8 @@ async function setLeagueActive(formData: FormData) {
   revalidatePath("/league")
 }
 
-export default async function AdminLeaguePage() {
+export default async function AdminLeaguePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error: actionError } = await searchParams
   const service = await requireAdmin()
   const { data: league } = await service.from("leagues").select("id, name, active, teams_per_tee_time, tee_times").eq("slug", LEAGUE_SLUG).single()
   const l = league as { id: string; name: string; active: boolean; teams_per_tee_time: number; tee_times: string[] }
@@ -168,6 +198,9 @@ export default async function AdminLeaguePage() {
         </div>
       </div>
 
+      {actionError && (
+        <p className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{actionError}</p>
+      )}
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
         {([
           ["league_members_announce_ok", "Members announcement, Mon Oct 12 9am"],
@@ -210,6 +243,12 @@ export default async function AdminLeaguePage() {
                 </td>
                 <td className="px-3 py-2">{r.status.replace("_", " ")}</td>
                 <td className="px-3 py-2 text-right">
+                  {r.status === "waitlisted" && (
+                    <form action={promoteTeam} className="mb-1">
+                      <input type="hidden" name="teamId" value={r.id} />
+                      <button className="text-xs text-brand hover:underline">Promote</button>
+                    </form>
+                  )}
                   <form action={removeTeam}>
                     <input type="hidden" name="teamId" value={r.id} />
                     <button className="text-xs text-red-400 hover:underline">Remove</button>

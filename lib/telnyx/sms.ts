@@ -283,6 +283,11 @@ export async function sendLeagueChargeFailedSms({ to, firstName, amount }: { to:
   await sendSms(to, message, "league-charge-failed")
 }
 
+export async function sendLeagueSpotOpenedSms({ to, firstName, teamName, teeTime }: { to: string; firstName: string; teamName: string; teeTime: string }) {
+  const message = `Hi ${firstName}, good news: a spot opened in the Thursday Night League. Team ${teamName} is in at the ${teeTime} tee time. Details: tee365.org/league\n- jerrod`
+  await sendSms(to, message, "league-spot-opened")
+}
+
 export async function sendAccessCodeReminder({
   to,
   firstName,

@@ -2,7 +2,9 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import Stripe from "stripe"
 import { LEAGUE_SLUG } from "@/lib/league"
+import { logFailure, notifyOwner } from "@/lib/observability/notify"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "League weeks | Tee365 Admin" }
@@ -31,12 +33,36 @@ async function saveWeek(formData: FormData) {
     hcp: Number(formData.get(`hcp${i}`)) || null,
   }))
   const complete = holes.every((h) => h.par && h.hcp)
+  const cancelled = formData.get("cancelled") === "on"
+  const { data: before } = await service.from("league_weeks").select("cancelled, week_no").eq("id", id).single()
   await service.from("league_weeks").update({
     course: String(formData.get("course") ?? "").trim(),
     nine: String(formData.get("nine") ?? "Front 9"),
     holes: complete ? holes : holes.filter((h) => h.par || h.hcp).length ? holes : [],
-    cancelled: formData.get("cancelled") === "on",
+    cancelled,
   }).eq("id", id)
+
+  // Rules: if Tee365 cancels a night, nobody pays for it. If that morning's
+  // charges already ran, refund every one of them now.
+  if (cancelled && !(before as { cancelled: boolean }).cancelled) {
+    const { data: paid } = await service.from("league_charges").select("id, stripe_payment_intent_id, amount").eq("week_id", id).eq("status", "succeeded")
+    const rows = (paid ?? []) as { id: string; stripe_payment_intent_id: string | null; amount: number }[]
+    if (rows.length) {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() })
+      let refunded = 0
+      for (const c of rows) {
+        try {
+          if (c.stripe_payment_intent_id) await stripe.refunds.create({ payment_intent: c.stripe_payment_intent_id }, { idempotencyKey: `league-refund-${c.id}` })
+          await service.from("league_charges").update({ status: "refunded", updated_at: new Date().toISOString() }).eq("id", c.id)
+          refunded++
+        } catch (e) {
+          await logFailure(service, "league-cancel-refund-FAILED", `charge=${c.id} err=${String(e).slice(0, 200)}`,
+            `League night cancelled but a $${Number(c.amount).toFixed(2)} refund FAILED (charge ${c.id}). Refund it by hand in Stripe.`)
+        }
+      }
+      await notifyOwner(`League week ${(before as { week_no: number }).week_no} cancelled: ${refunded} of ${rows.length} charges refunded automatically.`)
+    }
+  }
   revalidatePath("/admin/league/weeks")
 }
 
