@@ -4,7 +4,7 @@ import { sendFounderMessage } from "@/lib/resend/email"
 import { sendCampaignBatch, sendCampaignTest } from "@/lib/resend/campaign"
 import { sendLeagueMembersNotice, sendLeaguePublicNotice } from "@/lib/telnyx/sms"
 import { getAudience } from "@/lib/admin/audience"
-import { logEvent, logFailure } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
 /**
  * League signup announcements for the later windows (2026-10-08):
@@ -186,5 +186,10 @@ export async function GET(request: NextRequest) {
 
   const left = { emails: emailQueue.length - emailsSent, texts: smsQueue.length - textsSent }
   await logEvent(db, `league-${audience}-announcement-run`, `emails=${emailsSent} texts=${textsSent} failed=${failed} emailsLeft=${left.emails} textsLeft=${left.texts}`)
+  // Only runs that sent something text the owner (the public job runs every
+  // minute for an hour, and most of those runs have nothing left to do).
+  if (emailsSent || textsSent || failed) {
+    await notifyOwner(`League ${audience} announcement: ${emailsSent} emails, ${textsSent} texts sent, ${failed} failed. Left: ${left.emails} emails, ${left.texts} texts.${!left.emails && !left.texts ? " All done." : ""}`)
+  }
   return NextResponse.json({ audience, emailsSent, textsSent, failed, left })
 }
