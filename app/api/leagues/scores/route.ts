@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { confirmMatch, loadMatch } from "@/lib/league/matches"
-import { logEvent, notifyOwner } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
+import { sendConfirmRequest } from "@/lib/league/texts"
 
 /**
  * Score entry and confirmation for one match.
@@ -67,6 +68,11 @@ export async function POST(request: NextRequest) {
     const commissionerFinal = isAdmin && !myTeamId
     if (commissionerFinal) await confirmMatch(db, matchId, user.id)
     await logEvent(db, "league-scores-entered", `match=${matchId} by=${user.id} final=${commissionerFinal}`)
+    // Text the other team a link to confirm. A failed text never fails the save.
+    if (!commissionerFinal && myTeamId) {
+      try { await sendConfirmRequest(db, matchId, myTeamId, (prof as { first_name: string }).first_name) }
+      catch (e) { await logFailure(db, "league-confirm-request-FAILED", `match=${matchId} err=${String(e).slice(0, 200)}`) }
+    }
     return NextResponse.json({ ok: true, status: commissionerFinal ? "confirmed" : "entered" })
   }
 

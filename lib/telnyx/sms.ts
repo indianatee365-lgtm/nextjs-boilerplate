@@ -279,8 +279,13 @@ export async function sendLeaguePublicNotice({ to }: { to: string }) {
 }
 
 export async function sendLeagueChargeFailedSms({ to, firstName, amount }: { to: string; firstName: string; amount: number }) {
-  const message = `Hi ${firstName}, your $${amount.toFixed(2)} Thursday Night League charge for tonight didn't go through. Please update your card at tee365.org/account and we'll sort it out. Questions: just reply.\n- Tee365`
+  const message = `Hi ${firstName}, your $${amount.toFixed(2)} Thursday Night League charge for tonight didn't go through. Please update your card at tee365.org/account and we'll sort it out. Questions: call (574) 444-9365.\n- Tee365`
   await sendSms(to, message, "league-charge-failed")
+}
+
+/** League player texts; bodies are built in lib/league/texts.ts. */
+export async function sendLeaguePlayerText({ to, body, kind }: { to: string; body: string; kind: string }) {
+  await sendSms(to, body, kind)
 }
 
 export async function sendLeagueSpotOpenedSms({ to, firstName, teamName, teeTime }: { to: string; firstName: string; teamName: string; teeTime: string }) {
