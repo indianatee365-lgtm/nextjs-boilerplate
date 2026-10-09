@@ -1,0 +1,2 @@
+-- League audit fixes (2026-10-08), applied via Supabase MCP as league_audit_fixes:
+-- league_scorecards.sub_name; league_charges status adds refunded.

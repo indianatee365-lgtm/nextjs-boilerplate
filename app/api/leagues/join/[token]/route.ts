@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { hasCardOnFile, teeTimeLabel } from "@/lib/league"
+import { hasCardOnFile, signupWindow, teeTimeLabel, type League } from "@/lib/league"
 import { recordLeagueWaiver } from "@/lib/league/waiver"
 import { startingNineHoleHandicap } from "@/lib/league/handicap"
 import { sendLeagueTeamConfirmedSms } from "@/lib/telnyx/sms"
@@ -34,6 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     partner_user_id: string | null; tee_time: string; status: string; captain_pays_for_both: boolean
   } | null
   if (!team || team.status === "withdrawn") return NextResponse.json({ error: "This invite isn't valid anymore" }, { status: 404 })
+  const { data: leagueRow } = await service.from("leagues").select("*").eq("id", team.league_id).single()
+  const { data: me } = await service.from("profiles").select("role").eq("id", user.id).single()
+  if (signupWindow(leagueRow as League) === "closed" && (me as { role: string } | null)?.role !== "admin") {
+    return NextResponse.json({ error: "Signups for this league have closed. Contact the commissioner." }, { status: 409 })
+  }
   if (team.captain_user_id === user.id) return NextResponse.json({ error: "That's your own team. Send this link to your partner." }, { status: 400 })
   if (team.partner_user_id) return NextResponse.json({ error: "This team already has its partner" }, { status: 409 })
 

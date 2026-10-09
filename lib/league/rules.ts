@@ -84,7 +84,7 @@ export const RULES: RuleSection[] = [
     rules: [
       "Starting handicap: you give it at signup. Your 9-hole number is half your 18-hole handicap. No official handicap? Tell us your typical 18-hole score and we'll work it out. The commissioner can adjust any starting handicap.",
       "From week 3, your league handicap comes from your own league scores: 90% of the average of your best 2 of your last 4 rounds, measured against par.",
-      "For handicap purposes, no hole counts worse than net double bogey.",
+      "Max score on any hole is net double bogey: par + 2, plus the stroke you get on that hole from your handicap. It applies to everything: match points, team totals, the low gross prize and handicaps. Pick up when you reach it. Your score card shows your max under every hole.",
       "Your league handicap can't rise more than 3 strokes above your starting handicap without the commissioner's OK. That, and best-2-of-4, is what stops sandbagging.",
       "Strokes in a match: the higher handicap player gets the difference, one stroke per hole on the hardest holes, using the course's hole handicaps from the GSPro scorecard.",
       "Handicaps update automatically every week. You'll always see yours and your opponent's before you play.",
@@ -96,7 +96,7 @@ export const RULES: RuleSection[] = [
       "Every bay plays the same course with the same settings on the same night. The settings sheet is below and is checked on every bay before league night.",
       "Misreads: if the simulator clearly misreads a shot (didn't track it, or recorded something wildly different from what everyone saw), re-hit it, as long as the other team in your bay agrees. Anything else, you play it.",
       "No practice swings into the screen between competition shots.",
-      "Pace: finish inside your two hours. The 7:30 group is waiting on you. Holes not finished in time score as double bogey.",
+      "Pace: finish inside your two hours. The 7:30 group is waiting on you. Holes not finished in time score as your max (net double bogey).",
     ],
   },
   {
@@ -112,9 +112,10 @@ export const RULES: RuleSection[] = [
     title: "Missing a week",
     rules: [
       "You can send a sub. Subs need their own Tee365 account and must sign the waiver, because they're in the building. Subs play free.",
-      "A sub plays at the absent player's handicap, so a sub can never make a team stronger. A sub's scores don't change anyone's handicap.",
+      "A sub plays at the absent player's handicap, so a sub can never make a team stronger. A sub's scores don't change anyone's handicap and don't count toward the low gross prize. Mark them as a sub on the score card.",
       "No sub: the absent player's match is forfeited. Their opponent still plays their round and wins all 9 points of that match. The forfeiting team can't win that night's 2 team points.",
       "Nobody shows from a team: the other team wins all 20 points, as long as they play their rounds.",
+      "In the learning weeks (1 and 2), a team missing a player can't win that night's 4 points; the full team does.",
       "Your card is charged for every league night, played or missed.",
     ],
   },

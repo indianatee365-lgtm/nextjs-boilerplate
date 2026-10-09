@@ -1,6 +1,6 @@
 import { easternDateKey } from "@/lib/time/eastern"
 import { LEAGUE_SLUG } from "@/lib/league"
-import { learningWeekPoints, matchWeekPoints, teamGross, type Hole, type PlayerCard, type TeamCard } from "@/lib/league/points"
+import { holeMaxes, learningWeekPoints, matchWeekPoints, teamGross, type Hole, type PlayerCard, type TeamCard } from "@/lib/league/points"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any
@@ -19,6 +19,8 @@ export interface MatchView {
   home: MatchTeam
   away: MatchTeam | null
   cards: Record<string, number[] | null>
+  /** Who subbed for which rostered player, by that player's user id. */
+  subs: Record<string, string>
   result: { status: string; enteredTeamId: string | null; enteredAt: string; disputeNote: string | null; homePoints: number | null; awayPoints: number | null } | null
 }
 
@@ -61,7 +63,7 @@ export async function loadMatch(db: SupabaseClient, matchId: string): Promise<Ma
     loadTeam(db, m.league_id, m.home_team_id, hcp),
     m.away_team_id ? loadTeam(db, m.league_id, m.away_team_id, hcp) : Promise.resolve(null),
   ])
-  const { data: cards } = await db.from("league_scorecards").select("user_id, strokes").eq("match_id", matchId)
+  const { data: cards } = await db.from("league_scorecards").select("user_id, strokes, sub_name").eq("match_id", matchId)
   const { data: res } = await db.from("league_results").select("*").eq("match_id", matchId).maybeSingle()
   return {
     matchId,
@@ -71,6 +73,7 @@ export async function loadMatch(db: SupabaseClient, matchId: string): Promise<Ma
     home,
     away,
     cards: Object.fromEntries(((cards ?? []) as { user_id: string; strokes: number[] | null }[]).map((c) => [c.user_id, c.strokes])),
+    subs: Object.fromEntries(((cards ?? []) as { user_id: string; sub_name: string | null }[]).filter((c) => c.sub_name).map((c) => [c.user_id, c.sub_name!])),
     result: res ? {
       status: res.status, enteredTeamId: res.entered_team_id, enteredAt: res.entered_at, disputeNote: res.dispute_note,
       homePoints: res.home_points === null ? null : Number(res.home_points), awayPoints: res.away_points === null ? null : Number(res.away_points),
@@ -97,9 +100,12 @@ export async function findPlayerMatchId(db: SupabaseClient, userId: string): Pro
   return rows.find((r) => r.status !== "confirmed")?.id ?? rows[0]?.id ?? null
 }
 
-function toTeamCard(team: MatchTeam, cards: Record<string, number[] | null>): TeamCard {
+function toTeamCard(team: MatchTeam, cards: Record<string, number[] | null>, subs: Record<string, string>): TeamCard {
   const [p1, p2] = team.players
-  const card = (p?: MatchPlayer): PlayerCard => ({ userId: p?.userId ?? "missing", strokes: p ? (cards[p.userId] ?? null) : null, handicap: p?.handicap ?? 0 })
+  const card = (p?: MatchPlayer): PlayerCard => ({
+    userId: p?.userId ?? "missing", strokes: p ? (cards[p.userId] ?? null) : null,
+    handicap: p?.handicap ?? 0, sub: Boolean(p && subs[p.userId]),
+  })
   // A/B once assigned (week 3 on); before that the order doesn't matter.
   const a = team.players.find((p) => p.ab === "A") ?? p1
   const b = team.players.find((p) => p.ab === "B") ?? p2
@@ -110,10 +116,10 @@ function toTeamCard(team: MatchTeam, cards: Record<string, number[] | null>): Te
 export async function confirmMatch(db: SupabaseClient, matchId: string, confirmedBy: string | null): Promise<void> {
   const view = await loadMatch(db, matchId)
   if (!view) throw new Error("Match not found")
-  const home = toTeamCard(view.home, view.cards)
-  const away = view.away ? toTeamCard(view.away, view.cards) : null
+  const home = toTeamCard(view.home, view.cards, view.subs)
+  const away = view.away ? toTeamCard(view.away, view.cards, view.subs) : null
   const points = view.week.kind === "learning"
-    ? learningWeekPoints(home, away)
+    ? learningWeekPoints(view.week.holes, home, away)
     : matchWeekPoints(view.week.holes, home, away)
   const handicaps = Object.fromEntries([...view.home.players, ...(view.away?.players ?? [])].map((p) => [p.userId, p.handicap]))
   await db.from("league_results").upsert({
@@ -123,9 +129,15 @@ export async function confirmMatch(db: SupabaseClient, matchId: string, confirme
     confirmed_at: new Date().toISOString(),
     home_points: points.home,
     away_points: points.away,
-    home_gross: teamGross(home),
-    away_gross: away ? teamGross(away) : null,
+    home_gross: teamGross(view.week.holes, home),
+    away_gross: away ? teamGross(view.week.holes, away) : null,
     detail: points.detail,
     handicaps,
   })
+}
+
+/** Per player: the net double bogey maximum on each hole, or null if the week's holes aren't entered. */
+export function playerMaxes(view: MatchView): Record<string, number[] | null> {
+  const all = [...view.home.players, ...(view.away?.players ?? [])]
+  return Object.fromEntries(all.map((p) => [p.userId, holeMaxes(view.week.holes, p.handicap)]))
 }
