@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendLeagueFoundersNotice } from "@/lib/telnyx/sms"
 import { sendFounderMessage } from "@/lib/resend/email"
-import { logEvent, logFailure } from "@/lib/observability/notify"
+import { logEvent, logFailure, notifyOwner } from "@/lib/observability/notify"
 
 // Founders' guaranteed league spot (2026-10-08), from jerrod, text + email.
 // Same campaign protocol as the founder-hours announcement:
@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
     const { data: league } = await db.from("leagues").select("active").eq("slug", "thursday-night").maybeSingle()
     if (!(league as { active: boolean } | null)?.active) {
       await logEvent(db, "league-founders-announcement-SKIPPED", "league not published")
+      await notifyOwner("League founders announcement did NOT send: the league isn't published. Nothing went out. Check league_ready and /admin/league.")
       return NextResponse.json({ skipped: "league not published" })
     }
   }
@@ -101,6 +102,11 @@ export async function GET(request: NextRequest) {
     }
   }
   const remaining = all.length - sent
-  if (send) await logEvent(db, "league-founders-announcement-run", `sent=${sent} failed=${failed} remaining=${remaining}`)
+  if (send) {
+    await logEvent(db, "league-founders-announcement-run", `sent=${sent} failed=${failed} remaining=${remaining}`)
+    if (sent || failed) {
+      await notifyOwner(`League is live. Founders announcement batch: ${sent} sent, ${failed} failed, ${remaining} still to send.${remaining === 0 ? " All founders done." : ""}`)
+    }
+  }
   return NextResponse.json({ dryRun: !send, sent, failed, remaining, batch: plan })
 }
