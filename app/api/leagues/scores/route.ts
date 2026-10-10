@@ -34,6 +34,30 @@ export async function POST(request: NextRequest) {
   if (view.week.cancelled) return NextResponse.json({ error: "This league night was cancelled" }, { status: 400 })
   const who = `${(prof as { first_name: string }).first_name} ${(prof as { last_name: string }).last_name}`.trim()
 
+  // Autosave while playing. Never creates a result, so nothing is official,
+  // confirmed or texted until someone submits.
+  if (action === "draft") {
+    if (view.result) return NextResponse.json({ error: "These scores were already submitted." }, { status: 409 })
+    const allPlayers = [...view.home.players.map((p) => ({ ...p, teamId: view.home.teamId })), ...(view.away?.players ?? []).map((p) => ({ ...p, teamId: view.away!.teamId }))]
+    const cards = (body.cards ?? {}) as Record<string, unknown>
+    const subs = (body.subs ?? {}) as Record<string, unknown>
+    const rows = []
+    for (const p of allPlayers) {
+      if (!(p.userId in cards)) continue
+      const c = cards[p.userId]
+      let strokes: number[] | null = null
+      if (Array.isArray(c)) {
+        const nums = c.map((v, i) => (view.unplayed.includes(i) ? 0 : Number(v)))
+        if (nums.length !== 9 || nums.some((n) => !Number.isInteger(n) || n < 0 || n > 15)) return NextResponse.json({ error: "Bad score" }, { status: 400 })
+        strokes = nums
+      } else if (c !== null) return NextResponse.json({ error: "Bad card" }, { status: 400 })
+      const subName = typeof subs[p.userId] === "string" ? (subs[p.userId] as string).trim().slice(0, 60) : ""
+      rows.push({ match_id: matchId, team_id: p.teamId, user_id: p.userId, strokes, sub_name: subName || null, entered_by: user.id, updated_at: new Date().toISOString() })
+    }
+    if (rows.length) await db.from("league_scorecards").upsert(rows, { onConflict: "match_id,user_id" })
+    return NextResponse.json({ ok: true, saved: rows.length })
+  }
+
   if (action === "unplayed") {
     if (!isAdmin) return NextResponse.json({ error: "Only the commissioner can do that" }, { status: 403 })
     const raw = Array.isArray(body.holes) ? body.holes : []

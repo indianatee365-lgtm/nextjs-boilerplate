@@ -55,7 +55,7 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
     status === "confirmed" ? `Confirmed. ${view.home.name} ${view.result!.homePoints} pts${view.away ? `, ${view.away.name} ${view.result!.awayPoints} pts` : ""}.`
     : status === "entered" ? (mode === "confirm" ? "The other team entered these. Check them and confirm, or tell us what's wrong." : "Entered. Waiting for the other team to confirm (or it confirms itself after 12 hours).")
     : status === "disputed" ? `Disputed: ${view.result!.disputeNote ?? ""}. The commissioner will sort it out.`
-    : "Enter everyone's score, hole by hole, right after your round. The other team confirms."
+    : "Enter everyone's score as you play, hole by hole: it saves itself. When you finish, submit, and the other team confirms."
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -94,6 +94,7 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
           unplayed={view.unplayed}
           mode={mode}
           canEdit={mode !== "view"}
+          draft={!view.result}
         />
       </div>
       <Link href="/league/standings" className="mt-6 inline-block text-sm text-brand underline">Standings</Link>
