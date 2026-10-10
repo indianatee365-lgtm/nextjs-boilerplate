@@ -11,15 +11,18 @@ type SupabaseClient = any
  * League player texts. One cron (every 15 minutes, Wed to Fri UTC) calls
  * runLeagueTexts; it reads the Eastern clock and sends whatever is due:
  *
- *   before  Wednesday 6pm: tomorrow's tee time, bay, opponent, course
- *   card    15 minutes before tee time: the score card link and how scoring works
+ *   before  Wednesday 6pm: tomorrow's tee time, bay, opponent, course, door code.
+ *           Held until the door code exists (lib/league/night.ts creates it
+ *           in the same run); if it still doesn't by Thursday 11:45am, sent
+ *           without it, and the card text carries the code instead.
+ *   card    45 minutes before tee time: door code, score card link, scoring
  *   nudge   2.5 hours after tee time, only if no scores are in: please enter them
  *   recap   Friday 10am: your result, your place, next week
  *
  * Each text goes once per player per week: an admin_logs row is written
  * BEFORE sending and removed if the send fails, so a failure is retried on the
  * next run and nothing is sent twice. Windows close (the card text stops
- * 2.5 hours after tee time, "before" stops at midnight), so an outage never
+ * 2.5 hours after tee time, "before" stops at Thursday noon), so an outage never
  * sends a stale text. Cancelled nights send nothing.
  *
  * The other team's "tap to confirm" text is sent by the scores route, the
@@ -33,7 +36,7 @@ const PLAY = "tee365.org/league/play"
 export interface Week { id: string; week_no: number; play_date: string; kind: "learning" | "match" | "finale"; course: string; nine: string; cancelled: boolean }
 export interface Player { userId: string; firstName: string; phone: string | null; sms: boolean }
 export interface Side { teamId: string; name: string; players: Player[] }
-export interface Match { id: string; teeTime: string; bay: number | null; home: Side; away: Side | null; week: Week; result: { status: string; home: number | null; away: number | null } | null }
+export interface Match { id: string; teeTime: string; bay: number | null; home: Side; away: Side | null; week: Week; result: { status: string; home: number | null; away: number | null } | null; doorPin: string | null }
 
 export interface Planned { kind: TextKind; userId: string; to: string | null; weekId: string; body: string }
 
@@ -54,17 +57,20 @@ function format(week: Week): string {
   return "A vs A and B vs B, net, hole by hole, plus 2 for the lower team total."
 }
 
-export function beforeText(m: Match, side: "home" | "away", firstName: string): string {
+const doorLine = (pin: string | null) => (pin ? `Door code: ${pin} (works 5:00 to 9:45pm that night only).` : "Your door code will come by text before you arrive.")
+
+export function beforeText(m: Match, side: "home" | "away", firstName: string, sameDay = false): string {
   const me = side === "home" ? m.home : m.away!
   const them = side === "home" ? m.away : m.home
+  const when = sameDay ? "tonight" : "tomorrow"
   if (!them) {
-    return `Hi ${firstName}, no match for ${me.name} tomorrow (${dayLabel(m.week.play_date)}): you have a bye this week, worth half the points on offer. See you the week after.${SIGN}`
+    return `Hi ${firstName}, no match for ${me.name} ${when} (${dayLabel(m.week.play_date)}): you have a bye this week, worth half the points on offer. See you the week after.${SIGN}`
   }
-  return `Hi ${firstName}, league tomorrow (${dayLabel(m.week.play_date)}): ${teeTimeLabel(m.teeTime)}${m.bay ? `, Bay ${m.bay}` : ""}. ${me.name} vs ${them.name} (${names(them)}). Course: ${m.week.course}${nineLabel(m.week.nine)}. ${format(m.week)} Please arrive 15 minutes early. Score card: ${PLAY}${SIGN}`
+  return `Hi ${firstName}, league ${when} (${dayLabel(m.week.play_date)}): ${teeTimeLabel(m.teeTime)}${m.bay ? `, Bay ${m.bay}` : ""}. ${me.name} vs ${them.name} (${names(them)}). Course: ${m.week.course}${nineLabel(m.week.nine)}. ${format(m.week)} Please arrive 15 minutes early. ${doorLine(m.doorPin)} Score card: ${PLAY}${SIGN}`
 }
 
 export function cardText(m: Match, firstName: string): string {
-  return `Hi ${firstName}, tonight's score card for ${m.home.name} vs ${m.away!.name}: ${PLAY}\nMax on any hole is net double bogey, shown under each box: pick up when you hit it. When you finish, one player enters all four cards and the other team confirms. Good luck!${SIGN}`
+  return `Hi ${firstName}, ${m.doorPin ? `door code tonight: ${m.doorPin}. ` : ""}Score card for ${m.home.name} vs ${m.away!.name}: ${PLAY}\nMax on any hole is net double bogey, shown under each box: pick up when you hit it. When you finish, one player enters all four cards and the other team confirms. Good luck!${SIGN}`
 }
 
 export function nudgeText(m: Match, firstName: string): string {
@@ -103,9 +109,9 @@ export function dueKinds(m: Match, now: Date): TextKind[] {
   const { day, minutes } = easternClock(now)
   const tee = teeMinutes(m.teeTime)
   const out: TextKind[] = []
-  if (m.week.play_date === addDaysToDateKey(day, 1) && minutes >= 18 * 60) out.push("before")
+  if ((m.week.play_date === addDaysToDateKey(day, 1) && minutes >= 18 * 60) || (m.week.play_date === day && minutes < 12 * 60)) out.push("before")
   if (m.week.play_date === day && m.away) {
-    if (minutes >= tee - 15 && minutes < tee + 150) out.push("card")
+    if (minutes >= tee - 45 && minutes < tee + 150) out.push("card")
     if (minutes >= tee + 150 && !m.result) out.push("nudge")
   }
   if (m.week.play_date === addDaysToDateKey(day, -1) && minutes >= 10 * 60 && minutes < 20 * 60) out.push("recap")
@@ -120,6 +126,11 @@ async function loadMatches(db: SupabaseClient, leagueId: string, days: string[])
   const { data: rows } = await db.from("league_matches")
     .select("id, week_id, tee_time, bay_number, home_team_id, away_team_id, league_results(status, home_points, away_points)")
     .in("week_id", wanted.map((w) => w.id))
+  const { data: nights } = await db.from("league_nights").select("week_id, door_pin, door_revoked_at").in("week_id", wanted.map((w) => w.id))
+  const pinFor = (weekId: string) => {
+    const n = ((nights ?? []) as { week_id: string; door_pin: string | null; door_revoked_at: string | null }[]).find((x) => x.week_id === weekId)
+    return n && !n.door_revoked_at ? n.door_pin : null
+  }
   const ms = (rows ?? []) as { id: string; week_id: string; tee_time: string; bay_number: number | null; home_team_id: string; away_team_id: string | null; league_results: unknown }[]
   const teamIds = [...new Set(ms.flatMap((m) => [m.home_team_id, m.away_team_id].filter(Boolean) as string[]))]
   const [{ data: teams }, { data: parts }] = await Promise.all([
@@ -141,6 +152,7 @@ async function loadMatches(db: SupabaseClient, leagueId: string, days: string[])
       id: m.id, teeTime: m.tee_time, bay: m.bay_number,
       home: side(m.home_team_id), away: m.away_team_id ? side(m.away_team_id) : null,
       week: wanted.find((w) => w.id === m.week_id)!,
+      doorPin: pinFor(m.week_id),
       result: res ? { status: res.status, home: res.home_points === null ? null : Number(res.home_points), away: res.away_points === null ? null : Number(res.away_points) } : null,
     }
   })
@@ -152,7 +164,7 @@ export async function planLeagueTexts(db: SupabaseClient, now: Date): Promise<Pl
   const { data: league } = await db.from("leagues").select("id, active").eq("slug", LEAGUE_SLUG).single()
   const l = league as { id: string; active: boolean } | null
   if (!l?.active) return []
-  const { day } = easternClock(now)
+  const { day, minutes } = easternClock(now)
   const { matches, weeks } = await loadMatches(db, l.id, [addDaysToDateKey(day, -1), day, addDaysToDateKey(day, 1)])
   if (!matches.length) return []
 
@@ -165,6 +177,8 @@ export async function planLeagueTexts(db: SupabaseClient, now: Date): Promise<Pl
   const out: Planned[] = []
   for (const m of matches) {
     for (const kind of dueKinds(m, now)) {
+      const sameDay = m.week.play_date === day
+      if (kind === "before" && !m.doorPin && m.away && !(sameDay && minutes >= 11 * 60 + 45)) continue
       if (kind === "recap" && !places) {
         const { rows } = await getStandings(db)
         places = new Map(rows.map((r) => [r.teamId, { rank: 1 + rows.filter((o) => o.points > r.points).length, of: rows.length, points: r.points, tied: rows.filter((o) => o.points === r.points).length > 1 }]))
@@ -176,7 +190,7 @@ export async function planLeagueTexts(db: SupabaseClient, now: Date): Promise<Pl
         if ((kind === "card" || kind === "nudge") && !m.away) continue
         for (const p of s.players) {
           if (sent.has(markOf(kind, m.week.id, p.userId))) continue
-          const body = kind === "before" ? beforeText(m, sideKey, p.firstName)
+          const body = kind === "before" ? beforeText(m, sideKey, p.firstName, sameDay)
             : kind === "card" ? cardText(m, p.firstName)
             : kind === "nudge" ? nudgeText(m, p.firstName)
             : recapText(m, sideKey, p.firstName, places?.get(s.teamId) ?? null, next)
