@@ -38,7 +38,7 @@ export const SIM_SETTINGS: [string, string][] = [
   ["Greens and fairways", "Medium firm"],
   ["Pin positions", "Medium"],
   ["Wind", "Calm (0 to 5 mph)"],
-  ["Mulligans", "Off. Only a clear misread by the simulator is re-hit (see Misreads)."],
+  ["Mulligans", "On, for simulator errors only: no reads, misreads, glitches and accidental hits (see When the simulator acts up)."],
   ["Tees", "Everyone plays the same tees, except players who chose forward tees at signup."],
 ]
 
@@ -94,15 +94,25 @@ export const RULES: RuleSection[] = [
     title: "On the simulator",
     rules: [
       "Every bay plays the same course with the same settings on the same night. The settings sheet is below and is checked on every bay before league night.",
-      "Misreads: if the simulator clearly misreads a shot (didn't track it, or recorded something wildly different from what everyone saw), re-hit it, as long as the other team in your bay agrees. Anything else, you play it.",
       "No practice swings into the screen between competition shots.",
-      "Pace: finish inside your two hours. The 7:30 group is waiting on you. Holes not finished in time score as your max (net double bogey).",
+      "Pace: finish inside your two hours. The 7:30 group is waiting on you. Holes not finished in time score as your max (net double bogey), unless a bay problem cost you the time (below).",
+    ],
+  },
+  {
+    title: "When the simulator acts up",
+    rules: [
+      "No read: re-hit, no penalty, every time.",
+      "A practice swing or accidental hit that registers doesn't count. Re-hit.",
+      "Clear misread (a number wildly different from what everyone saw): re-hit, if the other team in your bay agrees. If they don't, the shot stands.",
+      "Glitch (ball through the ground, stuck, an impossible result): re-hit from where your last shot was played. If the simulator won't let you, replay the hole from the tee.",
+      "Crash or freeze: your scores are safe on the paper score card at your bay, so fill it in after every hole. Press Restart on the bay screen; it's back in about 2 minutes. Start a new round of the same course with the same settings, on the hole you were on, and replay that hole from the tee. Not back within 5 minutes? Call (574) 444-9365.",
+      "Lost time: both teams in a match share a bay, so a bay problem costs both teams equally. If it means your group can't finish in time, tell the commissioner. Holes you couldn't play are halved, team totals count only the holes played, and the round doesn't count toward the gross prize or handicaps.",
     ],
   },
   {
     title: "Scores",
     rules: [
-      "Scores are entered right after the round, hole by hole, and the other team in your bay confirms them.",
+      "Keep score on the paper card at your bay after every hole. Right after the round, one player enters everyone's scores online and the other team in your bay confirms them.",
       "If nobody disputes a score within 12 hours, it stands.",
       "Disputes go to the commissioner, whose call is final.",
       "Standings and the leaderboard update the same night.",
@@ -150,6 +160,7 @@ export const RULES: RuleSection[] = [
       "Players often run their own skins game. Tee365 isn't involved and doesn't hold any money for it.",
       "No alcohol at Tee365. Zero tolerance. Bring your own snacks and soft drinks, no glass.",
       "Clubs: bring your own or use our loaners, free.",
+      "This is a friendly league. Simulators are computers, and computers have bad nights. If something comes up these rules don't cover, we'll work it out together in good faith, and the commissioner makes the final call.",
     ],
   },
 ]

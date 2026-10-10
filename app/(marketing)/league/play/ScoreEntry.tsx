@@ -20,6 +20,7 @@ export default function ScoreEntry({
   initial,
   initialSubs,
   maxes,
+  unplayed,
   mode,
   canEdit,
 }: {
@@ -30,6 +31,8 @@ export default function ScoreEntry({
   initial: Record<string, number[] | null>
   initialSubs: Record<string, string>
   maxes: Record<string, number[] | null>
+  /** Positions the commissioner marked unplayed because of a bay problem. */
+  unplayed: number[]
   mode: "enter" | "confirm" | "view"
   canEdit: boolean
 }) {
@@ -47,6 +50,7 @@ export default function ScoreEntry({
   const editing = mode === "enter" && canEdit
 
   const counted = (id: string, i: number) => {
+    if (unplayed.includes(i)) return 0
     const v = Number(cards[id]?.[i])
     const max = maxes[id]?.[i]
     return v && max ? Math.min(v, max) : v
@@ -76,7 +80,7 @@ export default function ScoreEntry({
     const subs: Record<string, string> = {}
     for (const p of players) {
       if (status[p.userId] === "absent") { out[p.userId] = null; continue }
-      out[p.userId] = cards[p.userId].map((v) => Number(v))
+      out[p.userId] = cards[p.userId].map((v, i) => (unplayed.includes(i) ? 0 : Number(v)))
       if (status[p.userId] === "sub") {
         if (!subName[p.userId]?.trim()) { setError(`Who subbed for ${p.name}? Enter their name.`); return }
         subs[p.userId] = subName[p.userId].trim()
@@ -134,6 +138,9 @@ export default function ScoreEntry({
                     : (cards[p.userId] ?? []).map((v, i) => {
                       const max = maxes[p.userId]?.[i]
                       const over = Boolean(max && Number(v) > max)
+                      if (unplayed.includes(i)) {
+                        return <td key={i} className="px-0.5 py-2 text-center text-[10px] text-amber-300/80">bay</td>
+                      }
                       return (
                         <td key={i} className="px-0.5 py-2 text-center">
                           {editing ? (

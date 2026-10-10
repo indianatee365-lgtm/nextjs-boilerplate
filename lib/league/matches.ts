@@ -16,6 +16,8 @@ export interface MatchView {
   week: { id: string; weekNo: number; playDate: string; kind: "learning" | "match" | "finale"; course: string; nine: string; holes: Hole[]; cancelled: boolean }
   teeTime: string
   bayNumber: number | null
+  /** Positions (0-8) the commissioner marked unplayed because the bay failed. */
+  unplayed: number[]
   home: MatchTeam
   away: MatchTeam | null
   cards: Record<string, number[] | null>
@@ -52,7 +54,7 @@ async function loadTeam(db: SupabaseClient, leagueId: string, teamId: string, hc
 
 export async function loadMatch(db: SupabaseClient, matchId: string): Promise<MatchView | null> {
   const { data: m } = await db.from("league_matches")
-    .select("id, league_id, tee_time, bay_number, home_team_id, away_team_id, league_weeks(id, week_no, play_date, kind, course, nine, holes, cancelled)")
+    .select("id, league_id, tee_time, bay_number, unplayed_holes, home_team_id, away_team_id, league_weeks(id, week_no, play_date, kind, course, nine, holes, cancelled)")
     .eq("id", matchId).maybeSingle()
   if (!m) return null
   const w = m.league_weeks as { id: string; week_no: number; play_date: string; kind: MatchView["week"]["kind"]; course: string; nine: string; holes: Hole[]; cancelled: boolean }
@@ -70,6 +72,7 @@ export async function loadMatch(db: SupabaseClient, matchId: string): Promise<Ma
     week: { id: w.id, weekNo: w.week_no, playDate: w.play_date, kind: w.kind, course: w.course, nine: w.nine, holes: w.holes ?? [], cancelled: w.cancelled },
     teeTime: m.tee_time,
     bayNumber: m.bay_number,
+    unplayed: ((m.unplayed_holes ?? []) as number[]).filter((i) => Number.isInteger(i) && i >= 0 && i < 9).sort((x, y) => x - y),
     home,
     away,
     cards: Object.fromEntries(((cards ?? []) as { user_id: string; strokes: number[] | null }[]).map((c) => [c.user_id, c.strokes])),
@@ -119,8 +122,8 @@ export async function confirmMatch(db: SupabaseClient, matchId: string, confirme
   const home = toTeamCard(view.home, view.cards, view.subs)
   const away = view.away ? toTeamCard(view.away, view.cards, view.subs) : null
   const points = view.week.kind === "learning"
-    ? learningWeekPoints(view.week.holes, home, away)
-    : matchWeekPoints(view.week.holes, home, away)
+    ? learningWeekPoints(view.week.holes, home, away, view.unplayed)
+    : matchWeekPoints(view.week.holes, home, away, view.unplayed)
   const handicaps = Object.fromEntries([...view.home.players, ...(view.away?.players ?? [])].map((p) => [p.userId, p.handicap]))
   await db.from("league_results").upsert({
     match_id: matchId,
@@ -129,8 +132,8 @@ export async function confirmMatch(db: SupabaseClient, matchId: string, confirme
     confirmed_at: new Date().toISOString(),
     home_points: points.home,
     away_points: points.away,
-    home_gross: teamGross(view.week.holes, home),
-    away_gross: away ? teamGross(view.week.holes, away) : null,
+    home_gross: teamGross(view.week.holes, home, view.unplayed),
+    away_gross: away ? teamGross(view.week.holes, away, view.unplayed) : null,
     detail: points.detail,
     handicaps,
   })

@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { findPlayerMatchId, loadMatch, playerMaxes } from "@/lib/league/matches"
 import { teeTimeLabel } from "@/lib/league"
 import ScoreEntry from "./ScoreEntry"
+import UnplayedHoles from "./UnplayedHoles"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "League scores | Tee365", robots: { index: false } }
@@ -71,6 +72,16 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
         Max on any hole is net double bogey: par + 2, plus your stroke on that hole. The small number under each box is your max; pick up when you hit it.
         {Object.values(maxes).some((m) => m === null) ? " (This week's holes aren't entered yet, so no max is shown.)" : ""}
       </p>
+      {view.unplayed.length > 0 && (
+        <p className="mt-2 text-xs text-amber-300">
+          Bay problem: hole{view.unplayed.length > 1 ? "s" : ""} {view.unplayed.map((i) => startHole + i).join(", ")} couldn&apos;t be played. They&apos;re halved, and team totals count only the holes played.
+        </p>
+      )}
+      {isAdmin && (
+        <div className="mt-4">
+          <UnplayedHoles matchId={view.matchId} holesLabel={Array.from({ length: 9 }, (_, i) => startHole + i)} initial={view.unplayed} />
+        </div>
+      )}
       <div className="mt-5">
         <ScoreEntry
           matchId={view.matchId}
@@ -80,6 +91,7 @@ export default async function LeaguePlayPage({ searchParams }: { searchParams: P
           initial={view.cards}
           initialSubs={view.subs}
           maxes={maxes}
+          unplayed={view.unplayed}
           mode={mode}
           canEdit={mode !== "view"}
         />

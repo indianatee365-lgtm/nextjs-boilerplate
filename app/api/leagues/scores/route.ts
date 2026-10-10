@@ -34,6 +34,18 @@ export async function POST(request: NextRequest) {
   if (view.week.cancelled) return NextResponse.json({ error: "This league night was cancelled" }, { status: 400 })
   const who = `${(prof as { first_name: string }).first_name} ${(prof as { last_name: string }).last_name}`.trim()
 
+  if (action === "unplayed") {
+    if (!isAdmin) return NextResponse.json({ error: "Only the commissioner can do that" }, { status: 403 })
+    const raw = Array.isArray(body.holes) ? body.holes : []
+    const holes: number[] = [...new Set<number>(raw.map((v: unknown) => Number(v)))].filter((n) => Number.isInteger(n) && n >= 0 && n < 9).sort((x, y) => x - y)
+    if (holes.length >= 9) return NextResponse.json({ error: "At least one hole has to have been played" }, { status: 400 })
+    await db.from("league_matches").update({ unplayed_holes: holes }).eq("id", matchId)
+    // A result that's already final is re-scored with the new holes.
+    if (view.result?.status === "confirmed") await confirmMatch(db, matchId, user.id)
+    await logEvent(db, "league-unplayed-holes", `match=${matchId} holes=${holes.join(",") || "none"} by=${user.id}`)
+    return NextResponse.json({ ok: true, holes })
+  }
+
   if (action === "enter") {
     if (view.result?.status === "confirmed" && !(isAdmin && !myTeamId)) {
       return NextResponse.json({ error: "These scores are already confirmed. Ask the commissioner if something's wrong." }, { status: 409 })
@@ -46,8 +58,9 @@ export async function POST(request: NextRequest) {
       const c = cards[p.userId]
       let strokes: number[] | null = null
       if (Array.isArray(c)) {
-        const nums = c.map((v) => Number(v))
-        if (nums.length !== 9 || nums.some((n) => !Number.isInteger(n) || n < 1 || n > 15)) {
+        // Holes the commissioner marked unplayed (bay problem) are stored as 0.
+        const nums = c.map((v, i) => (view.unplayed.includes(i) ? 0 : Number(v)))
+        if (nums.length !== 9 || nums.some((n, i) => !view.unplayed.includes(i) && (!Number.isInteger(n) || n < 1 || n > 15))) {
           return NextResponse.json({ error: `Check ${p.name}'s card: every hole needs a score from 1 to 15.` }, { status: 400 })
         }
         strokes = nums
