@@ -118,9 +118,16 @@ export async function GET(request: NextRequest) {
     }
   } else {
     const audienceRows = await getAudience()
+    // Anyone already on a team (or invited onto one) doesn't need "the league is open".
+    const { data: inLeague } = await db.from("league_participants").select("user_id")
+    const { data: invited } = await db.from("league_teams").select("partner_user_id").not("partner_user_id", "is", null)
+    const already = new Set([
+      ...((inLeague ?? []) as { user_id: string }[]).map((r) => r.user_id),
+      ...((invited ?? []) as { partner_user_id: string }[]).map((r) => r.partner_user_id),
+    ])
     const eligible = audienceRows.filter((m) =>
       m.hasAccount && m.userId && !m.banned && !m.isFounder &&
-      m.membershipPlan !== "eagle" && m.membershipPlan !== "albatross")
+      m.membershipPlan !== "eagle" && m.membershipPlan !== "albatross" && !already.has(m.userId))
     const ids = eligible.map((m) => m.userId!)
     const { data: profs } = ids.length
       ? await db.from("profiles").select("id, phone, sms_consent").in("id", ids)
@@ -186,9 +193,10 @@ export async function GET(request: NextRequest) {
 
   const left = { emails: emailQueue.length - emailsSent, texts: smsQueue.length - textsSent }
   await logEvent(db, `league-${audience}-announcement-run`, `emails=${emailsSent} texts=${textsSent} failed=${failed} emailsLeft=${left.emails} textsLeft=${left.texts}`)
-  // Only runs that sent something text the owner (the public job runs every
-  // minute for an hour, and most of those runs have nothing left to do).
-  if (emailsSent || textsSent || failed) {
+  // Text the owner once when the last batch goes out, or straight away on a
+  // failure. The public job sends 10 texts a minute for about half an hour;
+  // a text per run would be 27 texts to Jerrod.
+  if (failed || ((emailsSent || textsSent) && !left.emails && !left.texts)) {
     await notifyOwner(`League ${audience} announcement: ${emailsSent} emails, ${textsSent} texts sent, ${failed} failed. Left: ${left.emails} emails, ${left.texts} texts.${!left.emails && !left.texts ? " All done." : ""}`)
   }
   return NextResponse.json({ audience, emailsSent, textsSent, failed, left })
