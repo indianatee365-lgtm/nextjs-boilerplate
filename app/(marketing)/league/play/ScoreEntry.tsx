@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface Player { userId: string; name: string; teamName: string; ab: "A" | "B" | null; handicap: number }
@@ -11,6 +11,11 @@ type Status = "played" | "absent" | "sub"
  * a sub (named). Under every box is that player's net double bogey max; a
  * higher number is kept but shown as what it counts as.
  * mode "enter" saves; "confirm" lets the other team confirm or dispute.
+ *
+ * Until scores are submitted, every change saves itself (action "draft") a
+ * second after the last keystroke, so the card on the phone is the record if
+ * the simulator crashes, the page reloads or the phone dies. Submitting is
+ * what makes them official and asks the other team to confirm.
  */
 export default function ScoreEntry({
   matchId,
@@ -23,6 +28,7 @@ export default function ScoreEntry({
   unplayed,
   mode,
   canEdit,
+  draft,
 }: {
   matchId: string
   players: Player[]
@@ -35,10 +41,12 @@ export default function ScoreEntry({
   unplayed: number[]
   mode: "enter" | "confirm" | "view"
   canEdit: boolean
+  /** Nothing submitted yet: changes autosave as a draft. */
+  draft: boolean
 }) {
   const router = useRouter()
   const [cards, setCards] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(players.map((p) => [p.userId, (initial[p.userId] ?? Array(9).fill("")).map((v) => (v === "" ? "" : String(v)))])))
+    Object.fromEntries(players.map((p) => [p.userId, (initial[p.userId] ?? Array(9).fill("")).map((v) => (v === "" || v === 0 ? "" : String(v)))])))
   const [status, setStatus] = useState<Record<string, Status>>(() =>
     Object.fromEntries(players.map((p) => [p.userId,
       initialSubs[p.userId] ? "sub" : (p.userId in initial && initial[p.userId] === null) ? "absent" : "played"])))
@@ -48,6 +56,44 @@ export default function ScoreEntry({
   const [disputing, setDisputing] = useState(false)
   const [note, setNote] = useState("")
   const editing = mode === "enter" && canEdit
+  const autosave = editing && draft
+  const dirty = useRef(false)
+  const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "failed">("idle")
+  const [savedAt, setSavedAt] = useState("")
+
+  // Build the payload; blanks go as 0 (not played yet) in a draft.
+  function payload(forDraft: boolean): { cards: Record<string, number[] | null>; subs: Record<string, string> } {
+    const out: Record<string, number[] | null> = {}
+    const subs: Record<string, string> = {}
+    for (const p of players) {
+      if (status[p.userId] === "absent") { out[p.userId] = null; continue }
+      out[p.userId] = cards[p.userId].map((v, i) => (unplayed.includes(i) ? 0 : Number(v) || 0))
+      if (status[p.userId] === "sub" && (forDraft || subName[p.userId]?.trim())) subs[p.userId] = (subName[p.userId] ?? "").trim()
+    }
+    return { cards: out, subs }
+  }
+
+  useEffect(() => {
+    if (!autosave || !dirty.current) return
+    const t = setTimeout(async () => {
+      setSaved("saving")
+      try {
+        const res = await fetch("/api/leagues/scores", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId, action: "draft", ...payload(true) }),
+        })
+        if (!res.ok) { setSaved("failed"); return }
+        dirty.current = false
+        setSaved("saved")
+        setSavedAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }))
+      } catch {
+        setSaved("failed")
+      }
+    }, 1000)
+    return () => clearTimeout(t)
+    // payload reads the same state listed here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, status, subName, autosave])
 
   const counted = (id: string, i: number) => {
     if (unplayed.includes(i)) return 0
@@ -76,17 +122,10 @@ export default function ScoreEntry({
   }
 
   function save() {
-    const out: Record<string, number[] | null> = {}
-    const subs: Record<string, string> = {}
     for (const p of players) {
-      if (status[p.userId] === "absent") { out[p.userId] = null; continue }
-      out[p.userId] = cards[p.userId].map((v, i) => (unplayed.includes(i) ? 0 : Number(v)))
-      if (status[p.userId] === "sub") {
-        if (!subName[p.userId]?.trim()) { setError(`Who subbed for ${p.name}? Enter their name.`); return }
-        subs[p.userId] = subName[p.userId].trim()
-      }
+      if (status[p.userId] === "sub" && !subName[p.userId]?.trim()) { setError(`Who subbed for ${p.name}? Enter their name.`); return }
     }
-    post({ action: "enter", cards: out, subs })
+    post({ action: "enter", ...payload(false) })
   }
 
   return (
@@ -118,7 +157,7 @@ export default function ScoreEntry({
                     </div>
                     {editing && (
                       <div className="mt-1 space-y-1">
-                        <select value={st} onChange={(e) => setStatus({ ...status, [p.userId]: e.target.value as Status })}
+                        <select value={st} onChange={(e) => { dirty.current = true; setStatus({ ...status, [p.userId]: e.target.value as Status }) }}
                           aria-label={`${p.name} played, absent or sub`}
                           className="rounded border border-white/15 bg-black/40 px-1 py-1 text-xs text-white">
                           <option value="played">Played</option>
@@ -126,7 +165,7 @@ export default function ScoreEntry({
                           <option value="absent">Absent</option>
                         </select>
                         {st === "sub" && (
-                          <input value={subName[p.userId] ?? ""} onChange={(e) => setSubName({ ...subName, [p.userId]: e.target.value })}
+                          <input value={subName[p.userId] ?? ""} onChange={(e) => { dirty.current = true; setSubName({ ...subName, [p.userId]: e.target.value }) }}
                             placeholder="Sub's name" aria-label={`Name of sub for ${p.name}`} maxLength={60}
                             className="block w-28 rounded border border-white/15 bg-black/40 px-1 py-1 text-xs text-white" />
                         )}
@@ -146,6 +185,7 @@ export default function ScoreEntry({
                           {editing ? (
                             <input inputMode="numeric" pattern="[0-9]*" maxLength={2} value={v} aria-label={`${p.name} hole ${holesLabel[i]}`}
                               onChange={(e) => {
+                                dirty.current = true
                                 const next = [...cards[p.userId]]; next[i] = e.target.value.replace(/\D/g, "").slice(0, 2)
                                 setCards({ ...cards, [p.userId]: next })
                               }}
@@ -168,9 +208,14 @@ export default function ScoreEntry({
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
+      {autosave && (
+        <p className={`text-xs ${saved === "failed" ? "text-red-400" : "text-neutral-400"}`}>
+          {saved === "saving" ? "Saving..." : saved === "saved" ? `Saved ${savedAt}. Keep going, hole by hole.` : saved === "failed" ? "Not saved: check your connection. It retries on your next change." : "Scores save as you type, hole by hole."}
+        </p>
+      )}
       {editing && (
         <button onClick={save} disabled={busy} className="btn-primary w-full py-3">
-          {busy ? "Saving..." : "Submit scores"}
+          {busy ? "Saving..." : draft ? "Done: submit final scores" : "Submit scores"}
         </button>
       )}
 

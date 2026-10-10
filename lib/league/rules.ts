@@ -105,14 +105,14 @@ export const RULES: RuleSection[] = [
       "A practice swing or accidental hit that registers doesn't count. Re-hit.",
       "Clear misread (a number wildly different from what everyone saw): re-hit, if the other team in your bay agrees. If they don't, the shot stands.",
       "Glitch (ball through the ground, stuck, an impossible result): re-hit from where your last shot was played. If the simulator won't let you, replay the hole from the tee.",
-      "Crash or freeze: your scores are safe on the paper score card at your bay, so fill it in after every hole. Press Restart on the bay screen; it's back in about 2 minutes. Start a new round of the same course with the same settings, on the hole you were on, and replay that hole from the tee. Not back within 5 minutes? Call (574) 444-9365.",
+      "Crash or freeze: your scores are safe on the online score card (tee365.org/league/play), which saves after every hole. Press Restart on the bay screen; it's back in about 2 minutes. Start a new round of the same course with the same settings, on the hole you were on, and replay that hole from the tee. Not back within 5 minutes? Call (574) 444-9365.",
       "Lost time: both teams in a match share a bay, so a bay problem costs both teams equally. If it means your group can't finish in time, tell the commissioner. Holes you couldn't play are halved, team totals count only the holes played, and the round doesn't count toward the gross prize or handicaps.",
     ],
   },
   {
     title: "Scores",
     rules: [
-      "Keep score on the paper card at your bay after every hole. Right after the round, one player enters everyone's scores online and the other team in your bay confirms them.",
+      "One player in your bay keeps the online score card (tee365.org/league/play) as you play: enter every score after each hole, and it saves itself. When you finish, they submit it and the other team in your bay confirms.",
       "If nobody disputes a score within 12 hours, it stands.",
       "Disputes go to the commissioner, whose call is final.",
       "Standings and the leaderboard update the same night.",

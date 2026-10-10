@@ -70,7 +70,7 @@ export function beforeText(m: Match, side: "home" | "away", firstName: string, s
 }
 
 export function cardText(m: Match, firstName: string): string {
-  return `Hi ${firstName}, ${m.doorPin ? `door code tonight: ${m.doorPin}. ` : ""}Score card for ${m.home.name} vs ${m.away!.name}: ${PLAY}\nMax on any hole is net double bogey, shown under each box: pick up when you hit it. When you finish, one player enters all four cards and the other team confirms. Good luck!${SIGN}`
+  return `Hi ${firstName}, ${m.doorPin ? `door code tonight: ${m.doorPin}. ` : ""}Score card for ${m.home.name} vs ${m.away!.name}: ${PLAY}\nMax on any hole is net double bogey, shown under each box: pick up when you hit it. One player enters everyone's scores as you play, hole by hole (it saves itself), and submits at the end; the other team confirms. Good luck!${SIGN}`
 }
 
 export function nudgeText(m: Match, firstName: string): string {
