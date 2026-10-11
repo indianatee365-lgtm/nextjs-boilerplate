@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import UpcomingParties from "./UpcomingParties";
+import UpcomingParties from "@/components/parties/UpcomingParties";
 
 export const revalidate = 60;
 
@@ -85,7 +85,7 @@ export default function EventsPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-10 py-12">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(EVENTS_SERVICE_SCHEMA) }} />
-      <UpcomingParties />
+      <UpcomingParties className="px-6 md:px-12" />
       <header className="px-6 md:px-12">
         <p className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">Group bookings &amp; private events</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Bring Your Group to Tee365</h1>

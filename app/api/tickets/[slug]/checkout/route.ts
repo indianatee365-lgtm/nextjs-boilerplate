@@ -7,6 +7,7 @@ import { startCheckout } from "@/lib/tickets"
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const body = await request.json().catch(() => ({}))
+  if (body.ack !== true) return NextResponse.json({ error: "Please tick the box to confirm one ticket per person, any age." }, { status: 400 })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db: any = await createServiceClient()
   const res = await startCheckout(db, slug, {
