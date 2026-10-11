@@ -45,7 +45,10 @@ export default async function AdminEventsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold text-white">Private events</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-white">Private events</h1>
+        <Link href="/admin/tickets" className="text-sm text-brand underline">Ticketed parties &rarr;</Link>
+      </div>
       <p className="mt-1 text-sm text-neutral-400">Agree a price, create the event here, and the customer gets a link to pay (deposit then balance, or in full). The bays are held as soon as you save.</p>
 
       <section className="mt-6 overflow-hidden rounded-xl border border-white/10">

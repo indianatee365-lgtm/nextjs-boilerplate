@@ -14,6 +14,7 @@ import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 import { announceExtension } from "@/lib/bookings/extension-notify"
 import { recordStripeEventPayment } from "@/lib/events"
+import { recordTicketPayment } from "@/lib/tickets"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -103,6 +104,13 @@ export async function POST(request: NextRequest) {
           await logFailure(supabase, "booking-extended-notify-FAILED", `booking=${bookingId} err=${String(e).slice(0, 200)}`)
         }
       }
+      return NextResponse.json({ received: true })
+    }
+
+    if (_pi.metadata?.type === "ticket") {
+      // Party tickets (lib/tickets). Idempotent: only a pending/expired order flips to paid.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await recordTicketPayment(supabase as any, { id: _pi.id, amount_received: _pi.amount_received, metadata: _pi.metadata as Record<string, string> })
       return NextResponse.json({ received: true })
     }
 

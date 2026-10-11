@@ -1,0 +1,4 @@
+-- Applied via Supabase MCP 2026-10-11 as ticketed_parties: ticketed_events,
+-- ticket_orders (service role only, RLS on) and reserve_ticket_order(), which
+-- reserves tickets under an advisory lock so paid + in-checkout (35 min) can
+-- never exceed capacity. Execute revoked from anon/authenticated.
