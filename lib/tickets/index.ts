@@ -73,7 +73,7 @@ const BLOCK_BEFORE_MIN = 30
 const CODES_BEFORE_MIN = 180
 const BAYS_ON_BEFORE_MIN = 15
 const DOOR_GRANT_BEFORE_MIN = 24 * 60
-export const partyUrl = (slug: string) => `https://tee365.org/events/${slug}`
+export const partyUrl = (slug: string) => `https://tee365.org/parties/${slug}`
 
 /** Sold (paid) and held (in checkout) ticket counts. */
 export async function ticketCounts(db: SupabaseClient, eventId: string): Promise<{ sold: number; held: number }> {
@@ -269,6 +269,7 @@ export async function recordTicketPayment(db: SupabaseClient, pi: { id: string; 
       subject: `Your tickets: ${p.title}`, heading: "You're in!",
       paragraphs: [
         `${o.quantity} ticket${o.quantity > 1 ? "s" : ""} for ${p.title}, ${whenLabel(p.starts_at, p.ends_at)}, at Tee365, 4615 Grape Rd, Mishawaka. Total paid: ${money(o.amount)}.`,
+        `Your order admits ${o.quantity} ${o.quantity > 1 ? "people" : "person"}, of any age. The room has a hard capacity, so everyone who comes needs their own ticket.`,
         withCode ? doorLine(p) : `Your door code comes by email${o.sms_ok ? " and text" : ""} about 3 hours before the start.`,
         "Tee365 is alcohol-free. Questions? Call (574) 444-9365.",
       ],

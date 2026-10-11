@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import BookingFlow from "./BookingFlow"
+import UpcomingParties from "@/components/parties/UpcomingParties"
 import { hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookings/launch-gate"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
@@ -194,6 +195,7 @@ export default async function BookPage({
         prefillDate={prefillDate}
         prefillDurationMinutes={prefillDurationMinutes}
       />
+      <UpcomingParties heading="Upcoming parties" className="mt-12" />
     </main>
   )
 }
