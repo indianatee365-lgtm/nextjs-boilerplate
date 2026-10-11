@@ -13,6 +13,7 @@ import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-a
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 import { announceExtension } from "@/lib/bookings/extension-notify"
+import { recordStripeEventPayment } from "@/lib/events"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -102,6 +103,13 @@ export async function POST(request: NextRequest) {
           await logFailure(supabase, "booking-extended-notify-FAILED", `booking=${bookingId} err=${String(e).slice(0, 200)}`)
         }
       }
+      return NextResponse.json({ received: true })
+    }
+
+    if (_pi.metadata?.type === "event") {
+      // Private event deposit/balance (lib/events). Idempotent on the PaymentIntent.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await recordStripeEventPayment(supabase as any, { id: _pi.id, amount_received: _pi.amount_received, metadata: _pi.metadata as Record<string, string> })
       return NextResponse.json({ received: true })
     }
 

@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/league-texts",
       "schedule": "*/15 * * * 3,4,5"
+    },
+    {
+      "path": "/api/cron/events-daily",
+      "schedule": "0 13 * * *"
     }
   ]
 }

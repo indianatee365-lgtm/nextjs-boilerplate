@@ -283,6 +283,11 @@ export async function sendLeagueChargeFailedSms({ to, firstName, amount }: { to:
   await sendSms(to, message, "league-charge-failed")
 }
 
+/** Private event texts; bodies are built in lib/events. */
+export async function sendEventText({ to, body, kind }: { to: string; body: string; kind: string }) {
+  await sendSms(to, body, kind)
+}
+
 /** League player texts; bodies are built in lib/league/texts.ts. */
 export async function sendLeaguePlayerText({ to, body, kind }: { to: string; body: string; kind: string }) {
   await sendSms(to, body, kind)

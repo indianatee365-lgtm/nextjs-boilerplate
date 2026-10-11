@@ -37,6 +37,9 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
 
   if (!booking) throw new Error("Booking not found")
   if (booking.status === "cancelled") return { refunded: false }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", bookingId).single()
+  if ((evLink as { event_id: string | null } | null)?.event_id) throw new Error("This is part of a private event. Call us at (574) 444-9365 to make changes.")
 
   // KNOWN LOOPHOLE: a customer within the forfeit window can pay the $5 reschedule fee to move
   // their booking far into the future, then cancel for a full refund. Tracked -- fix if it becomes
@@ -168,6 +171,9 @@ export async function finalizeReschedule({
 
   if (!original) throw new Error("Booking not found")
   if (original.status === "cancelled") throw new Error("Booking is already cancelled")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", originalBookingId).single()
+  if ((evLink as { event_id: string | null } | null)?.event_id) throw new Error("This is part of a private event. Call us at (574) 444-9365 to make changes.")
   if (await isGroupedBooking(serviceClient, original as { id: string; parent_booking_id: string | null })) {
     throw new Error(GROUP_RESCHEDULE_MESSAGE)
   }
