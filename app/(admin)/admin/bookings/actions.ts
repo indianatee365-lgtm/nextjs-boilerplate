@@ -267,6 +267,13 @@ export async function cancelBooking(bookingId: string) {
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") return
 
+  // A bay that belongs to a private event is changed from /admin/events, so
+  // the event, its payments and its door code stay in step.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", bookingId).single()
+  const isEventBay = Boolean((evLink as { event_id: string | null } | null)?.event_id)
+  if (isEventBay) throw new Error("This bay is part of a private event. Cancel it from Events, where you can choose what to refund.")
+
   // Either bay of a two-bay booking: both cancel together with one refund of
   // the payment that covered them. Admin cancels always refund, as below.
   const group = await getBookingGroup(serviceClient, bookingId)
@@ -387,6 +394,15 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   } | null
   if (!b) throw new Error("Booking not found")
   if (b.status === "cancelled") throw new Error("Cannot reschedule a cancelled booking")
+
+  // A bay that belongs to a private event is changed from /admin/events, so
+  // the event, its payments and its door code stay in step.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", bookingId).single()
+  const isEventBay = Boolean((evLink as { event_id: string | null } | null)?.event_id)
+  if (isEventBay && new Date(newStartsAt).getTime() !== new Date(b.starts_at).getTime()) {
+    throw new Error("This bay is part of a private event. You can swap it to another bay at the same time, but to change the time, cancel and recreate the event.")
+  }
 
   // Either bay of a two-bay booking can be swapped to another bay at the same
   // time, but not moved to a different time: that would split the group, and

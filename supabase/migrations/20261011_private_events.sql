@@ -1,0 +1,4 @@
+-- Applied via Supabase MCP 2026-10-11 as private_events: events and
+-- event_payments (service role only, RLS on), bookings.event_id, and the
+-- 4-hour duration cap relaxed for event bookings:
+--   check (duration_minutes <= 240 or event_id is not null)

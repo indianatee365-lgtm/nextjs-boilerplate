@@ -37,6 +37,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", bookingId).single()
+    if ((evLink as { event_id: string | null } | null)?.event_id) {
+      return NextResponse.json({ error: "This is part of a private event. Call us at (574) 444-9365 to make changes." }, { status: 400 })
+    }
     if (await isGroupedBooking(serviceClient, booking as { id: string; parent_booking_id: string | null })) {
       return NextResponse.json({ error: GROUP_RESCHEDULE_MESSAGE }, { status: 400 })
     }
