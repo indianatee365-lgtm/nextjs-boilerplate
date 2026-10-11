@@ -46,3 +46,13 @@ export async function cancelPartyAction(id: string) {
   revalidatePath("/events")
   return res
 }
+
+/** Removes a cancelled party from the list (its refunds stay in Stripe). */
+export async function deletePartyAction(id: string) {
+  const { db } = await admin()
+  const { data } = await db.from("ticketed_events").select("status").eq("id", id).single()
+  if ((data as { status: string } | null)?.status !== "cancelled") return { ok: false, error: "Only a cancelled party can be deleted." }
+  await db.from("ticketed_events").delete().eq("id", id)
+  revalidatePath("/admin/tickets")
+  return { ok: true }
+}

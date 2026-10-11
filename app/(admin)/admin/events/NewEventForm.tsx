@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createEventAction } from "./actions"
+import DatePickerCalendar from "@/components/admin/DatePickerCalendar"
 
 const field = "mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
 const label = "block text-xs font-medium text-neutral-400"
@@ -69,6 +70,10 @@ export default function NewEventForm({ bays }: { bays: { id: string; name: strin
         They said texts are OK (payment link, reminders and door code by text)
       </label>
 
+      <div>
+        <p className={label}>Pick the date (each day shows what&apos;s already booked)</p>
+        <div className="mt-1"><DatePickerCalendar value={f.date} onChange={(d) => set("date", d)} /></div>
+      </div>
       <div className="grid grid-cols-3 gap-3">
         <div><label className={label} htmlFor="ev-date">Date</label><input id="ev-date" type="date" className={field} value={f.date} onChange={(e) => set("date", e.target.value)} required /></div>
         <div><label className={label} htmlFor="ev-start">Start</label><input id="ev-start" type="time" step={1800} className={field} value={f.startTime} onChange={(e) => set("startTime", e.target.value)} required /></div>

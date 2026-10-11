@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { cancelPartyAction, refundOrderAction, updatePartyAction } from "../actions"
+import { cancelPartyAction, deletePartyAction, refundOrderAction, updatePartyAction } from "../actions"
 
 const field = "mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
 const label = "block text-xs font-medium text-neutral-400"
@@ -102,6 +102,15 @@ export default function PartyControls({ party, orders }: { party: PartyEdit; ord
               </div>
             </div>
           )}
+        </div>
+      )}
+      {party.cancelled && (
+        <div className="rounded-xl border border-white/10 p-3 text-sm">
+          <p className="text-neutral-400">This party is cancelled. Delete it to clear it from the list (refunds stay on record in Stripe).</p>
+          <button type="button" disabled={busy} className="mt-2 text-red-400 underline"
+            onClick={async () => { if (!window.confirm("Delete this cancelled party for good?")) return; setBusy(true); const r = await deletePartyAction(party.id); if (r.ok) router.push("/admin/tickets"); else { setMsg(r.error ?? "Failed."); setBusy(false) } }}>
+            Delete party
+          </button>
         </div>
       )}
       {msg && <p className="text-sm text-neutral-300">{msg}</p>}
