@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, DollarSign, Users, Settings, Trophy, CalendarDays } from "lucide-react"
+import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, DollarSign, Users, Settings, Trophy, CalendarDays, Ticket } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -69,6 +69,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <CalendarDays size={13} />
               Events
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
+            <Link
+              href="/admin/tickets"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <Ticket size={13} />
+              Parties
             </Link>
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <Link
