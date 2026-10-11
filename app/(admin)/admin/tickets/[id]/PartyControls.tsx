@@ -9,7 +9,7 @@ const label = "block text-xs font-medium text-neutral-400"
 const money = (n: number) => `$${Number(n).toFixed(2).replace(/\.00$/, "")}`
 
 interface PartyEdit {
-  id: string; title: string; description: string; ticketPrice: number; capacity: number; maxPerOrder: number
+  id: string; title: string; description: string; details: string; ticketPrice: number; capacity: number; maxPerOrder: number
   salesCloseLocal: string; activities: { bay: string; label: string }[]; published: boolean; cancelled: boolean
 }
 interface OrderRow { id: string; name: string; email: string; phone: string | null; quantity: number; amount: number; status: string; codeSent: boolean }
@@ -59,7 +59,7 @@ export default function PartyControls({ party, orders }: { party: PartyEdit; ord
         <form className="space-y-3 rounded-xl border border-white/10 p-4"
           onSubmit={(e) => { e.preventDefault(); run(async () => {
             const r = await updatePartyAction(party.id, {
-              title: f.title, description: f.description, ticketPrice: Number(f.ticketPrice), capacity: Number(f.capacity),
+              title: f.title, description: f.description, details: f.details, ticketPrice: Number(f.ticketPrice), capacity: Number(f.capacity),
               maxPerOrder: Number(f.maxPerOrder), salesCloseAt: f.salesCloseLocal, activities: f.activities, published: f.published,
             })
             return r.ok ? "Saved." : r.error ?? "Failed."
@@ -67,6 +67,7 @@ export default function PartyControls({ party, orders }: { party: PartyEdit; ord
           <p className="text-sm font-semibold text-white">Edit</p>
           <div><label className={label} htmlFor="e-title">Name</label><input id="e-title" className={field} value={f.title} onChange={(e) => set("title", e.target.value)} /></div>
           <div><label className={label} htmlFor="e-desc">Description</label><textarea id="e-desc" rows={3} className={field} value={f.description} onChange={(e) => set("description", e.target.value)} /></div>
+          <div><label className={label} htmlFor="e-details">Good to know (one per line)</label><textarea id="e-details" rows={4} className={field} value={f.details} onChange={(e) => set("details", e.target.value)} placeholder={"Food and drinks provided\nBring a bag chair"} /></div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className={label} htmlFor="e-price">Ticket price ($)</label><input id="e-price" inputMode="decimal" className={field} value={f.ticketPrice} onChange={(e) => set("ticketPrice", e.target.value)} /></div>
             <div><label className={label} htmlFor="e-cap">Capacity</label><input id="e-cap" inputMode="numeric" className={field} value={f.capacity} onChange={(e) => set("capacity", e.target.value)} /></div>

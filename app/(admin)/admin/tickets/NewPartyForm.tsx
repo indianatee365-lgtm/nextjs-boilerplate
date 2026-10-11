@@ -10,7 +10,7 @@ const label = "block text-xs font-medium text-neutral-400"
 export default function NewPartyForm({ bays }: { bays: { id: string; name: string }[] }) {
   const router = useRouter()
   const [f, setF] = useState({
-    title: "", description: "", date: "", startTime: "15:00", endTime: "19:00",
+    title: "", description: "", details: "", date: "", startTime: "15:00", endTime: "19:00",
     ticketPrice: "", capacity: "49", maxPerOrder: "5", salesClose: "0",
     bayIds: bays.map((b) => b.id), activities: Object.fromEntries(bays.map((b) => [b.name, ""])) as Record<string, string>,
     published: false,
@@ -24,7 +24,7 @@ export default function NewPartyForm({ bays }: { bays: { id: string; name: strin
     setBusy(true)
     setError("")
     const res = await createPartyAction({
-      title: f.title, description: f.description, date: f.date, startTime: f.startTime, endTime: f.endTime,
+      title: f.title, description: f.description, details: f.details, date: f.date, startTime: f.startTime, endTime: f.endTime,
       ticketPrice: Number(f.ticketPrice), capacity: Number(f.capacity), maxPerOrder: Number(f.maxPerOrder),
       salesCloseMinutesBefore: Number(f.salesClose), bayIds: f.bayIds,
       activities: bays.filter((b) => f.bayIds.includes(b.id)).map((b) => ({ bay: b.name, label: f.activities[b.name] ?? "" })),
@@ -39,6 +39,7 @@ export default function NewPartyForm({ bays }: { bays: { id: string; name: strin
     <form onSubmit={submit} className="mt-4 space-y-4 rounded-xl border border-white/10 p-4">
       <div><label className={label} htmlFor="p-title">Name</label><input id="p-title" className={field} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="Notre Dame vs. BYU Watch Party" required /></div>
       <div><label className={label} htmlFor="p-desc">Description (shows on the ticket page)</label><textarea id="p-desc" rows={3} className={field} value={f.description} onChange={(e) => set("description", e.target.value)} placeholder="The game on the big screens, a hole-in-one contest, closest to the pin, prizes..." /></div>
+      <div><label className={label} htmlFor="p-details">Good to know (one per line)</label><textarea id="p-details" rows={4} className={field} value={f.details} onChange={(e) => set("details", e.target.value)} placeholder={"Food and drinks provided\nBring a bag chair\nDoors open 30 minutes early"} /></div>
       <div className="grid grid-cols-3 gap-3">
         <div><label className={label} htmlFor="p-date">Date</label><input id="p-date" type="date" className={field} value={f.date} onChange={(e) => set("date", e.target.value)} required /></div>
         <div><label className={label} htmlFor="p-start">Start</label><input id="p-start" type="time" className={field} value={f.startTime} onChange={(e) => set("startTime", e.target.value)} required /></div>

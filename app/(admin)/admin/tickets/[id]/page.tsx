@@ -50,7 +50,7 @@ export default async function AdminPartyPage({ params }: { params: Promise<{ id:
 
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wider text-neutral-400">Guest list</h2>
       <PartyControls
-        party={{ id: p.id, title: p.title, description: p.description, ticketPrice: Number(p.ticket_price), capacity: p.capacity, maxPerOrder: p.max_per_order, salesCloseLocal: easternLocal(p.sales_close_at ?? p.starts_at), activities: p.activities, published: p.published, cancelled: p.status === "cancelled" }}
+        party={{ id: p.id, title: p.title, description: p.description, details: p.details ?? "", ticketPrice: Number(p.ticket_price), capacity: p.capacity, maxPerOrder: p.max_per_order, salesCloseLocal: easternLocal(p.sales_close_at ?? p.starts_at), activities: p.activities, published: p.published, cancelled: p.status === "cancelled" }}
         orders={orders.map((o) => ({ id: o.id, name: o.name, email: o.email, phone: o.phone, quantity: o.quantity, amount: Number(o.amount), status: o.status, codeSent: Boolean(o.code_sent_at) }))}
       />
     </main>

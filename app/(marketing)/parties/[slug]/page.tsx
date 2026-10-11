@@ -46,6 +46,17 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       <p className="mt-2 text-sm text-neutral-300">{whenLabel(p.starts_at, p.ends_at)} &middot; 4615 Grape Rd, Mishawaka</p>
       {p.description && <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-neutral-300">{p.description}</p>}
 
+      {(p.details ?? "").trim() && (
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+          <h2 className="text-sm font-semibold text-white">Good to know</h2>
+          <ul className="mt-2 space-y-1.5">
+            {p.details.split("\n").filter(Boolean).map((d, i) => (
+              <li key={i} className="flex gap-2 text-sm text-neutral-300"><span className="text-[#00A651]">&#10003;</span>{d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {p.activities.length > 0 && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
           {p.activities.map((a) => (

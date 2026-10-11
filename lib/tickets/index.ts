@@ -30,6 +30,8 @@ export interface Party {
   slug: string
   title: string
   description: string
+  /** "Good to know" lines (food provided, bring a chair...), one per line. */
+  details: string
   starts_at: string
   ends_at: string
   ticket_price: number
@@ -91,6 +93,11 @@ export function salesOpen(p: Pick<Party, "published" | "status" | "sales_close_a
   return p.published && p.status === "on" && now.getTime() < new Date(p.sales_close_at ?? p.starts_at).getTime()
 }
 
+/** One item per line, blanks and bullet characters dropped, at most 20 lines. */
+export function cleanDetails(raw: string): string {
+  return raw.split(/\r?\n/).map((l) => l.replace(/^[\s\-*\u2022]+/, "").trim()).filter(Boolean).slice(0, 20).map((l) => l.slice(0, 140)).join("\n")
+}
+
 function slugFor(title: string, startsAt: Date): string {
   const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "party"
   return `${base}-${startsAt.toISOString().slice(0, 10)}`
@@ -101,6 +108,7 @@ function slugFor(title: string, startsAt: Date): string {
 export interface NewParty {
   title: string
   description: string
+  details: string
   date: string
   startTime: string
   endTime: string
@@ -149,7 +157,7 @@ export async function createParty(db: SupabaseClient, input: NewParty, adminId: 
   const salesClose = new Date(startsAt.getTime() - Math.max(0, Number(input.salesCloseMinutesBefore) || 0) * 60000)
 
   const { data: ev, error } = await db.from("ticketed_events").insert({
-    slug, title, description: input.description.trim(), starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(),
+    slug, title, description: input.description.trim(), details: cleanDetails(input.details), starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(),
     ticket_price: price, capacity, max_per_order: maxPer, sales_close_at: salesClose.toISOString(),
     bay_ids: bayIds, activities: input.activities.filter((a) => a.label.trim()).map((a) => ({ bay: a.bay, label: a.label.trim() })),
     published: input.published, created_by: adminId,
@@ -172,7 +180,7 @@ export async function createParty(db: SupabaseClient, input: NewParty, adminId: 
   return { ok: true, id }
 }
 
-export async function updateParty(db: SupabaseClient, id: string, f: { title: string; description: string; ticketPrice: number; capacity: number; maxPerOrder: number; salesCloseAt: string; activities: { bay: string; label: string }[]; published: boolean }): Promise<{ ok: boolean; error?: string }> {
+export async function updateParty(db: SupabaseClient, id: string, f: { title: string; description: string; details: string; ticketPrice: number; capacity: number; maxPerOrder: number; salesCloseAt: string; activities: { bay: string; label: string }[]; published: boolean }): Promise<{ ok: boolean; error?: string }> {
   const price = Math.round(Number(f.ticketPrice) * 100) / 100
   if (!(price > 0)) return { ok: false, error: "Set a ticket price." }
   const { sold, held } = await ticketCounts(db, id)
@@ -185,7 +193,7 @@ export async function updateParty(db: SupabaseClient, id: string, f: { title: st
   const close = m ? easternWallToUtc(m[1], Number(m[2]) * 60 + Number(m[3])) : new Date(f.salesCloseAt)
   if (Number.isNaN(close.getTime())) return { ok: false, error: "Check the sales close time." }
   await db.from("ticketed_events").update({
-    title: f.title.trim(), description: f.description.trim(), ticket_price: price, capacity, max_per_order: maxPer,
+    title: f.title.trim(), description: f.description.trim(), details: cleanDetails(f.details), ticket_price: price, capacity, max_per_order: maxPer,
     sales_close_at: close.toISOString(), activities: f.activities.filter((a) => a.label.trim()), published: f.published,
     updated_at: new Date().toISOString(),
   }).eq("id", id)
