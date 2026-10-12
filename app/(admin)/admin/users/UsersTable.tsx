@@ -9,6 +9,7 @@ export type UserRow = {
   last_name: string | null
   phone: string | null
   role: string | null
+  membership: string | null
   created_at: string
   bookingCount: number
   cancelledCount: number
@@ -19,6 +20,7 @@ export type UserRow = {
 
 type Segment =
   | "all"
+  | "members"
   | "new_this_month"
   | "no_phone"
   | "never_booked"
@@ -28,6 +30,7 @@ type Segment =
   | "repeat"
 
 const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
+  { key: "members", label: "Members", hint: "Has an active membership (Founder, Eagle, Birdie, Albatross)" },
   { key: "new_this_month", label: "New this month", hint: "Accounts created this calendar month" },
   { key: "no_phone", label: "No phone number", hint: "Cannot be reached by SMS at all" },
   { key: "never_booked", label: "Never booked", hint: "Made an account and never started a booking at all" },
@@ -37,9 +40,31 @@ const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
   { key: "repeat", label: "Multiple bookings", hint: "Booked more than once" },
 ]
 
+const PLAN_LABEL: Record<string, string> = { founder: "Founder", eagle: "Eagle", birdie: "Birdie", albatross: "Albatross" }
+const PLAN_STYLE: Record<string, string> = {
+  founder: "bg-amber-400/15 text-amber-300",
+  eagle: "bg-sky-400/15 text-sky-300",
+  birdie: "bg-brand/15 text-brand",
+  albatross: "bg-purple-400/15 text-purple-300",
+}
+
+/** Membership if they have one, Admin for staff, nothing for everyone else. */
+function MemberBadge({ u, className = "" }: { u: UserRow; className?: string }) {
+  const tags: { label: string; style: string }[] = []
+  if (u.membership) tags.push({ label: PLAN_LABEL[u.membership] ?? u.membership, style: PLAN_STYLE[u.membership] ?? "bg-white/10 text-neutral-300" })
+  if (u.role === "admin") tags.push({ label: "Admin", style: "bg-white/10 text-white" })
+  if (!tags.length) return null
+  return (
+    <span className={`inline-flex gap-1 ${className}`}>
+      {tags.map((t) => <span key={t.label} className={`rounded-full px-2 py-0.5 text-xs font-medium ${t.style}`}>{t.label}</span>)}
+    </span>
+  )
+}
+
 function matches(u: UserRow, segment: Segment): boolean {
   switch (segment) {
     case "all": return true
+    case "members": return Boolean(u.membership)
     case "new_this_month": return u.newThisMonth
     case "no_phone": return !u.phone || u.phone.trim() === ""
     // Never booked means never tried. Someone who booked and cancelled gets
@@ -202,9 +227,7 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium text-white">{u.first_name} {u.last_name}</p>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  u.role === "admin" ? "bg-brand/20 text-brand" : "bg-white/10 text-neutral-400"
-                }`}>{u.role ?? "user"}</span>
+                <MemberBadge u={u} className="shrink-0" />
               </div>
               <p className="mt-1 text-sm text-neutral-300">{u.phone ?? "No phone"}</p>
               <p className="mt-0.5 text-xs text-neutral-500">
@@ -225,7 +248,7 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
                 <SortHeader label="Phone" sortKeyValue="phone" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Bookings" sortKeyValue="bookings" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortHeader label="Joined" sortKeyValue="created_at" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Membership</th>
               </tr>
             </thead>
             <tbody>
@@ -257,9 +280,7 @@ export default function UsersTable({ rows }: { rows: UserRow[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <Link href={`/admin/users/${u.id}`} className="block">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        u.role === "admin" ? "bg-brand/20 text-brand" : "bg-white/10 text-neutral-400"
-                      }`}>{u.role ?? "user"}</span>
+                      <MemberBadge u={u} />
                     </Link>
                   </td>
                 </tr>
