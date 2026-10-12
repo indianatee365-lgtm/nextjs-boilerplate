@@ -23,7 +23,7 @@ export default async function AdminUsersPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = serviceClient as any
 
-  const [{ data: profiles }, { data: bookings }] = await Promise.all([
+  const [{ data: profiles }, { data: bookings }, { data: memberships }] = await Promise.all([
     db
       .from("profiles")
       .select("id, first_name, last_name, phone, role, created_at")
@@ -32,7 +32,10 @@ export default async function AdminUsersPage() {
     // Confirmed only. A cancelled booking is not a customer who came in, and
     // every segment here is about whether somebody actually used the place.
     db.from("bookings").select("user_id, created_at, status").in("status", ["confirmed", "cancelled"]),
+    // Active memberships only: the column shows what someone is paying for now.
+    db.from("memberships").select("user_id, plan_type").eq("status", "active"),
   ])
+  const planByUser = new Map(((memberships ?? []) as { user_id: string; plan_type: string }[]).map((m) => [m.user_id, m.plan_type]))
 
   type ProfileRow = {
     id: string
@@ -66,6 +69,7 @@ export default async function AdminUsersPage() {
     const bookingCount = s?.count ?? 0
     return {
       ...p,
+      membership: planByUser.get(p.id) ?? null,
       bookingCount,
       cancelledCount: s?.cancelled ?? 0,
       firstBookedAt: s?.firstBookedAt ?? null,
