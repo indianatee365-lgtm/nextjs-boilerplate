@@ -29,11 +29,17 @@ async function verifyTurnstile(token: string | null): Promise<boolean> {
   return data.success === true
 }
 
+// Names: no leading/trailing or doubled spaces (phone autocomplete adds a
+// trailing one, which then reads "Hi Nate ," in every text). The database
+// cleans names on save too (clean_profile_names trigger); this keeps the
+// welcome email and the auth metadata clean as well.
+const cleanName = (s: string) => s.replace(/[\s\u00a0\u200b\ufeff]+/g, " ").trim()
+
 const SignupSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
+  firstName: z.string().transform(cleanName).pipe(z.string().min(1, "First name is required")),
   isMinor: z.enum(["true", "false"]).transform((v) => v === "true"),
   parentEmail: z.string().email("Valid parent email required").optional().or(z.literal("")),
-  lastName: z.string().min(1, "Last name is required"),
+  lastName: z.string().transform(cleanName).pipe(z.string().min(1, "Last name is required")),
   phone: z.string().min(10, "Valid phone number required").optional().or(z.literal("")),
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
