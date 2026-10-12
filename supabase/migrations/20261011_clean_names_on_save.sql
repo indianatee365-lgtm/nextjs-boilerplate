@@ -1,0 +1,3 @@
+-- Applied via Supabase MCP 2026-10-11 as clean_names_on_save: clean_name() collapses
+-- whitespace (incl. nbsp, zero-width, BOM) and trims; BEFORE INSERT/UPDATE triggers
+-- on profiles and waitlist names; one-time cleanup of waitlist and auth metadata.
