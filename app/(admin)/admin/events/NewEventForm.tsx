@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createEventAction } from "./actions"
+import QuotePanel from "./QuotePanel"
 import DatePickerCalendar from "@/components/admin/DatePickerCalendar"
 
 const field = "mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
@@ -96,6 +97,7 @@ export default function NewEventForm({ bays }: { bays: { id: string; name: strin
         </div>
       </div>
 
+      <QuotePanel date={f.date} startTime={f.startTime} hours={f.hours} bayCount={f.bayIds.length} onUse={(t) => set("price", String(t))} />
       <div className="grid grid-cols-2 gap-3">
         <div><label className={label} htmlFor="ev-price">Agreed total ($)</label><input id="ev-price" className={field} inputMode="decimal" value={f.price} onChange={(e) => set("price", e.target.value)} required /></div>
         <div><label className={label} htmlFor="ev-pay">Payment</label>

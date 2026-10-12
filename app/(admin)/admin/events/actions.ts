@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { cancelEvent, createEvent, recordManualPayment, sendPaymentLink, type EventRow, type NewEventInput } from "@/lib/events"
+import { quoteFor } from "@/lib/events/quote"
 
 async function admin() {
   const supabase = await createClient()
@@ -45,4 +46,16 @@ export async function cancelEventAction(eventId: string, refundPaymentIds: strin
   revalidatePath(`/admin/events/${eventId}`)
   revalidatePath("/admin/events")
   return res
+}
+
+/** List-price base for a quote (lib/events/quote). */
+export async function quoteAction(dateKey: string, startMinutes: number, durationMinutes: number, bays: number) {
+  const { db } = await admin()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) throw new Error("Bad date")
+  const dur = Math.max(30, Math.min(24 * 60, Math.round(Number(durationMinutes))))
+  const n = Math.max(1, Math.min(8, Math.round(Number(bays))))
+  const { data } = await db.from("pricing_rules").select("season_type, day_type, time_type, price_per_hour")
+  const rules: Record<string, number> = {}
+  for (const r of (data ?? []) as { season_type: string; day_type: string; time_type: string; price_per_hour: number }[]) rules[`${r.season_type}|${r.day_type}|${r.time_type}`] = Number(r.price_per_hour)
+  return quoteFor(rules, dateKey, Math.round(Number(startMinutes)), dur, n)
 }
