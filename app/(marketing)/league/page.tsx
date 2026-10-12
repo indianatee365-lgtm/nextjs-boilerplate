@@ -19,7 +19,6 @@ import {
 } from "@/lib/league"
 import LeagueSignup, { type MyTeam } from "./LeagueSignup"
 import Link from "next/link"
-import { COURSE_SCHEDULE } from "@/lib/league/rules"
 
 export const dynamic = "force-dynamic"
 
@@ -229,7 +228,7 @@ export default async function LeaguePage() {
             ["Weeks 1 and 2: learning weeks", "No A/B matches yet. Your team plays the other team in your bay on combined net score for 4 points, so the learning weeks still count."],
             ["Weeks 3 to 8: A/B match play", "After week 2, each team's lower handicap is its A player and the other is its B, fixed for the season. A plays A, B plays B, 1 point per hole on net score, plus 2 points for the lower team total. 20 points a week."],
             ["Handicaps that run themselves", "You give a starting handicap at signup. From week 3 it comes from your league scores: 90% of your best 2 of your last 4 rounds, and it can't climb more than 3 strokes above where you started."],
-            ["A new course every week", "Same course in every bay on the night, same settings, published in advance. The finale is Pebble Beach."],
+            ["A new course every week", "Courses like Pebble Beach, Payne's Valley, Bandon Trails and Mammoth Dunes. Each week's course is announced the week of play, and every bay plays the same course with the same settings."],
             ["Can't make it?", "Send a sub who plays at your handicap, or your opponent wins your match. Your card is charged either way."],
             ["You'll always know what's happening", "Scores entered right after the round and confirmed by the other team. A text the night before with your tee time, bay and course, and a Friday recap with results and standings."],
           ].map(([title, body]) => (
@@ -249,7 +248,6 @@ export default async function LeaguePage() {
               <li key={d} className="flex flex-col">
                 <span className="text-xs uppercase tracking-wider text-neutral-500">{i === nights.length - 1 ? "Finale" : `Week ${i + 1}`}</span>
                 <span className="font-medium text-white">{dayLabel(d, { month: "short", day: "numeric" })}</span>
-                <span className="text-xs text-neutral-400">{COURSE_SCHEDULE.find((c) => c.date === d)?.course ?? ""}</span>
               </li>
             ))}
           </ol>
