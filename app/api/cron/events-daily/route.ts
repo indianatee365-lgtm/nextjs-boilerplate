@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
-import { money, sendPaymentLink, whenLabel, type EventRow } from "@/lib/events"
+import { durationOf, hostLabel, money, sendPaymentLink, whenLabel, type EventRow } from "@/lib/events"
 import { logEvent, notifyOwner } from "@/lib/observability/notify"
 
 // Daily, morning (vercel.json). For every upcoming event not paid in full:
@@ -43,6 +43,14 @@ export async function GET(request: NextRequest) {
         done.push(`eve ${e.id}`)
       }
     }
+  }
+  // Host reminder: the day before any event (paid or not) that booked a host.
+  const { data: hosted } = await db.from("events").select("*").neq("status", "cancelled").is("host_reminded_at", null).gt("starts_at", new Date().toISOString())
+  for (const e of (hosted ?? []) as EventRow[]) {
+    if (!e.host_hours?.length || easternDateKey(new Date(e.starts_at)) !== addDaysToDateKey(today, 1)) continue
+    await notifyOwner(`Host tomorrow: "${e.title}" (${e.contact_name}) needs a host ${hostLabel(e.starts_at, durationOf(e), e.host_hours)}.`)
+    await db.from("events").update({ host_reminded_at: new Date().toISOString() }).eq("id", e.id)
+    done.push(`host ${e.id}`)
   }
   return NextResponse.json({ ok: true, done })
 }
