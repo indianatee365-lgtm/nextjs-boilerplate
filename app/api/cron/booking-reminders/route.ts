@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     // The second bay of a two-bay booking never gets a code of its own: the
     // first bay's code opens the one front door for the whole group.
     .is("parent_booking_id", null)
+    // Private events get their own door code (30 min either side), sent by
+    // lib/events runEventDoors; never a second, shorter per-booking code.
+    .filter("event_id", "is", null)
     .is("reminder_sent_at", null)
     .is("access_code", null)
     .gte("starts_at", windowStart.toISOString())

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { runParties } from "@/lib/tickets"
+import { runEventDoors } from "@/lib/events"
 
 export const maxDuration = 300
 
@@ -13,5 +14,6 @@ export async function GET(request: NextRequest) {
   if (secret !== process.env.CRON_SECRET) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db: any = await createServiceClient()
-  return NextResponse.json({ done: await runParties(db, new Date()) })
+  const now = new Date()
+  return NextResponse.json({ done: [...(await runParties(db, now)), ...(await runEventDoors(db, now))] })
 }

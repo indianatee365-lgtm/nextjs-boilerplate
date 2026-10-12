@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createServiceClient } from "@/lib/supabase/server"
-import { eventBayNames, money, payOptions, whenLabel, type EventRow } from "@/lib/events"
+import { durationOf, EVENT_BUFFER_MIN, eventBayNames, hostLabel, money, payOptions, whenLabel, type EventRow } from "@/lib/events"
 import PayButtons from "./PayButtons"
 
 export const dynamic = "force-dynamic"
@@ -28,7 +28,31 @@ export default async function EventPayPage({ params, searchParams }: { params: P
       <p className="mt-2 text-sm text-neutral-300">{whenLabel(e.starts_at, e.ends_at)}</p>
       <p className="text-sm text-neutral-400">{bayNames.length === 0 ? "" : bayNames.length === 1 ? `${bayNames[0]} · ` : `${bayNames.length} bays: ${bayNames.join(", ")} · `}4615 Grape Rd, Mishawaka</p>
 
-      <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
+      {e.status !== "cancelled" && (
+        <div className="mt-6 space-y-2 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-neutral-300">
+          <p><span className="font-semibold text-white">Arrival:</span> doors open {EVENT_BUFFER_MIN} minutes before your start for setup, and you have {EVENT_BUFFER_MIN} minutes after the end to pack up.</p>
+          {e.host_hours?.length > 0 && <p><span className="font-semibold text-white">Your host:</span> {hostLabel(e.starts_at, durationOf(e), e.host_hours)}, to get you set up and running.</p>}
+          {e.code_sent_at && e.door_pin && !e.door_revoked_at
+            ? <p><span className="font-semibold text-white">Door code:</span> <span className="text-lg font-semibold text-white">{e.door_pin}</span></p>
+            : <p><span className="font-semibold text-white">Door code:</span> sent to you about 2 hours before the start, and shown here.</p>}
+        </div>
+      )}
+      {(e.details ?? "").trim() && (
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-sm font-semibold text-white">Good to know</p>
+          <ul className="mt-2 space-y-1.5">
+            {e.details.split("\n").filter(Boolean).map((d, i) => <li key={i} className="flex gap-2 text-sm text-neutral-300"><span className="text-brand">&#10003;</span>{d}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
+        {Number(e.host_amount) > 0 && (
+          <>
+            <div className="flex justify-between text-neutral-300"><span>Bays</span><span>{money(e.bay_price ?? Number(e.price_total) - Number(e.host_amount))}</span></div>
+            <div className="mt-1 flex justify-between text-neutral-300"><span>Host ({hostLabel(e.starts_at, durationOf(e), e.host_hours)})</span><span>{money(e.host_amount)}</span></div>
+          </>
+        )}
         <div className="flex justify-between text-neutral-300"><span>Total</span><span>{money(e.price_total)}</span></div>
         <div className="mt-1 flex justify-between text-neutral-300"><span>Paid</span><span>{money(e.amount_paid)}</span></div>
         <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold text-white"><span>Left to pay</span><span>{money(left)}</span></div>
@@ -45,7 +69,7 @@ export default async function EventPayPage({ params, searchParams }: { params: P
       {e.status === "cancelled" ? (
         <p className="mt-6 text-sm text-neutral-300">This event was cancelled. Questions? Call (574) 444-9365.</p>
       ) : opts.length === 0 ? (
-        <p className="mt-6 text-sm text-white">You&apos;re paid in full. See you there! Your door code comes shortly before the start.</p>
+        <p className="mt-6 text-sm text-white">You&apos;re paid in full. See you there!</p>
       ) : (
         <div className="mt-6"><PayButtons token={token} options={opts} /></div>
       )}

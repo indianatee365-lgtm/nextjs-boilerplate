@@ -1,0 +1,4 @@
+-- Applied via Supabase MCP 2026-10-11 as events_host_buffers_door: events gets
+-- bay_price, host_rate (default 50), host_hours int[] (minute offsets from the
+-- start), host_amount, details, blocked_time_ids, door_* fields, code_sent_at,
+-- host_reminded_at.

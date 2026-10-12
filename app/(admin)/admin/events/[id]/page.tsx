@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { eventBayNames, eventUrl, money, whenLabel, type EventRow } from "@/lib/events"
+import { durationOf, eventBayNames, eventUrl, hostLabel, money, whenLabel, type EventRow } from "@/lib/events"
 import EventControls from "./EventControls"
 
 export const dynamic = "force-dynamic"
@@ -50,6 +50,17 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
           </p>
         </div>
       </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-xl border border-white/10 p-3">
+          <p className="text-xs text-neutral-400">Host</p>
+          <p className="text-white">{e.host_hours?.length ? `${hostLabel(e.starts_at, durationOf(e), e.host_hours)} (${money(e.host_amount)})` : "No host"}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 p-3">
+          <p className="text-xs text-neutral-400">Door code (30 min before to 30 min after)</p>
+          <p className="text-white">{e.door_pin && !e.door_revoked_at ? `${e.door_pin}${e.code_sent_at ? " · sent" : " · sends 2 hrs before"}` : e.door_revoked_at ? "deleted after the event" : "made the day before"}</p>
+        </div>
+      </div>
+      {e.details && <div className="mt-3 rounded-xl border border-white/10 p-3 text-sm text-neutral-300"><p className="text-xs text-neutral-400">Good to know (customer sees)</p><p className="whitespace-pre-line">{e.details}</p></div>}
       {e.notes && <p className="mt-3 rounded-xl border border-white/10 p-3 text-sm text-neutral-300">{e.notes}</p>}
 
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wider text-neutral-400">Payments</h2>
