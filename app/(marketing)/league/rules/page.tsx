@@ -3,7 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { LEAGUE_SLUG, type League } from "@/lib/league"
-import { COURSE_SCHEDULE, FAQ, RULES, SIM_SETTINGS } from "@/lib/league/rules"
+import { FAQ, RULES, SIM_SETTINGS } from "@/lib/league/rules"
 
 export const dynamic = "force-dynamic"
 
@@ -11,10 +11,6 @@ export const metadata: Metadata = {
   title: "League Rules | Tee365 Thursday Night League",
   description: "Every rule of the Tee365 Thursday Night League: format, handicaps, scoring, absences, money, prizes, simulator settings and courses.",
   alternates: { canonical: "https://tee365.org/league/rules" },
-}
-
-function dayLabel(key: string): string {
-  return new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })
 }
 
 export default async function LeagueRulesPage() {
@@ -85,18 +81,9 @@ export default async function LeagueRulesPage() {
 
       <section id={slug("Courses")} className="scroll-mt-24">
         <h2 className="mb-3 text-lg font-semibold text-white">Courses</h2>
-        <p className="mb-3 text-sm text-neutral-400">A different course every week, the same course in every bay on the night.</p>
-        <ol className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-sm">
-          {COURSE_SCHEDULE.map((c, i) => (
-            <li key={c.date} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-baseline sm:gap-6">
-              <span className="w-32 shrink-0 text-xs uppercase tracking-wider text-neutral-500">
-                {i === COURSE_SCHEDULE.length - 1 ? "Finale" : `Week ${i + 1}`} &middot; {dayLabel(c.date)}
-              </span>
-              <span className="font-semibold text-white">{c.course} <span className="font-normal text-neutral-400">({c.nine})</span></span>
-              {c.note && <span className="text-xs text-neutral-400 sm:ml-auto">{c.note}</span>}
-            </li>
-          ))}
-        </ol>
+        <p className="text-sm leading-relaxed text-neutral-300">
+          A different course every week, with courses like Pebble Beach, Payne&apos;s Valley, Bandon Trails and Mammoth Dunes. Each week&apos;s course is announced the week of play, in your text the night before, and every bay plays the same course with the same settings on the night.
+        </p>
       </section>
 
       <section id="faq" className="scroll-mt-24">
