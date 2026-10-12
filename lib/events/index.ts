@@ -308,6 +308,15 @@ export async function recordStripeEventPayment(db: SupabaseClient, pi: { id: str
       await logFailure(db, "event-receipt-email-FAILED", `event=${e.id} err=${String(err).slice(0, 200)}`)
     }
   }
+  if (e.sms_ok && e.contact_phone) {
+    const left = Math.max(0, Number(e.price_total) - Number(e.amount_paid))
+    try {
+      await sendEventText({ to: e.contact_phone, kind: "event-payment-received",
+        body: `Tee365: thanks, we received ${money(amount)} for ${e.title}. ${left > 0 ? `${money(left)} left to pay${e.balance_due ? ` by ${dateLabel(e.balance_due)}` : ""}: ${eventUrl(e.token).replace("https://", "")}` : "You're paid in full. See you there!"}` })
+    } catch (err) {
+      await logFailure(db, "event-receipt-sms-FAILED", `event=${e.id} err=${String(err).slice(0, 200)}`)
+    }
+  }
 }
 
 /** Cash, check or anything paid outside Stripe. */
@@ -321,6 +330,8 @@ export async function recordManualPayment(db: SupabaseClient, eventId: string, a
 
 /** Cancels every bay, kills the door code, refunds the chosen Stripe payments. */
 export async function cancelEvent(db: SupabaseClient, eventId: string, refundPaymentIds: string[]): Promise<{ refunded: number; failed: number }> {
+  const { data: before } = await db.from("events").select("*").eq("id", eventId).single()
+  const ev = before as EventRow
   const { data: bookings } = await db.from("bookings").select("id, parent_booking_id, status").eq("event_id", eventId)
   for (const b of (bookings ?? []) as { id: string; parent_booking_id: string | null; status: string }[]) {
     if (b.status === "cancelled") continue
@@ -349,5 +360,30 @@ export async function cancelEvent(db: SupabaseClient, eventId: string, refundPay
   await db.from("events").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", eventId)
   await recomputeEvent(db, eventId)
   await logEvent(db, "event-cancelled", `event=${eventId} refunded=${refunded} failed=${failed}`)
+
+  // Tell the customer, with exactly what was refunded.
+  if (ev && ev.status !== "cancelled") {
+    const first = ev.contact_name.split(" ")[0]
+    const money_ = refunded > 0 ? `We've refunded ${money(refunded)} to your card; it usually shows in 5 to 10 days.` : Number(ev.amount_paid) > 0 ? "No refund was issued with this cancellation. If that's unexpected, give us a call." : ""
+    if (ev.contact_email) {
+      try {
+        await sendFounderMessage({
+          to: ev.contact_email, firstName: first, kind: "event-cancelled",
+          subject: `Cancelled: ${ev.title}`, heading: "Your event has been cancelled",
+          paragraphs: [`${ev.title} on ${whenLabel(ev.starts_at, ev.ends_at)} has been cancelled, and the bays have been released.`, money_, "Questions? Call (574) 444-9365."].filter(Boolean),
+        })
+      } catch (e) {
+        await logFailure(db, "event-cancel-email-FAILED", `event=${eventId} err=${String(e).slice(0, 200)}`)
+      }
+    }
+    if (ev.sms_ok && ev.contact_phone) {
+      try {
+        await sendEventText({ to: ev.contact_phone, kind: "event-cancelled",
+          body: `Hi ${first}, it's Tee365. ${ev.title} on ${whenLabel(ev.starts_at, ev.ends_at)} has been cancelled.${refunded > 0 ? ` ${money(refunded)} has been refunded to your card (5 to 10 days).` : ""} Questions: (574) 444-9365` })
+      } catch (e) {
+        await logFailure(db, "event-cancel-sms-FAILED", `event=${eventId} err=${String(e).slice(0, 200)}`)
+      }
+    }
+  }
   return { refunded, failed }
 }

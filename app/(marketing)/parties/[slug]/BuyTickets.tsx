@@ -47,7 +47,7 @@ export default function BuyTickets({ slug, price, max }: { slug: string; price: 
       <div><label htmlFor="t-phone" className="block text-xs font-medium text-neutral-400">Phone (optional)</label><input id="t-phone" type="tel" className={field} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
       <label className="flex items-start gap-2 text-xs text-neutral-400">
         <input type="checkbox" className="mt-0.5" checked={smsOk} onChange={(e) => setSmsOk(e.target.checked)} />
-        Text me the door code on the day. One message from Tee365; msg and data rates may apply.
+        Text me about my tickets: confirmation, the door code on the day, and any changes. Msg and data rates may apply.
       </label>
       <label className="flex items-start gap-2 rounded-lg border border-white/15 bg-white/5 p-3 text-sm text-neutral-200">
         <input type="checkbox" className="mt-1" checked={ack} onChange={(e) => setAck(e.target.checked)} required />
