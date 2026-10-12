@@ -286,6 +286,14 @@ export async function recordTicketPayment(db: SupabaseClient, pi: { id: string; 
   } catch (e) {
     await logFailure(db, "party-ticket-email-FAILED", `order=${o.id} err=${String(e).slice(0, 200)}`)
   }
+  if (o.sms_ok && o.phone && !withCode) {
+    try {
+      await sendEventText({ to: o.phone, kind: "party-tickets",
+        body: `Tee365: you're in! ${o.quantity} ticket${o.quantity > 1 ? "s" : ""} for ${p.title}, ${whenLabel(p.starts_at, p.ends_at)}. Each ticket admits one person. We'll text your door code about 3 hours before.` })
+    } catch (e) {
+      await logFailure(db, "party-ticket-sms-FAILED", `order=${o.id} err=${String(e).slice(0, 200)}`)
+    }
+  }
   if (withCode) await sendCode(db, p, o)
 }
 
@@ -315,9 +323,9 @@ async function sendCode(db: SupabaseClient, p: Party, o: Order): Promise<void> {
 
 // ---------------------------------------------------------------- refunds / cancel
 
-export async function refundOrder(db: SupabaseClient, orderId: string): Promise<{ ok: boolean; error?: string }> {
-  const { data } = await db.from("ticket_orders").select("*, ticketed_events(title)").eq("id", orderId).single()
-  const o = data as Order & { ticketed_events: { title: string } | null }
+export async function refundOrder(db: SupabaseClient, orderId: string, reason: "refund" | "cancelled" = "refund"): Promise<{ ok: boolean; error?: string }> {
+  const { data } = await db.from("ticket_orders").select("*, ticketed_events(title, starts_at, ends_at)").eq("id", orderId).single()
+  const o = data as Order & { ticketed_events: { title: string; starts_at: string; ends_at: string } | null }
   if (!o || o.status !== "paid" || !o.stripe_payment_intent_id) return { ok: false, error: "Only a paid order can be refunded." }
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() })
@@ -327,13 +335,32 @@ export async function refundOrder(db: SupabaseClient, orderId: string): Promise<
     return { ok: false, error: "Stripe refused the refund. Do it in Stripe by hand." }
   }
   await db.from("ticket_orders").update({ status: "refunded", refunded_at: new Date().toISOString() }).eq("id", o.id)
+  const title = o.ticketed_events?.title ?? "the party"
+  const when = o.ticketed_events ? whenLabel(o.ticketed_events.starts_at, o.ticketed_events.ends_at) : ""
+  const tix = `${o.quantity} ticket${o.quantity > 1 ? "s" : ""}`
   try {
     await sendFounderMessage({
-      to: o.email, firstName: o.name.split(" ")[0], kind: "party-refund",
-      subject: `Refund: ${o.ticketed_events?.title ?? "your tickets"}`, heading: "Your tickets were refunded",
-      paragraphs: [`We refunded ${money(o.amount)} for ${o.quantity} ticket${o.quantity > 1 ? "s" : ""} to ${o.ticketed_events?.title ?? "the party"}. It usually shows on your card in 5 to 10 days.`, "Questions? Call (574) 444-9365."],
+      to: o.email, firstName: o.name.split(" ")[0], kind: reason === "cancelled" ? "party-cancelled" : "party-refund",
+      subject: reason === "cancelled" ? `Cancelled: ${title}` : `Refund: ${title}`,
+      heading: reason === "cancelled" ? "This party has been cancelled" : "Your tickets were refunded",
+      paragraphs: [
+        reason === "cancelled"
+          ? `We're sorry: ${title}${when ? ` (${when})` : ""} has been cancelled. We've refunded the full ${money(o.amount)} for your ${tix}.`
+          : `We refunded ${money(o.amount)} for your ${tix} to ${title}.`,
+        "It usually shows on your card in 5 to 10 days. Questions? Call (574) 444-9365.",
+      ],
     })
   } catch { /* logged by the mailer */ }
+  if (o.sms_ok && o.phone) {
+    try {
+      await sendEventText({ to: o.phone, kind: reason === "cancelled" ? "party-cancelled" : "party-refund",
+        body: reason === "cancelled"
+          ? `Tee365: sorry, ${title}${when ? ` (${when})` : ""} has been cancelled. Your ${money(o.amount)} has been refunded to your card (5 to 10 days). Questions: (574) 444-9365`
+          : `Tee365: we refunded ${money(o.amount)} for your ${tix} to ${title}. It shows on your card in 5 to 10 days.` })
+    } catch (e) {
+      await logFailure(db, "party-refund-sms-FAILED", `order=${o.id} err=${String(e).slice(0, 200)}`)
+    }
+  }
   await logEvent(db, "party-order-refunded", `order=${o.id} amount=${o.amount}`)
   return { ok: true }
 }
@@ -346,7 +373,7 @@ export async function cancelParty(db: SupabaseClient, id: string): Promise<{ ref
   const { data: paid } = await db.from("ticket_orders").select("id").eq("event_id", id).eq("status", "paid")
   let refunded = 0, failed = 0
   for (const o of (paid ?? []) as { id: string }[]) {
-    const r = await refundOrder(db, o.id)
+    const r = await refundOrder(db, o.id, "cancelled")
     if (r.ok) refunded++
     else failed++
   }
