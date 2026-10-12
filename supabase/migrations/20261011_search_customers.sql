@@ -1,0 +1,3 @@
+-- Applied via Supabase MCP 2026-10-11 as search_customers: admin autofill lookup
+-- by name, phone digits or email (joins auth.users), max 8, most recent
+-- visitors first. security definer; execute revoked from anon/authenticated.

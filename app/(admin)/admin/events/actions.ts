@@ -59,3 +59,17 @@ export async function quoteAction(dateKey: string, startMinutes: number, duratio
   for (const r of (data ?? []) as { season_type: string; day_type: string; time_type: string; price_per_hour: number }[]) rules[`${r.season_type}|${r.day_type}|${r.time_type}`] = Number(r.price_per_hour)
   return quoteFor(rules, dateKey, Math.round(Number(startMinutes)), dur, n)
 }
+
+export interface CustomerHit {
+  id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null
+  sms_consent: boolean; banned: boolean; plan: string | null; last_booking: string | null
+}
+
+/** Autofill lookup for the New event form (SQL search_customers, service role only). */
+export async function searchCustomersAction(q: string): Promise<CustomerHit[]> {
+  const { db } = await admin()
+  const term = String(q ?? "").trim().slice(0, 60)
+  if (term.length < 2) return []
+  const { data } = await db.rpc("search_customers", { q: term })
+  return (data ?? []) as CustomerHit[]
+}

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createEventAction } from "./actions"
 import QuotePanel from "./QuotePanel"
+import CustomerSearch from "./CustomerSearch"
 import DatePickerCalendar from "@/components/admin/DatePickerCalendar"
 
 const field = "mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
@@ -60,6 +61,7 @@ export default function NewEventForm({ bays }: { bays: { id: string; name: strin
         <label className={label} htmlFor="ev-title">Event name</label>
         <input id="ev-title" className={field} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="Smith birthday party" required />
       </div>
+      <CustomerSearch onPick={(c) => setF({ ...f, firstName: c.first_name ?? "", lastName: c.last_name ?? "", phone: c.phoneFormatted, email: c.email ?? "", smsOk: c.sms_consent })} />
       <div className="grid grid-cols-2 gap-3">
         <div><label className={label} htmlFor="ev-fn">Customer first name</label><input id="ev-fn" className={field} value={f.firstName} onChange={(e) => set("firstName", e.target.value)} required /></div>
         <div><label className={label} htmlFor="ev-ln">Last name</label><input id="ev-ln" className={field} value={f.lastName} onChange={(e) => set("lastName", e.target.value)} required /></div>
