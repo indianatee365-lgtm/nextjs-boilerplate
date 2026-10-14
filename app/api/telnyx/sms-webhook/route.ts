@@ -77,15 +77,16 @@ export async function POST(request: NextRequest) {
   // dashboard but not worth an owner SMS alert the way a real question is.
   if (STOP_KEYWORDS.has(keyword)) {
     await db.from("sms_opt_outs").upsert({ phone_number: phone })
-    // .select() here so we get email/first_name back from the same round
-    // trip, instead of a separate lookup, to email them that access codes
-    // and booking texts will stop and where to find them instead.
-    const { data: updatedProfiles } = await db
+    // profiles has no email column (email lives in auth.users). Selecting it
+    // here once made PostgREST reject the whole update with a 400, so STOP
+    // recorded the opt-out but never cleared sms_consent (2026-10-14).
+    const { data: updatedProfiles, error: optOutErr } = await db
       .from("profiles")
       .update({ sms_consent: false })
       .eq("phone", phone)
-      .select("email, first_name")
-    await logEvent(supabase, "sms-opt-out", `from=${phone}`)
+      .select("id, first_name")
+    if (optOutErr) await logFailure(supabase, "sms-opt-out-consent-FAILED", `from=${phone} err=${String(optOutErr.message ?? optOutErr).slice(0, 200)}`)
+    await logEvent(supabase, "sms-opt-out", `from=${phone} profiles=${updatedProfiles?.length ?? 0}`)
     try {
       await sendOptOutConfirmation(phone)
       await db.from("sms_messages").insert({
@@ -97,12 +98,14 @@ export async function POST(request: NextRequest) {
       await logFailure(supabase, "sms-opt-out-confirm-FAILED", `to=${phone} err=${String(err).slice(0, 200)}`)
     }
 
-    const optedOutProfile = updatedProfiles?.[0] as { email: string | null; first_name: string | null } | undefined
-    if (optedOutProfile?.email) {
+    const optedOutProfile = updatedProfiles?.[0] as { id: string; first_name: string | null } | undefined
+    const { data: authRes } = optedOutProfile ? await db.auth.admin.getUserById(optedOutProfile.id) : { data: null }
+    const optedOutEmail = (authRes?.user?.email as string | undefined) ?? null
+    if (optedOutProfile && optedOutEmail) {
       try {
-        await sendSmsOptOutConfirmationEmail({ to: optedOutProfile.email, firstName: optedOutProfile.first_name ?? "there" })
+        await sendSmsOptOutConfirmationEmail({ to: optedOutEmail, firstName: optedOutProfile.first_name ?? "there" })
       } catch (err) {
-        await logFailure(supabase, "sms-opt-out-email-FAILED", `to=${optedOutProfile.email} err=${String(err).slice(0, 200)}`)
+        await logFailure(supabase, "sms-opt-out-email-FAILED", `to=${optedOutEmail} err=${String(err).slice(0, 200)}`)
       }
     }
     return NextResponse.json({ ok: true })
