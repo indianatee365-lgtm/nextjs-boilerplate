@@ -25,6 +25,8 @@ async function sendResendEmail({
   kind: string
 }) {
   const supabase = await createServiceClient()
+  // Mail from jerrod@ has no inbox behind it, so replies go to info@.
+  if (!replyTo && from.includes("jerrod@tee365.org")) replyTo = "info@tee365.org"
   let res: Response
   try {
     res = await fetch("https://api.resend.com/emails", {
