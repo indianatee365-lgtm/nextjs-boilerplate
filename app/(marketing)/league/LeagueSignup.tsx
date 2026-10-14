@@ -31,6 +31,8 @@ export default function LeagueSignup({
   chargeText,
   chargeTextBoth,
   disclosures,
+  initialPartnerName = "",
+  initialPartnerEmail = "",
 }: {
   leagueId: string
   signedIn: boolean
@@ -42,12 +44,15 @@ export default function LeagueSignup({
   chargeText: string
   chargeTextBoth: string
   disclosures: Disclosure[]
+  /** Filled in from a free agent pairing email. */
+  initialPartnerName?: string
+  initialPartnerEmail?: string
 }) {
   const router = useRouter()
   const [teamName, setTeamName] = useState("")
   const [teeTime, setTeeTime] = useState("either")
-  const [partnerName, setPartnerName] = useState("")
-  const [partnerEmail, setPartnerEmail] = useState("")
+  const [partnerName, setPartnerName] = useState(initialPartnerName)
+  const [partnerEmail, setPartnerEmail] = useState(initialPartnerEmail)
   const [cardSaved, setCardSaved] = useState(hasCard)
   const [agreedToWaiver, setAgreedToWaiver] = useState(false)
   const [authorizedCharges, setAuthorizedCharges] = useState(false)

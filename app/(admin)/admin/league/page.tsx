@@ -6,6 +6,8 @@ import { LEAGUE_SLUG, inviteUrl, teeTimeLabel } from "@/lib/league"
 import { buildSeason } from "@/lib/league/schedule"
 import { planLeagueCharges } from "@/lib/league/charges"
 import { easternDateKey } from "@/lib/time/eastern"
+import FreeAgents from "./FreeAgents"
+import type { FreeAgent } from "@/lib/league/free-agents"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "League | Tee365 Admin" }
@@ -163,6 +165,9 @@ export default async function AdminLeaguePage({ searchParams }: { searchParams: 
   const { data: disputedRows } = await service.from("league_results").select("match_id, dispute_note").eq("status", "disputed")
   const disputed = (disputedRows ?? []) as { match_id: string; dispute_note: string | null }[]
 
+  const { data: faRows } = await service.from("league_free_agents").select("*").eq("league_id", l.id).neq("status", "removed").order("created_at")
+  const { data: teamPeople } = await service.from("league_participants").select("user_id").eq("league_id", l.id).not("team_id", "is", null)
+  const onTeam = ((teamPeople ?? []) as { user_id: string }[]).map((r) => r.user_id)
   const { data: approvals } = await service.from("admin_settings").select("key, value").in("key", ["league_members_announce_ok", "league_public_announce_ok"])
   const approved = Object.fromEntries(((approvals ?? []) as { key: string; value: boolean }[]).map((r) => [r.key, r.value === true]))
 
@@ -259,6 +264,11 @@ export default async function AdminLeaguePage({ searchParams }: { searchParams: 
           </tbody>
         </table>
       </div>
+      <FreeAgents
+        agents={(faRows ?? []) as FreeAgent[]}
+        teeTimes={(l.tee_times ?? []).map((t) => ({ value: t.slice(0, 5), label: teeTimeLabel(t) }))}
+        onTeam={onTeam}
+      />
       {disputed.length > 0 && (
         <section className="mt-8 rounded-xl border border-red-500/40 bg-red-500/10 p-4">
           <h2 className="text-sm font-semibold text-red-200">Disputed scores ({disputed.length})</h2>
