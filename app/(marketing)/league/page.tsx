@@ -18,6 +18,7 @@ import {
   type League,
 } from "@/lib/league"
 import LeagueSignup, { type MyTeam } from "./LeagueSignup"
+import FreeAgentJoin from "./FreeAgentJoin"
 import Link from "next/link"
 
 export const dynamic = "force-dynamic"
@@ -52,7 +53,8 @@ function instantLabel(iso: string): string {
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
 
-export default async function LeaguePage() {
+export default async function LeaguePage({ searchParams }: { searchParams: Promise<{ partner_name?: string; partner_email?: string }> }) {
+  const sp = await searchParams
   // League tables are newer than lib/supabase/types.ts, so this client is untyped.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service: any = await createServiceClient()
@@ -117,6 +119,12 @@ export default async function LeaguePage() {
       canStart = isAdmin || (window !== "closed" && canStartTeam(window, await activePlanSlug(service, user.id)))
       hasCard = await hasCardOnFile(service, user.id)
     }
+  }
+  // Free agent list (2026-10-14): where a player with no partner stands.
+  let freeAgentStatus: "none" | "waiting" | "paired" = "none"
+  if (user && !myTeam) {
+    const { data: fa } = await service.from("league_free_agents").select("status").eq("league_id", league.id).eq("user_id", user.id).neq("status", "removed").maybeSingle()
+    freeAgentStatus = ((fa as { status: "waiting" | "paired" } | null)?.status) ?? "none"
   }
 
   const opens = {
@@ -258,7 +266,7 @@ export default async function LeaguePage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
+      <section id="signup" className="scroll-mt-24 rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-wider text-brand">Sign up your team</p>
         <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
           {teamsLeft > 0 ? `${teamsLeft} team spots left` : "Full, waitlist open"}
@@ -274,7 +282,12 @@ export default async function LeaguePage() {
           chargeText={chargeText}
           chargeTextBoth={chargeTextBoth}
           disclosures={(disclosures ?? []) as { id: string; title: string; body: string }[]}
+          initialPartnerName={String(sp.partner_name ?? "").slice(0, 60)}
+          initialPartnerEmail={String(sp.partner_email ?? "").slice(0, 120)}
         />
+        {user && !myTeam && window !== "closed" && window !== "not_open" && (
+          <FreeAgentJoin status={freeAgentStatus} teeTimes={teeOptions.map((t) => ({ value: t.value, label: t.label }))} />
+        )}
       </section>
 
       <section>
