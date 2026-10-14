@@ -14,6 +14,8 @@ import { logEvent } from "@/lib/observability/notify"
  */
 
 const FROM = "Jerrod | Tee365 <jerrod@tee365.org>"
+// jerrod@ has no inbox; replies land in the info@ inbox Jerrod reads.
+const REPLY_TO = "info@tee365.org"
 const LOGO = "https://tee365.org/email-logo-v3.png"
 const SITE = "https://tee365.org"
 const ADDRESS = "Tee365 &middot; 4615 Grape Rd, Mishawaka, IN 46545"
@@ -200,6 +202,7 @@ export async function sendCampaignBatch({
     const unsubscribeUrl = unsubscribeUrlFor(m.to)
     return {
       from: FROM,
+      reply_to: REPLY_TO,
       to: [m.to],
       subject,
       html: buildCampaignHtml({ subject, body, firstName: m.firstName, unsubscribeUrl }),
@@ -248,6 +251,7 @@ export async function sendCampaignTest({
     },
     body: JSON.stringify({
       from: FROM,
+      reply_to: REPLY_TO,
       to: [to],
       subject: `[TEST] ${subject}`,
       html: buildCampaignHtml({ subject, body, firstName, unsubscribeUrl: unsubscribeUrlFor(to) }),
