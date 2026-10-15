@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { logFailure, getAdminSetting } from "@/lib/observability/notify"
+import { logEvent, logFailure, getAdminSetting } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 
@@ -42,6 +42,44 @@ const WHO_IS_UP_WINDOW_MINUTES = 5
 // starts right after another one on the same bay is already warm from the
 // prior session and doesn't need this.
 const PRE_WARM_MINUTES = 3
+
+// A failed database read must never be mistaken for "no data". Reading an
+// empty bay_agent_status row made days-old Bay 2 alerts look brand new and
+// texted them at 4:31 AM on 2026-10-15; an empty booking read would tell a
+// bay mid-session to shut down. So any failed read or status write answers
+// 503 and changes nothing. service.py treats a non-2xx as a dropped poll,
+// keeps its last known state, and the next check-in a few seconds later
+// redoes all of it, alerts included (the bay re-sends its alert timestamps
+// every tick until a newer one replaces them, so nothing is lost). Each blip
+// is logged as bay-agent-sync-db-error so they show up in /admin/logs.
+// PGRST116 is .single() finding no row, which is a real answer, not a blip.
+const syncDbErrorLoggedAt = new Map<string, number>()
+
+async function syncDbFailed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  serviceClient: any,
+  bayLabel: string,
+  step: string,
+  error: { code?: string; message?: string } | null,
+) {
+  const detail = `bay=${bayLabel} step=${step} code=${error?.code ?? "none"} message=${error?.message ?? "none"}`
+  console.error(`bay-agent sync db error: ${detail}`)
+  // At most one /admin/logs row per bay+step per minute per instance, so a
+  // failure that persists cannot write a row every 5 seconds per bay (the
+  // 2026-08-30 duplicate-crash-log bloat). The uptime check reads these.
+  const throttleKey = `${bayLabel}:${step}`
+  const lastLoggedAt = syncDbErrorLoggedAt.get(throttleKey) ?? 0
+  if (Date.now() - lastLoggedAt >= 60_000) {
+    syncDbErrorLoggedAt.set(throttleKey, Date.now())
+    try {
+      await logEvent(serviceClient, "bay-agent-sync-db-error", detail)
+    } catch {
+      // The log write can fail for the same reason the read did. The
+      // console.error above still lands in the Vercel logs.
+    }
+  }
+  return NextResponse.json({ error: "Temporary database error, retry" }, { status: 503 })
+}
 
 interface SyncRequestBody {
   bayId?: string
@@ -85,21 +123,29 @@ export async function POST(request: NextRequest) {
 
   const serviceClient = await createServiceClient()
 
-  const { data: bay } = await serviceClient
+  const { data: bay, error: bayError } = await serviceClient
     .from("bays")
     .select("id, name, active, agent_token")
     .eq("id", bayId)
     .single()
 
+  if (bayError && bayError.code !== "PGRST116") {
+    return syncDbFailed(serviceClient, bayId, "bays-read", bayError)
+  }
+
   if (!bay || !bay.agent_token || bay.agent_token !== token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: existingStatus } = await serviceClient
+  const { data: existingStatus, error: existingStatusError } = await serviceClient
     .from("bay_agent_status")
     .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at, eyexr_missing_since, eyexr_alerted_at")
     .eq("bay_id", bayId)
     .single()
+
+  if (existingStatusError && existingStatusError.code !== "PGRST116") {
+    return syncDbFailed(serviceClient, bay.name, "status-read", existingStatusError)
+  }
 
   if (status) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,7 +181,7 @@ export async function POST(request: NextRequest) {
       !eyexrAlertedAt &&
       Date.now() - eyexrMissingMs >= EYEXR_MISSING_ALERT_MINUTES * 60_000
 
-    await serviceClient.from("bay_agent_status").upsert({
+    const { error: upsertError } = await serviceClient.from("bay_agent_status").upsert({
       bay_id: bayId,
       last_heartbeat_at: new Date().toISOString(),
       agent_version: status.agentVersion ?? null,
@@ -164,6 +210,13 @@ export async function POST(request: NextRequest) {
       kiosk_kills: kioskKills,
       updated_at: new Date().toISOString(),
     })
+
+    // The alert checks below assume this write landed. If it did not, the
+    // stored timestamps are still the old ones and every alert would re-fire
+    // on the next tick, so stop here and let that tick do it once, properly.
+    if (upsertError) {
+      return syncDbFailed(serviceClient, bay.name, "status-write", upsertError)
+    }
 
     // companion.py's last_crash_restart_at stays set on every heartbeat
     // until the NEXT real crash (it's not a one-shot event flag) - logging
@@ -426,7 +479,7 @@ export async function POST(request: NextRequest) {
 
   const now = new Date()
 
-  const { data: activeBooking } = await serviceClient
+  const { data: activeBooking, error: activeBookingError } = await serviceClient
     .from("bookings")
     .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
@@ -437,6 +490,10 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle()
 
+  if (activeBookingError) {
+    return syncDbFailed(serviceClient, bay.name, "active-booking-read", activeBookingError)
+  }
+
   let booking = activeBooking
 
   // Bay is cold (nothing currently running) - check for a pre-warm candidate
@@ -446,7 +503,7 @@ export async function POST(request: NextRequest) {
   // invariant is ever violated.
   if (!booking) {
     const preWarmCutoff = new Date(now.getTime() + PRE_WARM_MINUTES * 60000)
-    const { data: upcomingBooking } = await serviceClient
+    const { data: upcomingBooking, error: upcomingBookingError } = await serviceClient
       .from("bookings")
       .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
       .eq("bay_id", bayId)
@@ -456,6 +513,9 @@ export async function POST(request: NextRequest) {
       .order("starts_at", { ascending: true })
       .limit(1)
       .maybeSingle()
+    if (upcomingBookingError) {
+      return syncDbFailed(serviceClient, bay.name, "upcoming-booking-read", upcomingBookingError)
+    }
     booking = upcomingBooking
   }
 
