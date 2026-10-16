@@ -17,6 +17,7 @@ import {
 } from "@/lib/bookings/launch-gate"
 
 import { parseReportedTime, findBookingAt, formatFacilityTime } from "@/lib/incidents"
+import { describeCallerPaymentStatus } from "@/lib/bookings/payment-check"
 
 const OWNER_PHONE = "+15749990622"
 
@@ -229,9 +230,15 @@ async function handleTransferToHuman(
   const displayName = selfReportedName || profileName || "unknown caller"
   const supabase = await createServiceClient()
   const who = `${displayName} (${callerPhone})`
+  // Leads the alert with PAID / NOT PAID so the owner never has to work it
+  // out under pressure. See lib/bookings/payment-check.ts for why.
+  const paymentStatus = await describeCallerPaymentStatus(
+    supabase,
+    await lookupCallerId(supabase, callerPhone).catch(() => null),
+  )
 
   await Promise.allSettled([
-    notifyOwner(`Tee365 call transfer: ${who} - ${reason}. Connecting to you now. If your phone doesn't ring in the next minute, call them back - the transfer may have failed silently.`),
+    notifyOwner(`${paymentStatus}\n\nTee365 call transfer: ${who} - ${reason}. Connecting to you now. If your phone doesn't ring in the next minute, call them back - the transfer may have failed silently.`),
     logEvent(supabase, "call-transfer-initiated", `caller=${callerPhone} name=${displayName} (self-reported=${selfReportedName ?? "none"}, profile=${profileName ?? "none"}) reason=${reason}`),
   ])
 
