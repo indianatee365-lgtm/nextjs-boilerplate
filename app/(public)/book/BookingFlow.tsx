@@ -118,6 +118,7 @@ export default function BookingFlow({
   minBookableDate,
   prefillDate,
   prefillDurationMinutes,
+  heldBooking = null,
 }: {
   bays: Bay[]
   advanceDays: number
@@ -135,6 +136,7 @@ export default function BookingFlow({
   minBookableDate?: string | null
   prefillDate?: string | null
   prefillDurationMinutes?: number | null
+  heldBooking?: { id: string; bayName: string; startsAt: string; total: number } | null
 }) {
   const router = useRouter()
   // A link texted by the phone agent arrives as /book?date=&duration=. Landing
@@ -167,6 +169,8 @@ export default function BookingFlow({
   const [expandedDisclosure, setExpandedDisclosure] = useState<string | null>(disclosures[0]?.id ?? null)
   const [nextAvailable, setNextAvailable] = useState<NextAvailable | null | "loading">("loading")
   const cancellingRef = useRef(false)
+  const [unfinishedHold, setUnfinishedHold] = useState(heldBooking)
+  const [releasingHold, setReleasingHold] = useState(false)
 
   const allDisclosuresAcknowledged = disclosures.length === 0 || disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
@@ -416,6 +420,9 @@ export default function BookingFlow({
         router.push(`/account/bookings?confirmed=${data.bookingId}`)
         return
       }
+      // The server released any earlier unpaid hold of theirs before taking
+      // this one, so the "waiting for payment" banner no longer applies.
+      setUnfinishedHold(null)
       setReservedBooking({
         id: data.bookingId,
         clientSecret: data.clientSecret,
@@ -631,6 +638,44 @@ export default function BookingFlow({
           </div>
         ))}
       </div>
+
+      {/* ── Unfinished checkout from an earlier visit ── */}
+      {unfinishedHold && !reservedBooking && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="text-sm font-semibold text-white">You have a reservation waiting for payment</p>
+          <p className="mt-0.5 text-xs text-neutral-300">
+            {unfinishedHold.bayName}, {new Date(unfinishedHold.startsAt).toLocaleString("en-US", {
+              weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+              timeZone: "America/Indiana/Indianapolis",
+            })} · ${unfinishedHold.total.toFixed(2)}. It is held for 15 minutes from when you started.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => router.push(`/book/complete/${unfinishedHold.id}`)}
+              disabled={releasingHold}
+              className="btn-primary text-sm px-4 py-2"
+            >
+              Finish paying
+            </button>
+            <button
+              onClick={async () => {
+                setReleasingHold(true)
+                try {
+                  await cancelReservation(unfinishedHold.id)
+                } finally {
+                  setReleasingHold(false)
+                  setUnfinishedHold(null)
+                  if (selectedDate && step === "time") loadAvailability(selectedDate)
+                }
+              }}
+              disabled={releasingHold}
+              className="btn-ghost text-sm px-4 py-2"
+            >
+              {releasingHold ? "Releasing…" : "Release it and start over"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Next available block ── */}
       {step === "date" && nextAvailable && nextAvailable !== "loading" && (

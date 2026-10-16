@@ -1,5 +1,5 @@
 import { getDiscount, effectivePercent } from "@/lib/admin/discounts"
-import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { holdsBayFilter, pendingHoldCutoff } from "@/lib/bookings/pending-hold"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import {
@@ -33,6 +33,62 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     httpClient: Stripe.createFetchHttpClient(),
   })
+}
+
+// A customer starting a new website checkout gets their own earlier unpaid
+// website hold released first. The hold only lived in the browser page, so a
+// reload, a back button, or a phone dropping the tab lost the checkout but left
+// the hold blocking the bay for up to 15 minutes. Found live 2026-10-16: a new
+// customer's page reset twice, their own orphaned Bay 1 hold bumped the retry
+// to Bay 3, and they had to cancel both from My Bookings before rebooking.
+//
+// Only holds whose payment has not started are touched. A PaymentIntent that is
+// mid-authentication or processing is left alone, so this can never release a
+// booking that is about to be paid for. Never throws: failing to tidy up an old
+// hold must not stop the new booking.
+async function releaseOwnWebHolds(serviceClient: SupabaseClient, userId: string): Promise<void> {
+  try {
+    const { data: holds } = await serviceClient
+      .from("bookings")
+      .select("id, stripe_payment_intent_id")
+      .eq("user_id", userId)
+      .eq("status", "pending")
+      .eq("source", "web")
+      .is("parent_booking_id", null)
+      .gt("created_at", pendingHoldCutoff().toISOString())
+
+    for (const hold of (holds ?? []) as { id: string; stripe_payment_intent_id: string | null }[]) {
+      try {
+        if (hold.stripe_payment_intent_id) {
+          const pi = await getStripe().paymentIntents.retrieve(hold.stripe_payment_intent_id)
+          if (pi.status !== "requires_payment_method" && pi.status !== "requires_confirmation") {
+            await logEvent(serviceClient, "booking-hold-release-skipped",
+              `booking=${hold.id} user=${userId} pi_status=${pi.status}`)
+            continue
+          }
+          await getStripe().paymentIntents.cancel(pi.id)
+        }
+        const cancelledAt = new Date().toISOString()
+        await serviceClient
+          .from("bookings")
+          .update({ status: "cancelled", cancelled_at: cancelledAt, cancelled_by: userId })
+          .eq("id", hold.id)
+          .eq("status", "pending")
+        // A two-bay hold's second bay rides on the same payment: release it too.
+        await serviceClient
+          .from("bookings")
+          .update({ status: "cancelled", cancelled_at: cancelledAt, cancelled_by: userId })
+          .eq("parent_booking_id", hold.id)
+          .eq("status", "pending")
+        await logEvent(serviceClient, "booking-hold-replaced", `booking=${hold.id} user=${userId}`)
+      } catch (e) {
+        await logFailure(serviceClient, "booking-hold-release-FAILED",
+          `booking=${hold.id} user=${userId} err=${String(e).slice(0, 200)}`)
+      }
+    }
+  } catch (e) {
+    await logFailure(serviceClient, "booking-hold-release-FAILED", `user=${userId} err=${String(e).slice(0, 200)}`)
+  }
 }
 
 export interface CreateBookingInput {
@@ -218,6 +274,10 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   if (!allBays || allBays.length === 0) {
     return { ok: false, status: 404, error: "No bays configured" }
   }
+
+  // Before looking for a free bay, so the customer's own abandoned hold can't
+  // push them to a different bay or count against their reservation limit.
+  if (source === "web") await releaseOwnWebHolds(serviceClient, userId)
 
   const { data: conflicts } = await serviceClient
     .from("bookings")
