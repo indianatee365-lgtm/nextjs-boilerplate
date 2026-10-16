@@ -11,7 +11,7 @@ export default async function CompleteBookingPage({ params }: { params: Promise<
     <main className="mx-auto max-w-lg px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Complete Your Booking</h1>
       <p className="mt-1 text-sm text-neutral-400">
-        Finish setting up the reservation made for you over the phone.
+        Finish paying to confirm your reservation.
       </p>
       <CompleteBookingFlow bookingId={id} />
     </main>

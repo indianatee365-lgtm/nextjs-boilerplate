@@ -6,7 +6,7 @@ import { hasUnusedFriendsDayCoupon, FRIENDS_DAY_COUPON_CODE } from "@/lib/bookin
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import { groundsCrewDateKey } from "@/lib/membership/grounds-crew"
-import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { holdsBayFilter, pendingHoldCutoff } from "@/lib/bookings/pending-hold"
 import { isTwoBayBookingOn } from "@/lib/bookings/group"
 
 export const metadata = {
@@ -143,6 +143,40 @@ export default async function BookPage({
     }
   }
 
+  // A website checkout still waiting on payment. The hold only lives in the
+  // browser page, so if that page reloaded (or a phone dropped the tab) the
+  // customer lands back here with no way to see it. Offer to finish it instead
+  // of letting them start over and get bumped by their own hold. Two-bay holds
+  // are skipped: the completion page only knows how to show one bay.
+  let heldBooking: { id: string; bayName: string; startsAt: string; total: number } | null = null
+  if (user) {
+    const { data: hold } = await serviceClient
+      .from("bookings")
+      .select("id, starts_at, total, bays(name)")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .eq("source", "web")
+      .is("parent_booking_id", null)
+      .gt("created_at", pendingHoldCutoff().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (hold) {
+      const { count: children } = await serviceClient
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_booking_id", hold.id)
+      if (!children) {
+        heldBooking = {
+          id: hold.id,
+          bayName: (hold.bays as unknown as { name: string } | null)?.name ?? "your bay",
+          startsAt: hold.starts_at,
+          total: Number(hold.total),
+        }
+      }
+    }
+  }
+
   const availableCreditHours = (hourCredits ?? []).reduce(
     (sum, c) => sum + Number((c as { hours_remaining: number }).hours_remaining), 0)
 
@@ -194,6 +228,7 @@ export default async function BookPage({
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
         prefillDate={prefillDate}
         prefillDurationMinutes={prefillDurationMinutes}
+        heldBooking={heldBooking}
       />
       <UpcomingParties heading="Upcoming parties" className="mt-12" />
     </main>
