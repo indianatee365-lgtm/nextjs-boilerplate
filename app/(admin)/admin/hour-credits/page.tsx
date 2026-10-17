@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { createHourCreditCodes, grantHoursByEmail, toggleHourCredit } from "./actions"
+import CustomerEmailField from "@/components/admin/CustomerEmailField"
 
 export const metadata = { title: "Hour Credits | Tee365 Admin" }
 
@@ -90,10 +91,7 @@ export default async function AdminHourCreditsPage() {
         <form action={grantHoursByEmail} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
           <h2 className="text-sm font-semibold text-white">Grant to an account</h2>
           <p className="text-xs text-neutral-500">Adds hours directly to an existing customer account, no code needed.</p>
-          <div>
-            <label className="label" htmlFor="grant-email">Customer email</label>
-            <input id="grant-email" name="email" type="email" placeholder="customer@example.com" required className="input mt-1" />
-          </div>
+          <CustomerEmailField id="grant-email" />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="grant-hours">Hours</label>
