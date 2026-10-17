@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
-// While the inbox is on screen it re-checks every POLL_MS, so a new text shows
-// up within seconds whether or not the realtime socket below is working.
+// While the inbox is on screen it asks /api/admin/sms/latest this often whether
+// anything new has arrived, and re-renders only if it has.
 const POLL_MS = 15_000
 
 // Refetches the inbox the moment the Telnyx webhook writes a new row (or an
@@ -20,9 +20,11 @@ const POLL_MS = 15_000
 // The realtime socket alone was not enough: on 2026-10-17 Jerrod was still
 // reloading by hand to see new texts. A socket that drops (a phone locking, a
 // laptop sleeping, a network blip) or subscribes before the session is attached
-// fails silently, so the page now also polls while visible and refreshes the
-// moment it comes back into view. Polling stops while the tab is hidden so a
-// forgotten background tab costs nothing.
+// fails silently. So the page also checks for a newer message while visible,
+// and as soon as it comes back into view. It checks a one-row endpoint rather
+// than calling router.refresh() on a timer, because every refresh also
+// re-prefetches all the admin nav links (about a dozen requests). Checking
+// stops while the tab is hidden so a forgotten background tab costs nothing.
 export default function RealtimeRefresher() {
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -43,9 +45,29 @@ export default function RealtimeRefresher() {
       )
       .subscribe()
 
+    // The newest message this page last saw. Starts unknown: the first check
+    // only records it, since the page was just rendered with fresh data.
+    let lastSeen: string | null = null
+    let checking = false
+    const checkForNew = async () => {
+      if (checking) return
+      checking = true
+      try {
+        const res = await fetch("/api/admin/sms/latest", { cache: "no-store" })
+        if (!res.ok) return
+        const { latest } = (await res.json()) as { latest: string }
+        if (lastSeen !== null && latest !== lastSeen) refreshSoon()
+        lastSeen = latest
+      } catch {
+        // A blip; the next tick tries again.
+      } finally {
+        checking = false
+      }
+    }
+
     let pollId: ReturnType<typeof setInterval> | null = null
     const startPolling = () => {
-      if (pollId === null) pollId = setInterval(() => router.refresh(), POLL_MS)
+      if (pollId === null) pollId = setInterval(checkForNew, POLL_MS)
     }
     const stopPolling = () => {
       if (pollId !== null) clearInterval(pollId)
@@ -53,21 +75,22 @@ export default function RealtimeRefresher() {
     }
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        refreshSoon()
+        checkForNew()
         startPolling()
       } else {
         stopPolling()
       }
     }
 
+    checkForNew()
     if (document.visibilityState === "visible") startPolling()
     document.addEventListener("visibilitychange", onVisibility)
-    window.addEventListener("focus", refreshSoon)
+    window.addEventListener("focus", checkForNew)
 
     return () => {
       stopPolling()
       document.removeEventListener("visibilitychange", onVisibility)
-      window.removeEventListener("focus", refreshSoon)
+      window.removeEventListener("focus", checkForNew)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       supabase.removeChannel(channel)
     }
