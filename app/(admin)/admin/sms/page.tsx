@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { sendReply } from "./actions"
 import { SubmitButton } from "./SubmitButton"
 import RealtimeRefresher from "./RealtimeRefresher"
+import ThreadScroller from "./ThreadScroller"
 
 export const metadata = { title: "SMS Inbox | Tee365 Admin" }
 
@@ -132,7 +133,11 @@ export default async function AdminSmsPage({
                   <span className="text-xs text-neutral-500">{selectedPhone}</span>
                 )}
               </div>
-              <div className="max-h-[50vh] space-y-3 overflow-y-auto">
+              <ThreadScroller
+                phone={selectedPhone}
+                lastMessageId={thread.length ? thread[thread.length - 1].id : null}
+                className="max-h-[50vh] space-y-3 overflow-y-auto"
+              >
                 {thread.map((m) => (
                   <div key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.direction === "outbound" ? "ml-auto bg-[#00A651]/20 text-white" : "bg-white/5 text-neutral-200"}`}>
                     <p className="whitespace-pre-wrap">{m.body}</p>
@@ -141,7 +146,7 @@ export default async function AdminSmsPage({
                     </p>
                   </div>
                 ))}
-              </div>
+              </ThreadScroller>
 
               <form action={sendReply} className="mt-4 flex gap-2">
                 <input type="hidden" name="phone" value={selectedPhone} />
