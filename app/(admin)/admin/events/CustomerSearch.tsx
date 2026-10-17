@@ -10,7 +10,15 @@ const fmtPhone = (p: string | null) => {
 const PLAN: Record<string, string> = { founder: "Founder", eagle: "Eagle", birdie: "Birdie", albatross: "Albatross" }
 
 /** Type a name, phone or email; pick a customer to fill the form. */
-export default function CustomerSearch({ onPick }: { onPick: (c: CustomerHit & { phoneFormatted: string }) => void }) {
+export default function CustomerSearch({
+  onPick,
+  label = "Find an existing customer (name, phone or email)",
+  emptyText = "No match. Fill in the fields below for a new customer.",
+}: {
+  onPick: (c: CustomerHit & { phoneFormatted: string }) => void
+  label?: string
+  emptyText?: string
+}) {
   const [q, setQ] = useState("")
   const [hits, setHits] = useState<CustomerHit[]>([])
   const [open, setOpen] = useState(false)
@@ -41,7 +49,7 @@ export default function CustomerSearch({ onPick }: { onPick: (c: CustomerHit & {
   const shown = q.trim().length >= 2 ? hits : []
   return (
     <div ref={box} className="relative">
-      <label htmlFor="cust-search" className="block text-xs font-medium text-neutral-400">Find an existing customer (name, phone or email)</label>
+      <label htmlFor="cust-search" className="block text-xs font-medium text-neutral-400">{label}</label>
       <input id="cust-search" autoComplete="off" value={q} placeholder="e.g. valdez"
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
@@ -56,7 +64,7 @@ export default function CustomerSearch({ onPick }: { onPick: (c: CustomerHit & {
       {open && q.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-white/15 bg-neutral-900 shadow-xl">
           {shown.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-neutral-500">No match. Fill in the fields below for a new customer.</p>
+            <p className="px-3 py-2 text-xs text-neutral-500">{emptyText}</p>
           ) : shown.map((c, i) => (
             <button key={c.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(c)}
               className={`block w-full px-3 py-2 text-left text-sm ${i === active ? "bg-white/10" : "hover:bg-white/5"}`}>

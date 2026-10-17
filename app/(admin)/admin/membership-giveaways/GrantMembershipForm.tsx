@@ -3,6 +3,7 @@
 import { useActionState } from "react"
 import { useRouter } from "next/navigation"
 import { grantMembershipByEmail } from "./actions"
+import CustomerEmailField from "@/components/admin/CustomerEmailField"
 
 export default function GrantMembershipForm({
   plans,
@@ -27,13 +28,7 @@ export default function GrantMembershipForm({
     <form action={action} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
       <h2 className="text-sm font-semibold text-white">Grant directly to an account</h2>
       <p className="text-xs text-neutral-500">Adds a free membership straight to an existing account, no code needed.</p>
-      <div>
-        <label className="label" htmlFor="grant-email">Customer email</label>
-        <input
-          id="grant-email" name="email" type="email" required
-          placeholder="customer@example.com" className="input mt-1 w-full"
-        />
-      </div>
+      <CustomerEmailField id="grant-email" />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label" htmlFor="grant-plan">Plan</label>
