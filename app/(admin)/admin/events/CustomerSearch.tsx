@@ -24,12 +24,15 @@ export default function CustomerSearch({
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const box = useRef<HTMLDivElement>(null)
+  // Picking someone writes their name into the box, which would otherwise kick
+  // off a fresh search that pops the list straight back open over the form.
+  const justPicked = useRef(false)
 
   useEffect(() => {
     if (q.trim().length < 2) return
     let live = true
     const t = setTimeout(() => {
-      searchCustomersAction(q).then((r) => { if (live) { setHits(r); setActive(0); setOpen(true) } }).catch(() => { if (live) setHits([]) })
+      searchCustomersAction(q).then((r) => { if (live) { setHits(r); setActive(0); if (!justPicked.current) setOpen(true); justPicked.current = false } }).catch(() => { if (live) setHits([]) })
     }, 250)
     return () => { live = false; clearTimeout(t) }
   }, [q])
@@ -42,6 +45,7 @@ export default function CustomerSearch({
 
   function pick(c: CustomerHit) {
     onPick({ ...c, phoneFormatted: fmtPhone(c.phone) })
+    justPicked.current = true
     setQ(`${c.first_name ?? ""} ${c.last_name ?? ""}`.trim())
     setOpen(false)
   }
@@ -51,7 +55,7 @@ export default function CustomerSearch({
     <div ref={box} className="relative">
       <label htmlFor="cust-search" className="block text-xs font-medium text-neutral-400">{label}</label>
       <input id="cust-search" autoComplete="off" value={q} placeholder="e.g. valdez"
-        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onChange={(e) => { justPicked.current = false; setQ(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
           if (!open || !shown.length) return
