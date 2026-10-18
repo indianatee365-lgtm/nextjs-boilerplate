@@ -37,11 +37,47 @@ export default async function AdminUserDetailPage({
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
     serviceClient.from("memberships").select("id, status, plan_type, started_at, current_period_end, cancelled_at, cancellation_requested_at, founder_number, stripe_customer_id, stripe_subscription_id, membership_plans(name, display_name)").eq("user_id", id).order("started_at", { ascending: false }),
-    serviceClient.from("bookings").select("id, starts_at, ends_at, status, total, access_code, bays(name)").eq("user_id", id).order("starts_at", { ascending: false }).limit(10),
+    serviceClient.from("bookings").select("id, starts_at, ends_at, status, total, access_code, credit_hours_applied, grounds_crew_minutes, bays(name)").eq("user_id", id).order("starts_at", { ascending: false }).limit(10),
     serviceClient.from("gift_cards").select("code, original_amount, balance, recipient_name, recipient_email, created_at").eq("purchased_by", `${t.first_name} ${t.last_name}`).order("created_at", { ascending: false }).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("event, detail, created_at").ilike("detail", `%${id}%`).order("created_at", { ascending: false }).limit(20),
   ])
+
+  // Free hours: every credit this person holds, why they got it, and what used
+  // it. Added 2026-10-18 because a free-hour booking meant opening the Hour
+  // Credits page and hunting for the name to find out where the time came from.
+  const [{ data: creditRows }, { data: useRows }] = await Promise.all([
+    serviceClient.from("hour_credits")
+      .select("id, code, hours, hours_remaining, reason, expires_at, active, created_at, redeemed_at")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false }),
+    serviceClient.from("hour_credit_uses")
+      .select("booking_id, hour_credit_id, hours_used, created_at, bookings(starts_at, status, bays(name))")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false }),
+  ])
+  type CreditRow = { id: string; code: string | null; hours: number; hours_remaining: number; reason: string | null; expires_at: string | null; active: boolean; created_at: string; redeemed_at: string | null }
+  type UseRow = { booking_id: string; hour_credit_id: string; hours_used: number; created_at: string; bookings: { starts_at: string; status: string; bays: { name: string } | null } | null }
+  const credits = (creditRows ?? []) as CreditRow[]
+  const uses = (useRows ?? []) as unknown as UseRow[]
+  const nowMs = new Date().getTime()
+  const creditStatus = (c: CreditRow) =>
+    !c.active ? "deactivated"
+    : c.expires_at && new Date(c.expires_at).getTime() < nowMs ? "expired"
+    : Number(c.hours_remaining) <= 0 ? "used up"
+    : "available"
+  const creditLabel = (c: CreditRow | undefined) =>
+    !c ? "unknown credit" : c.reason?.trim() || (c.code ? `code ${c.code}` : "direct grant, no reason given")
+  const creditById = new Map(credits.map((c) => [c.id, c]))
+  const usesByCredit = new Map<string, UseRow[]>()
+  const usesByBooking = new Map<string, UseRow[]>()
+  for (const u of uses) {
+    usesByCredit.set(u.hour_credit_id, [...(usesByCredit.get(u.hour_credit_id) ?? []), u])
+    usesByBooking.set(u.booking_id, [...(usesByBooking.get(u.booking_id) ?? []), u])
+  }
+  const availableHours = credits.filter((c) => creditStatus(c) === "available").reduce((sum, c) => sum + Number(c.hours_remaining), 0)
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -135,6 +171,59 @@ export default async function AdminUserDetailPage({
         ) : <p className="text-sm text-neutral-500">No memberships.</p>}
       </section>
 
+      {/* Free hours */}
+      <section className="mt-8">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold text-white uppercase tracking-wider text-xs">Free hours</h2>
+          {credits.length > 0 && (
+            <span className="text-xs text-neutral-400">
+              <span className="font-semibold text-white">{availableHours}h</span> available now
+            </span>
+          )}
+        </div>
+        {credits.length > 0 ? (
+          <div className="rounded-xl border border-white/10 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-neutral-500"><tr>
+                <th className="px-4 py-2">Why</th><th className="px-4 py-2">Left</th><th className="px-4 py-2">Granted</th><th className="px-4 py-2">Expires</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Used on</th>
+              </tr></thead>
+              <tbody>
+                {credits.map((c) => {
+                  const st = creditStatus(c)
+                  const used = usesByCredit.get(c.id) ?? []
+                  return (
+                    <tr key={c.id} className="border-t border-white/5 text-neutral-300 align-top">
+                      <td className="px-4 py-2 text-xs text-white">
+                        {creditLabel(c)}
+                        {c.code && c.reason && <span className="block font-mono text-[10px] text-neutral-500">code {c.code}</span>}
+                      </td>
+                      <td className="px-4 py-2 text-xs whitespace-nowrap">{Number(c.hours_remaining)} / {Number(c.hours)}h</td>
+                      <td className="px-4 py-2 text-xs text-neutral-400 whitespace-nowrap">{fmtDate(c.redeemed_at ?? c.created_at)}</td>
+                      <td className="px-4 py-2 text-xs text-neutral-400 whitespace-nowrap">{c.expires_at ? fmtDate(c.expires_at) : "Never"}</td>
+                      <td className="px-4 py-2 text-xs">
+                        <span className={`rounded-full px-2 py-0.5 font-medium ${
+                          st === "available" ? "bg-green-500/20 text-green-400" :
+                          st === "used up" ? "bg-white/10 text-neutral-400" :
+                          "bg-red-500/20 text-red-400"
+                        }`}>{st}</span>
+                      </td>
+                      <td className="px-4 py-2 text-xs text-neutral-400">
+                        {used.length === 0 ? "Not used yet" : used.map((u) => (
+                          <span key={u.booking_id + u.created_at} className="block whitespace-nowrap">
+                            {Number(u.hours_used)}h · {u.bookings ? `${fmtWhen(u.bookings.starts_at)}, ${u.bookings.bays?.name ?? "bay ?"}` : "booking removed"}
+                            {u.bookings?.status === "cancelled" ? " (cancelled)" : ""}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="text-sm text-neutral-500">No free hours on this account.</p>}
+      </section>
+
       {/* Account controls. Deliberately their own section: a ban and a veteran
           discount are not membership operations, and burying them under that
           heading as a row of underlined text made three separate actions read
@@ -180,7 +269,7 @@ export default async function AdminUserDetailPage({
           <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-neutral-500"><tr>
-                <th className="px-4 py-2">When</th><th className="px-4 py-2">Bay</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Total</th><th className="px-4 py-2">Code</th>
+                <th className="px-4 py-2">When</th><th className="px-4 py-2">Bay</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Total</th><th className="px-4 py-2">Free time</th><th className="px-4 py-2">Code</th>
               </tr></thead>
               <tbody>
                 {bookings.map((b) => {
@@ -191,6 +280,17 @@ export default async function AdminUserDetailPage({
                       <td className="px-4 py-2 text-xs">{bay?.name ?? "N/A"}</td>
                       <td className="px-4 py-2 text-xs">{b.status}</td>
                       <td className="px-4 py-2 text-xs">${Number(b.total).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-xs text-neutral-300">
+                        {(() => {
+                          const parts: string[] = []
+                          for (const u of usesByBooking.get(b.id) ?? []) {
+                            parts.push(`${Number(u.hours_used)}h: ${creditLabel(creditById.get(u.hour_credit_id))}`)
+                          }
+                          if (parts.length === 0 && Number(b.credit_hours_applied ?? 0) > 0) parts.push(`${Number(b.credit_hours_applied)}h free hours`)
+                          if (Number(b.grounds_crew_minutes ?? 0) > 0) parts.push(`${Number(b.grounds_crew_minutes)} min Grounds Crew (membership)`)
+                          return parts.length ? parts.map((p) => <span key={p} className="block">{p}</span>) : <span className="text-neutral-600">none</span>
+                        })()}
+                      </td>
                       <td className="px-4 py-2 font-mono text-xs text-neutral-400">{b.access_code ?? "N/A"}</td>
                     </tr>
                   )
