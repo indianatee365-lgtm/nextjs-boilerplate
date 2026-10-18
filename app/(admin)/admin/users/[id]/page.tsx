@@ -210,7 +210,8 @@ export default async function AdminUserDetailPage({
                       <td className="px-4 py-2 text-xs text-neutral-400">
                         {used.length === 0 ? "Not used yet" : used.map((u) => (
                           <span key={u.booking_id + u.created_at} className="block whitespace-nowrap">
-                            {Number(u.hours_used)}h · {u.bookings ? `${fmtWhen(u.bookings.starts_at)}, ${u.bookings.bays?.name ?? "bay ?"}` : "booking removed"}
+                            {/* A negative use is the hours going back when a booking is cancelled. */}
+                            {Number(u.hours_used) < 0 ? `${-Number(u.hours_used)}h returned` : `${Number(u.hours_used)}h`} · {u.bookings ? `${fmtWhen(u.bookings.starts_at)}, ${u.bookings.bays?.name ?? "bay ?"}` : "booking removed"}
                             {u.bookings?.status === "cancelled" ? " (cancelled)" : ""}
                           </span>
                         ))}
@@ -284,7 +285,8 @@ export default async function AdminUserDetailPage({
                         {(() => {
                           const parts: string[] = []
                           for (const u of usesByBooking.get(b.id) ?? []) {
-                            parts.push(`${Number(u.hours_used)}h: ${creditLabel(creditById.get(u.hour_credit_id))}`)
+                            const h = Number(u.hours_used)
+                            parts.push(`${h < 0 ? `${-h}h returned` : `${h}h`}: ${creditLabel(creditById.get(u.hour_credit_id))}`)
                           }
                           if (parts.length === 0 && Number(b.credit_hours_applied ?? 0) > 0) parts.push(`${Number(b.credit_hours_applied)}h free hours`)
                           if (Number(b.grounds_crew_minutes ?? 0) > 0) parts.push(`${Number(b.grounds_crew_minutes)} min Grounds Crew (membership)`)
