@@ -24,7 +24,7 @@ import Link from "next/link"
 export const dynamic = "force-dynamic"
 
 const DESCRIPTION =
-  "Thursday Night League at Tee365 in Mishawaka. Two-person teams, A/B match play, 9 holes, 8 weeks from October 22. $30 a week, and 100% of the pot is paid out in cash."
+  "Thursday Night League at Tee365 in Mishawaka. Two-person teams, A/B match play, 9 holes, 7 weeks from October 29. $20 a week, and 100% of the pot is paid out in cash."
 
 export const metadata: Metadata = {
   title: "Thursday Night Golf League | Tee365 Indoor Golf Simulator",
@@ -174,7 +174,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{league.name}</h1>
         <p className="mt-4 text-sm leading-relaxed text-neutral-300">
           Two-person teams, everyone plays their own ball, A/B match play. 9 holes on a different course every week, Thursday nights at {teeTimes.map(teeTimeLabel).join(" or ")}.
-          Eight weeks, {dayLabel(first, { month: "long", day: "numeric" })} to {dayLabel(last, { month: "long", day: "numeric" })}
+          {weeks} weeks, {dayLabel(first, { month: "long", day: "numeric" })} to {dayLabel(last, { month: "long", day: "numeric" })}
           {skipped.length ? `, no league on Thanksgiving` : ""}. Run start to finish by {COMMISSIONER_NAME}, the owner.
         </p>
         <Link href="/league/rules" className="mt-4 inline-flex text-sm font-semibold text-brand underline underline-offset-4">
@@ -225,7 +225,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
         </div>
         <ul className="space-y-1.5 text-xs leading-relaxed text-neutral-400">
           <li>One cash prize per team. A team that wins both takes the points prize, and the gross prize goes to the next team.</li>
-          <li>Low gross is the team&apos;s combined gross per round, averaged, with at least 6 of 8 rounds played by both rostered players.</li>
+          <li>Low gross is the team&apos;s combined gross per round, averaged, with at least 5 of 7 rounds played by both rostered players.</li>
           <li>Points ties go to the head-to-head result, then lower season gross. Still tied, the prize is split.</li>
           <li>Cash is paid to each player at the finale. Free hours are good through March 31.</li>
         </ul>

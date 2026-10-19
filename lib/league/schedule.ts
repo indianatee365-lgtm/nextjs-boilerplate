@@ -1,10 +1,11 @@
 /**
  * Season schedule for the Thursday Night League (rules: lib/league/rules.ts).
  *
- * Each tee time is its own pod of up to 8 teams. Weeks 1 to 7 are a round
- * robin inside the pod (circle method): with 8 teams that is exactly every
- * other team once. With an odd count one team sits out each week (a bye,
- * away = null). Week 8 is the position round, built after week 7 from the
+ * Each tee time is its own pod of up to 8 teams. Weeks 1 to 6 are a round
+ * robin inside the pod (circle method). A full round robin of 8 teams is 7
+ * rounds, so with a full pod each team misses one opponent (season cut to
+ * 7 weeks 2026-10-19). With an odd count one team sits out each week (a bye,
+ * away = null). Week 7 is the position round, built after week 6 from the
  * standings, so it is not generated here.
  *
  * Two teams share a bay. Bays rotate week to week so nobody is parked on the
@@ -50,10 +51,10 @@ export interface ScheduledMatch {
 }
 
 /**
- * Weeks 1..7 for every tee time. Bays: the real matches in a pod are spread
+ * Weeks 1..6 for every tee time. Bays: the real matches in a pod are spread
  * over bays 1-4 and shifted by one each week.
  */
-export function buildSeason(teamsByTeeTime: Record<string, string[]>, weeks = 7, bays = 4): ScheduledMatch[] {
+export function buildSeason(teamsByTeeTime: Record<string, string[]>, weeks = 6, bays = 4): ScheduledMatch[] {
   const out: ScheduledMatch[] = []
   for (const [teeTime, teamIds] of Object.entries(teamsByTeeTime)) {
     const rounds = roundRobin(teamIds)

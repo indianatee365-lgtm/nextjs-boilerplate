@@ -7,8 +7,8 @@ type SupabaseClient = any
  * Season standings from confirmed results only (rules: "Prizes").
  *   points      total points, all weeks
  *   grossAvg    team gross per round, averaged over rounds both rostered
- *               players played (needs 6 of 8 to qualify for the gross prize)
- *   pot         $5 of every successful $30 charge
+ *               players played (needs 5 of 7 to qualify for the gross prize)
+ *   pot         $4 of every successful $20 charge
  */
 export interface StandingRow {
   teamId: string
@@ -61,7 +61,7 @@ export async function getStandings(db: SupabaseClient): Promise<{
   }
   const out = [...rows.values()].map(({ grossSum, ...r }) => ({ ...r, grossAvg: r.grossRounds ? Math.round((grossSum / r.grossRounds) * 10) / 10 : null }))
     .sort((a, b) => b.points - a.points || (a.grossAvg ?? 999) - (b.grossAvg ?? 999))
-  const per = Number(l.price_per_session) || 30
+  const per = Number(l.price_per_session) || 20
   const potShare = Number(l.prize_pool_per_session) / per
   const pot = ((charges ?? []) as { amount: number }[]).reduce((t, c) => t + Number(c.amount) * potShare, 0)
   return { rows: out, pot: Math.round(pot * 100) / 100, weeks: [...weekMap.values()].sort((a, b) => b.weekNo - a.weekNo) }

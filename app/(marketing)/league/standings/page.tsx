@@ -49,14 +49,14 @@ export default async function LeagueStandingsPage() {
                 <td className="px-3 py-2 text-neutral-500">{i + 1}</td>
                 <td className="px-3 py-2"><span className="font-medium text-white">{r.name}</span> <span className="text-xs text-neutral-500">{teeTimeLabel(r.teeTime)}</span></td>
                 <td className="px-3 py-2 text-right font-semibold text-white">{r.points}</td>
-                <td className="px-3 py-2 text-right">{r.grossAvg ?? "-"}{r.grossAvg !== null && r.grossRounds < 6 ? <span className="text-xs text-neutral-500"> ({r.grossRounds})</span> : null}</td>
+                <td className="px-3 py-2 text-right">{r.grossAvg ?? "-"}{r.grossAvg !== null && r.grossRounds < 5 ? <span className="text-xs text-neutral-500"> ({r.grossRounds})</span> : null}</td>
                 <td className="px-3 py-2 text-right">{r.played}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-neutral-500">Gross avg is the team&apos;s combined gross per round; a team needs 6 of 8 rounds with both players to qualify for the low gross prize. The number in brackets is rounds so far.</p>
+      <p className="text-xs text-neutral-500">Gross avg is the team&apos;s combined gross per round; a team needs 5 of 7 rounds with both players to qualify for the low gross prize. The number in brackets is rounds so far.</p>
 
       {weeks.map((w) => (
         <section key={w.weekNo}>

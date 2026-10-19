@@ -6,7 +6,7 @@ import { logEvent, notifyOwner } from "@/lib/observability/notify"
 /**
  * Signup close-out summary, texted to Jerrod (scheduled by pg_cron for the
  * morning after signups close). Lists what is decided and what needs one
- * click, so nothing on Oct 20/21 is a judgement call:
+ * click, so nothing on close-out day is a judgement call:
  *   teams per tee time, odd counts with the suggested move, teams still
  *   waiting on a partner, the waitlist, and the next step (generate the
  *   schedule on /admin/league).

@@ -19,13 +19,12 @@ export interface CourseNight {
 // Course names are as listed in GSPro's course directory; each one must be
 // confirmed as installed on all four bays before it is published.
 export const COURSE_SCHEDULE: CourseNight[] = [
-  { date: "2026-10-22", course: "Payne's Valley", nine: "Front 9", note: "Learning week. Wide and forgiving." },
-  { date: "2026-10-29", course: "Mammoth Dunes", nine: "Front 9", note: "Learning week. Huge fairways." },
-  { date: "2026-11-05", course: "St Andrews (Old Course)", nine: "Front 9", note: "First A/B match week." },
-  { date: "2026-11-12", course: "Arcadia Bluffs", nine: "Front 9", note: "" },
-  { date: "2026-11-19", course: "Bandon Trails", nine: "Front 9", note: "" },
-  { date: "2026-12-03", course: "Streamsong Blue", nine: "Back 9", note: "" },
-  { date: "2026-12-10", course: "Muirfield Village", nine: "Back 9", note: "" },
+  { date: "2026-10-29", course: "Payne's Valley", nine: "Front 9", note: "Learning week. Wide and forgiving." },
+  { date: "2026-11-05", course: "Mammoth Dunes", nine: "Front 9", note: "Learning week. Huge fairways." },
+  { date: "2026-11-12", course: "St Andrews (Old Course)", nine: "Front 9", note: "First A/B match week." },
+  { date: "2026-11-19", course: "Arcadia Bluffs", nine: "Front 9", note: "" },
+  { date: "2026-12-03", course: "Bandon Trails", nine: "Front 9", note: "" },
+  { date: "2026-12-10", course: "Streamsong Blue", nine: "Back 9", note: "" },
   { date: "2026-12-17", course: "Pebble Beach", nine: "Front 9", note: "Finale. The marquee course." },
 ]
 
@@ -51,7 +50,7 @@ export const RULES: RuleSection[] = [
   {
     title: "The basics",
     rules: [
-      "Eight Thursdays: Oct 22, Oct 29, Nov 5, Nov 12, Nov 19, Dec 3, Dec 10 and the finale on Dec 17. No league on Thanksgiving (Nov 26).",
+      "Seven Thursdays: Oct 29, Nov 5, Nov 12, Nov 19, Dec 3, Dec 10 and the finale on Dec 17. No league on Thanksgiving (Nov 26).",
       "Two tee times: 5:30pm and 7:30pm. Your team keeps its tee time all season.",
       "Teams of two. Two teams share a bay, four players, 9 holes, two hours.",
       "Every player plays their own ball and every score is recorded, hole by hole.",
@@ -68,14 +67,14 @@ export const RULES: RuleSection[] = [
     ],
   },
   {
-    title: "Weeks 3 to 8: A/B match play",
+    title: "Weeks 3 to 7: A/B match play",
     rules: [
       "After week 2, each team's lower league handicap becomes its A player and the higher becomes its B player. That stays fixed for the rest of the season.",
       "Each week your A plays their A and your B plays their B. Everyone still just plays their round; the matches are worked out from the scorecards afterwards.",
       "Each hole, the lower net score wins 1 point. A tied hole is half a point each. That's 9 points in the A match and 9 in the B match.",
       "The team with the lower combined net score for the night earns 2 more points. A tie is 1 each. 20 points are up for grabs every match week.",
-      "Weeks 3 to 7 you play a different team from your tee time each week.",
-      "Week 8 is the finale: a position round inside each tee time (1st plays 2nd, 3rd plays 4th, and so on).",
+      "Weeks 3 to 6 you play a different team from your tee time each week.",
+      "Week 7 is the finale: a position round inside each tee time (1st plays 2nd, 3rd plays 4th, and so on).",
       "Standings are total points for the season, across both tee times.",
     ],
   },
@@ -132,8 +131,8 @@ export const RULES: RuleSection[] = [
   {
     title: "Money",
     rules: [
-      "$30 per player, charged to your card on file each league night, 8 nights. $25 is bay time and $5 goes into the pot.",
-      "One player can pay for both. The captain chooses this at signup and is charged $60 each league night; their partner doesn't need a card.",
+      "$20 per player, charged to your card on file each league night, 7 nights. $16 is bay time and $4 goes into the pot.",
+      "One player can pay for both. The captain chooses this at signup and is charged $40 each league night; their partner doesn't need a card.",
       "Pull out before week one and nothing is charged. Once week one tees off, you're in for the season.",
       "If Tee365 has to cancel a league night, nobody is charged for it and no points are awarded. The season isn't extended.",
       "100% of the pot is paid out in cash. The pot grows each week and its running total is on the leaderboard.",
@@ -143,7 +142,7 @@ export const RULES: RuleSection[] = [
     title: "Prizes",
     rules: [
       "Most points (team): 50% of the pot, cash.",
-      "Low gross (team): 50% of the pot, cash. That's the team's combined gross per round, averaged over the rounds both rostered players played. A team needs at least 6 of 8 such rounds to qualify; rounds with a sub don't count.",
+      "Low gross (team): 50% of the pot, cash. That's the team's combined gross per round, averaged over the rounds both rostered players played. A team needs at least 5 of 7 such rounds to qualify; rounds with a sub don't count.",
       "One cash prize per team. A team that wins both takes the points prize, and the gross prize goes to the next team.",
       "2nd in points: a year of Eagle membership for each player. Already a member? 10 free hours each instead.",
       "3rd in points: 4 free hours for each player.",
@@ -170,7 +169,7 @@ export const FAQ: [string, string][] = [
   ["I don't have an official handicap.", "That's fine, most people don't. Tell us your typical 18-hole score at signup and we'll set your starting handicap from it."],
   ["Can I sandbag the learning weeks?", "It won't work. The learning weeks still earn points, your handicap uses your best 2 of your last 4 rounds, and it can't climb more than 3 strokes above your starting number without the commissioner's OK."],
   ["Who's my opponent each week?", "The other team in your bay. You'll get it by text the night before, with your bay and the course."],
-  ["Can one of us pay for both?", "Yes. The captain ticks \"Paying for both?\" at signup and is charged $60 each league night. Their partner still signs up (account, waiver, starting handicap) but doesn't need a card."],
+  ["Can one of us pay for both?", "Yes. The captain ticks \"Paying for both?\" at signup and is charged $40 each league night. Their partner still signs up (account, waiver, starting handicap) but doesn't need a card."],
   ["What if I'm sick?", "Send a sub, or your opponent wins your match. Either way your card is charged that night."],
   ["Is my weekly fee refundable?", "Only if you pull out before week one, or if Tee365 cancels a night."],
   ["How is the cash paid?", "To each player individually at the finale."],

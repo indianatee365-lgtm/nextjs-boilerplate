@@ -292,7 +292,7 @@ export default async function AdminLeaguePage({ searchParams }: { searchParams: 
           )}
         </div>
         {matches.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-500">No schedule yet. Generate it once signups close (Oct 20). Weeks 1 to 7 are a round robin inside each tee time; week 8 is set from the standings after week 7.</p>
+          <p className="mt-2 text-sm text-neutral-500">No schedule yet. Generate it once signups close (Oct 27). Weeks 1 to 6 are a round robin inside each tee time; week 7 is set from the standings after week 6.</p>
         ) : (
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {weekList.filter((w) => matches.some((m) => m.week_id === w.id)).map((w) => (

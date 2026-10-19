@@ -258,23 +258,23 @@ export async function sendLeagueTeamConfirmedSms({
 }) {
   const message = waitlisted
     ? `Hi ${firstName}, ${partnerName} accepted. Team ${teamName} is complete and on the Thursday Night League waitlist. We'll text you the moment a spot opens.\n- jerrod`
-    : `Hi ${firstName}, ${partnerName} accepted. Team ${teamName} is confirmed for the Thursday Night League, ${teeTime} tee time. Week one is Oct 22.\n- jerrod`
+    : `Hi ${firstName}, ${partnerName} accepted. Team ${teamName} is confirmed for the Thursday Night League, ${teeTime} tee time. Week one is Oct 29.\n- jerrod`
 
   await sendSms(to, message, "league-team-confirmed")
 }
 
 export async function sendLeagueFoundersNotice({ to, firstName }: { to: string; firstName: string }) {
-  const message = `Hi ${firstName}, it's Jerrod. Tee365's Thursday Night League starts Oct 22, and as a founder your spot is guaranteed: signup is open to founders only until Monday morning. Two-person teams, 9 holes, A/B match play, $30 a week, 100% of the pot paid out in cash. Details and signup: tee365.org/league\n- jerrod`
+  const message = `Hi ${firstName}, it's Jerrod. Tee365's Thursday Night League starts Oct 29, and as a founder your spot is guaranteed: signup is open to founders only until Monday morning. Two-person teams, 9 holes, A/B match play, $20 a week, 100% of the pot paid out in cash. Details and signup: tee365.org/league\n- jerrod`
   await sendSms(to, message, "league-founders-notice")
 }
 
 export async function sendLeagueMembersNotice({ to, firstName }: { to: string; firstName: string }) {
-  const message = `Hi ${firstName}, it's Jerrod at Tee365. As a member you get early signup for our Thursday Night League, two days before it opens to everyone. Starts Oct 22: two-person teams, 9 holes, A/B match play, $30 a week, 100% of the pot paid out in cash. tee365.org/league\n- jerrod`
+  const message = `Hi ${firstName}, it's Jerrod at Tee365. As a member you get early signup for our Thursday Night League, two days before it opens to everyone. Starts Oct 29: two-person teams, 9 holes, A/B match play, $20 a week, 100% of the pot paid out in cash. tee365.org/league\n- jerrod`
   await sendSms(to, message, "league-members-notice")
 }
 
 export async function sendLeaguePublicNotice({ to }: { to: string }) {
-  const message = `Tee365: our Thursday Night League is open! Starts Oct 22. Two-person teams, 9 holes on a new course each week, A/B match play with handicaps, $30 a week, 100% of the pot paid out in cash. 16 teams max, signup closes Oct 20: tee365.org/league Reply STOP to opt out`
+  const message = `Tee365: our Thursday Night League is open! Starts Oct 29. Two-person teams, 9 holes on a new course each week, A/B match play with handicaps, $20 a week, 100% of the pot paid out in cash. 16 teams max, signup closes Oct 27: tee365.org/league Reply STOP to opt out`
   await sendSms(to, message, "league-public-notice")
 }
 

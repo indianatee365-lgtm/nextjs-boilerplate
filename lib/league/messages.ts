@@ -31,7 +31,7 @@ export async function sendLeaguePartnerInviteEmail({
     heading: "You've been picked",
     paragraphs: [
       `${captainName} signed up team <strong>${escapeHtml(teamName)}</strong> for the Tee365 Thursday Night League and named you as their partner.`,
-      `It's two-person teams, A/B match play, 9 holes on a different course every week, Thursday nights at ${teeTime}, October 22 to December 17 (no league on Thanksgiving). $30 a week, and 100% of the pot is paid out in cash.`,
+      `It's two-person teams, A/B match play, 9 holes on a different course every week, Thursday nights at ${teeTime}, October 29 to December 17 (no league on Thanksgiving). $20 a week, and 100% of the pot is paid out in cash.`,
       captainPays
         ? `${captainName} is covering your weekly fee. Your team is confirmed once you accept; you'll just need a Tee365 account. It takes a couple of minutes.`
         : "Your team is confirmed once you accept. You'll need a Tee365 account and a card on file for the weekly fee. It takes a couple of minutes.",
@@ -82,7 +82,7 @@ export async function sendLeagueCaptainSignedUpEmail({
         : `Team <strong>${escapeHtml(teamName)}</strong> is holding a spot at the <strong>${teeTime}</strong> tee time for the Thursday Night League.`,
       `Your team is confirmed once ${escapeHtml(partnerName)} accepts. Send them this link if you haven't already: <a href="${link}" style="color:#4ade80;">${link}</a>`,
       fee,
-      "Week one is Thursday, October 22. Every rule is written down on the rules page, so give it a read before then.",
+      "Week one is Thursday, October 29. Every rule is written down on the rules page, so give it a read before then.",
     ],
     ctaText: "Read the league rules",
     ctaUrl: "https://tee365.org/league/rules",
@@ -115,7 +115,7 @@ export async function sendLeagueTeamConfirmedEmail({
       waitlisted
         ? `You and ${escapeHtml(teammateName)} are team <strong>${escapeHtml(teamName)}</strong>. Both tee times are full right now, so you're on the waitlist. We'll text you the moment a spot opens.`
         : `You and ${escapeHtml(teammateName)} are team <strong>${escapeHtml(teamName)}</strong>, confirmed for the <strong>${teeTime}</strong> tee time.`,
-      "Week one is Thursday, October 22. The night before each league night you'll get a text with your tee time, bay, opponent and the course.",
+      "Week one is Thursday, October 29. The night before each league night you'll get a text with your tee time, bay, opponent and the course.",
       "Weeks 1 and 2 are learning weeks. After that, A/B match play begins. Every rule is on the rules page.",
     ],
     ctaText: "Read the league rules",
