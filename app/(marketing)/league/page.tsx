@@ -133,9 +133,12 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
     public: league.public_opens_at ? instantLabel(league.public_opens_at) : null,
     closes: league.signup_closes_on ? dayLabel(league.signup_closes_on, { weekday: "short", month: "short", day: "numeric" }) : null,
   }
+  // Only name Albatross while it is actually on sale (2026-10-19).
+  const { data: albatrossPlan } = await service.from("membership_plans").select("active").eq("slug", "albatross").maybeSingle()
+  const memberTiers = albatrossPlan?.active ? "Eagle and Albatross members" : "Eagle members"
   const notOpenMessage =
     window === "closed" ? "Signups for this season have closed."
-    : `Signups open to Founders ${opens.founders}, to Eagle and Albatross members ${opens.members}, and to everyone ${opens.public}.`
+    : `Signups open to Founders ${opens.founders}, to ${memberTiers} ${opens.members}, and to everyone ${opens.public}.`
 
   const { data: disclosures } = await service.from("disclosures").select("id, title, body").eq("active", true).order("created_at")
 
@@ -260,7 +263,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
             ))}
           </ol>
           <div className="mt-5 space-y-1 border-t border-white/10 pt-4 text-xs leading-relaxed text-neutral-400">
-            <p>Signups open to Founders {opens.founders}, to Eagle and Albatross members {opens.members}, and to everyone {opens.public}.</p>
+            <p>Signups open to Founders {opens.founders}, to {memberTiers} {opens.members}, and to everyone {opens.public}.</p>
             <p>Signups close {opens.closes}.</p>
           </div>
         </div>
