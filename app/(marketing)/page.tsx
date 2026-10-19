@@ -3,8 +3,12 @@ import HowItWorks from "@/app/components/sections/HowItWorks"
 import TechBand from "@/app/components/sections/TechBand"
 import FeatureBand from "@/app/components/sections/FeatureBand"
 import Info from "@/app/components/sections/Info"
+import LeagueBand from "@/app/components/sections/LeagueBand"
 import LocalSEO from "@/app/components/sections/LocalSEO"
 import PageContainer from "@/app/components/PageContainer"
+
+// The league band reads the leagues row; refresh every 5 minutes.
+export const revalidate = 300
 
 export default function HomePage() {
   return (
@@ -15,6 +19,7 @@ export default function HomePage() {
       {/* Constrained content */}
       <PageContainer>
         <div className="space-y-16">
+          <LeagueBand />
           <HowItWorks />
           <TechBand />
           <LocalSEO />
