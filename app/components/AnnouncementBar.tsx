@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server"
 import { FOUNDERS_CLUB_DEADLINE, BIRDIE_EAGLE_LAUNCH } from "@/lib/bookings/launch-gate"
 import { CountdownClock } from "@/app/components/ui/CountdownClock"
+import { LEAGUE_SLUG, signupClosesAt, signupWindow, type League } from "@/lib/league"
 
 function Bar({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -16,6 +17,29 @@ function Bar({ href, children }: { href: string; children: React.ReactNode }) {
 
 export default async function AnnouncementBar() {
   const supabase = await createServiceClient()
+
+  // Thursday Night League gets the bar while public signups are open (2026-10-19).
+  // League tables are newer than lib/supabase/types.ts, so this query is untyped.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagueRow } = await (supabase as any).from("leagues").select("*").eq("slug", LEAGUE_SLUG).maybeSingle()
+  const league = leagueRow as League | null
+  const leagueCloses = league ? signupClosesAt(league) : null
+  if (league?.active && signupWindow(league) === "public") {
+    const starts = new Date(`${league.starts_on}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })
+    return (
+      <Bar href="/league">
+        <span>Thursday Night League starts {starts} · ${Number(league.price_per_session ?? 0)} a night</span>
+        {leagueCloses && (
+          <>
+            <span className="hidden sm:inline">· Signup closes in</span>
+            <CountdownClock deadline={leagueCloses.toISOString()} className="hidden sm:inline tabular-nums" />
+          </>
+        )}
+        <span aria-hidden="true">→</span>
+      </Bar>
+    )
+  }
+
   const { data: founderPlan } = await supabase
     .from("membership_plans")
     .select("id")
