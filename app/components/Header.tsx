@@ -25,6 +25,7 @@ export default async function Header() {
         <nav className="flex items-center gap-1">
           <Link href="/about" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">About</Link>
           <Link href="/events" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Events</Link>
+          <Link href="/league" className="hidden sm:inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">League</Link>
           <Link href="/gift-cards" className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold tracking-wide text-white transition hover:bg-white/10">Gift Cards</Link>
           {/* The one highlighted item in the nav, so it should be the thing we
               most want a visitor to do. That was "Join" while memberships were

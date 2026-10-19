@@ -32,6 +32,9 @@ export default function Footer() {
           <a className="hover:text-white" href="/events">
             Events
           </a>
+          <a className="hover:text-white" href="/league">
+            League
+          </a>
           <a className="hover:text-white" href="/contact">
             Contact
           </a>
