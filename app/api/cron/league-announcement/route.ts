@@ -32,9 +32,9 @@ const MEMBERS = {
   subject: "Early signup for the Thursday Night League",
   heading: "Members get in early",
   paragraphs: [
-    "Tee365's first league starts Thursday, October 22, and as a member you can sign up now, two days before it opens to everyone on Wednesday.",
+    "Tee365's first league starts Thursday, October 29, and as a member you can sign up now, two days before it opens to everyone on Wednesday.",
     "It's two-person teams, everyone plays their own ball, 9 holes a night on a different course each week. A/B match play with handicaps, so every skill level has a shot.",
-    "$30 a week per player, charged each league night, and 100% of the pot is paid out in cash. There's room for 16 teams.",
+    "$20 a week per player, charged each league night, and 100% of the pot is paid out in cash. There's room for 16 teams.",
     "I'm running it personally, and every rule is written down on the league page before anyone tees off.",
   ],
 }
@@ -44,11 +44,11 @@ const PUBLIC_BODY = `Hi {{firstName}},
 
 ## The Thursday Night League is open
 
-Tee365's first league starts **Thursday, October 22** and runs eight weeks, through December 17. No league on Thanksgiving.
+Tee365's first league starts **Thursday, October 29** and runs seven weeks, through December 17. No league on Thanksgiving.
 
 Two-person teams, everyone plays their own ball, 9 holes a night on a different course each week. A/B match play with handicaps, so every skill level has a shot.
 
-**$30 a week per player, and 100% of the pot is paid out in cash.** There's room for 16 teams, and signup closes October 20.
+**$20 a week per player, and 100% of the pot is paid out in cash.** There's room for 16 teams, and signup closes October 27.
 
 {{button:See the rules and sign up|${LEAGUE_URL}}}
 

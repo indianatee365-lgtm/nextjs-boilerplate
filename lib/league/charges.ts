@@ -10,8 +10,8 @@ type SupabaseClient = any
 /**
  * Weekly league charges (rules: "Money"). On each league night's morning,
  * every confirmed team's players are charged to whoever pays for them
- * (league_participants.payer_user_id): $30 each, so a captain paying for both
- * is charged $60 once. Missed weeks are charged too. A cancelled night, or a
+ * (league_participants.payer_user_id): $20 each, so a captain paying for both
+ * is charged $40 once. Missed weeks are charged too. A cancelled night, or a
  * league that isn't published, charges nobody.
  *
  * Can't double-charge: a league_charges row (unique per week + payer) is
