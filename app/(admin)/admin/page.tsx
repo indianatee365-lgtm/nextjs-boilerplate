@@ -123,7 +123,6 @@ export default async function AdminPage() {
           value={String(commsCount24h ?? 0)}
           href="/admin/logs?filter=communications"
         />
-        <StatCard icon={<Users size={18} />} label="Founders" value={`${founderCount ?? 0} / 100`} href="/admin/members?plan=founder" />
         <StatCard icon={<UserCircle size={18} />} label="Users" value={String(userCount ?? 0)} href="/admin/users" />
         <StatCard icon={<Users size={18} />} label="All members" value={String(allMembersCount ?? 0)} href="/admin/members" />
         <StatCard icon={<Tag size={18} />} label="Active coupons" value={String(activeCouponCount ?? 0)} href="/admin/coupons" />
@@ -216,7 +215,7 @@ export default async function AdminPage() {
               : `Cancellations 30d (${cancellations30d ?? 0})`,
           },
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
-          { href: "/admin/users", icon: <UserCircle size={16} />, label: `Users (${userCount ?? 0})` },
+          { href: "/admin/members?plan=founder", icon: <Users size={16} />, label: `Founders (${founderCount ?? 0})` },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
           { href: "/admin/discounts", icon: <Percent size={16} />, label: "Discounts" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: `Gift Cards (${fmtMoney(liability)} liability)` },
