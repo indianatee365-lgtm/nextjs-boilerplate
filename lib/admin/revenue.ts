@@ -59,7 +59,7 @@ export function computePeriodBoundaries(): {
 // it null, and those fall back to sticker so historical YTD totals don't shift
 // under us. Returns null when neither is available, which the caller skips
 // rather than booking a guessed number.
-function membershipSignupRevenue(m: {
+export function membershipSignupRevenue(m: {
   signup_amount_paid: number | null
   membership_plans: { price_monthly: number; joining_fee: number | null } | null
 }): number | null {

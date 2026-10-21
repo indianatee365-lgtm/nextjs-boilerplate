@@ -9,6 +9,7 @@ import BanCustomerPanel from "./BanCustomerPanel"
 import VeteranToggle from "./VeteranToggle"
 import DeleteAccountPanel from "./DeleteAccountPanel"
 import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
+import { computeUserValue, type ValueBuckets } from "@/lib/admin/userValue"
 
 export const metadata = { title: "User detail | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -34,10 +35,11 @@ export default async function AdminUserDetailPage({
   if (!target) notFound()
   const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null; banned: boolean | null; banned_at: string | null; banned_reason: string | null; veteran_verified_at: string | null; veteran_verification_source: string | null; deleted_at: string | null }
   const targetEmail = authUserRes?.user?.email ?? "N/A"
+  const value = await computeUserValue(serviceClient, id, `${t.first_name} ${t.last_name}`)
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
     serviceClient.from("memberships").select("id, status, plan_type, started_at, current_period_end, cancelled_at, cancellation_requested_at, founder_number, stripe_customer_id, stripe_subscription_id, membership_plans(name, display_name)").eq("user_id", id).order("started_at", { ascending: false }),
-    serviceClient.from("bookings").select("id, starts_at, ends_at, status, total, access_code, credit_hours_applied, grounds_crew_minutes, bays(name)").eq("user_id", id).order("starts_at", { ascending: false }).limit(10),
+    serviceClient.from("bookings").select("id, starts_at, ends_at, status, total, access_code, credit_hours_applied, grounds_crew_minutes, extension_minutes, extension_count, extension_revenue, bays(name)").eq("user_id", id).order("starts_at", { ascending: false }).limit(10),
     serviceClient.from("gift_cards").select("code, original_amount, balance, recipient_name, recipient_email, created_at").eq("purchased_by", `${t.first_name} ${t.last_name}`).order("created_at", { ascending: false }).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (serviceClient as any).from("admin_logs").select("event, detail, created_at").ilike("detail", `%${id}%`).order("created_at", { ascending: false }).limit(20),
@@ -112,6 +114,47 @@ export default async function AdminUserDetailPage({
         <Field label="SMS consent" value={t.sms_consent ? "Yes" : "No"} />
         <Field label="Stripe customer" value={t.stripe_customer_id ?? "N/A"} />
       </div>
+
+
+      {/* Customer value: what this person has paid us and what we have given
+          them, so one glance answers "is this customer making or costing us
+          money". Same cash rules as /admin/sales. Added 2026-10-21. */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider text-xs">Customer value</h2>
+        {value.hasData ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-neutral-500"><tr>
+                <th className="py-1.5 pr-4"></th>
+                <th className="py-1.5 px-3 text-right">Month to date</th>
+                <th className="py-1.5 px-3 text-right">Year to date</th>
+                <th className="py-1.5 pl-3 text-right">All time</th>
+              </tr></thead>
+              <tbody>
+                <ValueRow label="Bay time" b={value.cashIn.bookings} />
+                <ValueRow label="Bay extensions" b={value.cashIn.extensions} />
+                <ValueRow label="Membership renewals" b={value.cashIn.renewals} />
+                <ValueRow label="Membership sign-up" b={value.cashIn.memberships} />
+                <ValueRow label="Gift cards bought" b={value.cashIn.giftCards} />
+                <ValueRow label="Cash in" b={value.cashIn.total} strong tone="good" />
+                <ValueRow label="Membership discount" b={value.givenAway.membership} />
+                <ValueRow label="Coupons" b={value.givenAway.coupons} />
+                <ValueRow label="Site-wide sales" b={value.givenAway.sales} />
+                <ValueRow label="Veteran discount" b={value.givenAway.veteran} />
+                <ValueRow label="Free hours" b={value.givenAway.freeHours} />
+                <ValueRow label="Grounds Crew minutes" b={value.givenAway.groundsCrew} />
+                <ValueRow label="Free membership (sign-up waived)" b={value.givenAway.freeMembership} />
+                <ValueRow label="Given away" b={value.givenAway.total} strong tone="bad" />
+                <ValueRow label="Paid with a gift card" b={value.giftCardRedeemed} muted />
+                <ValueRow label="Refunded" b={value.refunded} muted />
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs text-neutral-500">
+              Cash in is money actually collected, after refunds and gift cards. Given away is the list-price value of discounts and free time on bookings that were not cancelled. Gift card payments are shown separately because that money was already counted when the card was sold.
+            </p>
+          </div>
+        ) : <p className="text-sm text-neutral-500">No money in or out for this customer yet.</p>}
+      </section>
 
       {/* Memberships */}
       <section className="mt-8">
@@ -270,7 +313,7 @@ export default async function AdminUserDetailPage({
           <div className="rounded-xl border border-white/10 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-neutral-500"><tr>
-                <th className="px-4 py-2">When</th><th className="px-4 py-2">Bay</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Total</th><th className="px-4 py-2">Free time</th><th className="px-4 py-2">Code</th>
+                <th className="px-4 py-2">When</th><th className="px-4 py-2">Bay</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Total</th><th className="px-4 py-2">Extension</th><th className="px-4 py-2">Free time</th><th className="px-4 py-2">Code</th>
               </tr></thead>
               <tbody>
                 {bookings.map((b) => {
@@ -281,6 +324,17 @@ export default async function AdminUserDetailPage({
                       <td className="px-4 py-2 text-xs">{bay?.name ?? "N/A"}</td>
                       <td className="px-4 py-2 text-xs">{b.status}</td>
                       <td className="px-4 py-2 text-xs">${Number(b.total).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-xs whitespace-nowrap">
+                        {Number(b.extension_minutes ?? 0) > 0 ? (
+                          <>
+                            +{Number(b.extension_minutes)} min
+                            <span className="block text-neutral-500">
+                              {Number(b.extension_revenue ?? 0) > 0 ? `$${Number(b.extension_revenue).toFixed(2)}` : "no charge"}
+                              {Number(b.extension_count ?? 0) > 1 ? ` · ${Number(b.extension_count)} times` : ""}
+                            </span>
+                          </>
+                        ) : <span className="text-neutral-600">none</span>}
+                      </td>
                       <td className="px-4 py-2 text-xs text-neutral-300">
                         {(() => {
                           const parts: string[] = []
@@ -360,5 +414,21 @@ function Field({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-neutral-500">{label}</p>
       <p className="text-sm text-neutral-200 mt-0.5 break-all">{value}</p>
     </div>
+  )
+}
+
+function ValueRow({ label, b, strong, tone, muted }: { label: string; b: ValueBuckets; strong?: boolean; tone?: "good" | "bad"; muted?: boolean }) {
+  // Lines with nothing in them ever are hidden so a casual customer's card is
+  // three rows, not sixteen zeros. Totals always show.
+  if (!strong && b.lifetime === 0) return null
+  const money = (n: number) => `$${n.toFixed(2)}`
+  const color = tone === "good" ? "text-green-400" : tone === "bad" ? "text-red-400" : muted ? "text-neutral-500" : "text-neutral-300"
+  return (
+    <tr className={strong ? "border-t border-white/10" : ""}>
+      <td className={`py-1.5 pr-4 text-xs ${strong ? "font-semibold text-white" : muted ? "text-neutral-500" : "text-neutral-400"}`}>{label}</td>
+      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.mtd)}</td>
+      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.ytd)}</td>
+      <td className={`py-1.5 pl-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.lifetime)}</td>
+    </tr>
   )
 }
