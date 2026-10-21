@@ -759,7 +759,8 @@ export async function POST(request: NextRequest) {
   // via customer.subscription.updated. We log here for an audit trail.
   if (event.type === "invoice.payment_succeeded") {
     const invoice = event.data.object as Stripe.Invoice & { billing_reason?: string; subscription?: string; customer?: string; amount_paid?: number }
-    const subId = invoice.subscription as string | undefined
+    const parentSub = (invoice as { parent?: { subscription_details?: { subscription?: string | { id: string } } | null } | null }).parent?.subscription_details?.subscription
+    const subId = (invoice.subscription as string | undefined) ?? (typeof parentSub === "string" ? parentSub : parentSub?.id)
     const custId = invoice.customer as string | undefined
     const amount = ((invoice.amount_paid ?? 0) / 100).toFixed(2)
     let userInfo = "unknown"

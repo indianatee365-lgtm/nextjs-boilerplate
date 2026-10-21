@@ -35,7 +35,7 @@ export default async function AdminUserDetailPage({
   if (!target) notFound()
   const t = target as { id: string; first_name: string; last_name: string; phone: string | null; role: string | null; sms_consent: boolean | null; stripe_customer_id: string | null; created_at: string; reinstate_blocked: boolean | null; reinstate_blocked_reason: string | null; banned: boolean | null; banned_at: string | null; banned_reason: string | null; veteran_verified_at: string | null; veteran_verification_source: string | null; deleted_at: string | null }
   const targetEmail = authUserRes?.user?.email ?? "N/A"
-  const value = await computeUserValue(serviceClient, id, `${t.first_name} ${t.last_name}`)
+  const value = await computeUserValue(serviceClient, id, `${t.first_name} ${t.last_name}`, t.stripe_customer_id)
 
   const [{ data: memberships }, { data: bookings }, { data: giftCards }, { data: logs }] = await Promise.all([
     serviceClient.from("memberships").select("id, status, plan_type, started_at, current_period_end, cancelled_at, cancellation_requested_at, founder_number, stripe_customer_id, stripe_subscription_id, membership_plans(name, display_name)").eq("user_id", id).order("started_at", { ascending: false }),
@@ -133,7 +133,7 @@ export default async function AdminUserDetailPage({
               <tbody>
                 <ValueRow label="Bay time" b={value.cashIn.bookings} />
                 <ValueRow label="Bay extensions" b={value.cashIn.extensions} />
-                <ValueRow label="Membership renewals" b={value.cashIn.renewals} />
+                <ValueRow label="Membership fees (monthly)" b={value.cashIn.renewals} />
                 <ValueRow label="Membership sign-up" b={value.cashIn.memberships} />
                 <ValueRow label="Gift cards bought" b={value.cashIn.giftCards} />
                 <ValueRow label="Cash in" b={value.cashIn.total} strong tone="good" />

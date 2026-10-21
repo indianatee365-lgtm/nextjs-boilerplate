@@ -8,6 +8,7 @@
  * actually collected, renewals from the subscription_cycle invoice logs, gift
  * cards only when a Stripe payment exists.
  */
+import Stripe from "stripe"
 import { computePeriodBoundaries, membershipSignupRevenue } from "./revenue"
 
 export type ValueBuckets = { mtd: number; ytd: number; lifetime: number }
@@ -63,6 +64,7 @@ type MembershipRow = {
   is_annual: boolean | null
   signup_amount_paid: number | null
   stripe_subscription_id: string | null
+  stripe_customer_id: string | null
   membership_plans: { price_monthly: number; joining_fee: number | null } | null
 }
 
@@ -71,6 +73,7 @@ export async function computeUserValue(
   serviceClient: any,
   userId: string,
   fullName: string,
+  profileCustomerId: string | null,
 ): Promise<UserValue> {
   const { monthStart, yearStart } = computePeriodBoundaries()
   const add = (b: ValueBuckets, amount: number, when: string | null) => {
@@ -88,7 +91,7 @@ export async function computeUserValue(
       .eq("user_id", userId),
     serviceClient
       .from("memberships")
-      .select("started_at, granted_free, comped, is_annual, signup_amount_paid, stripe_subscription_id, membership_plans(price_monthly, joining_fee)")
+      .select("started_at, granted_free, comped, is_annual, signup_amount_paid, stripe_subscription_id, stripe_customer_id, membership_plans(price_monthly, joining_fee)")
       .eq("user_id", userId),
     // Gift cards only carry the buyer's name, not their id. Same match the
     // "Gift cards purchased" table on this page has always used.
@@ -102,15 +105,39 @@ export async function computeUserValue(
   const memberships = (membershipRows ?? []) as MembershipRow[]
   const gifts = (giftRows ?? []) as Array<{ original_amount: number; created_at: string; stripe_payment_id: string | null }>
 
-  const subIds = memberships.map((m) => m.stripe_subscription_id).filter((s): s is string => !!s)
-  const renewalLogs: Array<{ detail: string; created_at: string }> = []
-  for (const sub of subIds) {
+  // Monthly fees come straight from Stripe's paid invoices, the only complete
+  // record: the webhook's renewal log lost the subscription id when Stripe
+  // moved it under invoice.parent, and it missed some cycles entirely. The
+  // sign-up charge is its own PaymentIntent (the subscription_create invoice
+  // is $0), so only non-create invoices count here and sign-up stays below.
+  const renewals: Array<{ amount: number; when: string }> = []
+  const customerIds = [...new Set([profileCustomerId, ...memberships.map((m) => m.stripe_customer_id)].filter((c): c is string => !!c))]
+  let stripeOk = customerIds.length > 0
+  try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() })
+    for (const customer of customerIds) {
+      for await (const inv of stripe.invoices.list({ customer, status: "paid", limit: 100 })) {
+        if (inv.billing_reason === "subscription_create" || !inv.amount_paid) continue
+        const paidAt = inv.status_transitions?.paid_at ?? inv.created
+        renewals.push({ amount: inv.amount_paid / 100, when: new Date(paidAt * 1000).toISOString() })
+      }
+    }
+  } catch {
+    stripeOk = false
+  }
+  if (!stripeOk && memberships.length > 0) {
+    // Fallback when Stripe is unreachable: the renewal log, matched by name
+    // since its sub= field reads "?" on most rows.
     const { data } = await serviceClient
       .from("admin_logs")
       .select("detail, created_at")
       .eq("event", "invoice-paid-subscription_cycle")
-      .ilike("detail", `%sub=${sub}%`)
-    renewalLogs.push(...((data ?? []) as Array<{ detail: string; created_at: string }>))
+      .ilike("detail", `% – ${fullName} sub=%`)
+    renewals.length = 0
+    for (const r of (data ?? []) as Array<{ detail: string; created_at: string }>) {
+      const match = r.detail.match(/amount=\$([0-9.]+)/)
+      if (match) renewals.push({ amount: parseFloat(match[1]), when: r.created_at })
+    }
   }
 
   const v: UserValue = {
@@ -153,10 +180,7 @@ export async function computeUserValue(
     if (collected !== null) add(v.cashIn.memberships, collected, m.started_at)
   }
 
-  for (const r of renewalLogs) {
-    const match = r.detail.match(/amount=\$([0-9.]+)/)
-    if (match) add(v.cashIn.renewals, parseFloat(match[1]), r.created_at)
-  }
+  for (const r of renewals) add(v.cashIn.renewals, r.amount, r.when)
 
   for (const g of gifts) {
     if (g.stripe_payment_id) add(v.cashIn.giftCards, Number(g.original_amount), g.created_at)
