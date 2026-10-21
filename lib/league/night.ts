@@ -110,6 +110,8 @@ async function grantDoor(db: SupabaseClient, w: { id: string; week_no: number; p
       bayName: "League",
       startsAt: at(w.play_date, DOOR_OPEN + DOOR_OPENS_EARLY_MINUTES),
       endsAt: at(w.play_date, DOOR_CLOSE),
+      // DOOR_CLOSE is the league's own chosen close, not a booked end.
+      graceAfterEndMinutes: 0,
     })
     await db.from("league_nights").upsert({
       week_id: w.id, door_pin: res.pinCode, door_user_id: res.userId, door_policy_id: res.accessPolicyId,

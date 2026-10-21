@@ -506,6 +506,8 @@ export async function runEventDoors(db: SupabaseClient, now: Date): Promise<stri
               bookingId: `event-${e.id}`, firstName: "Event", lastName: e.title.slice(0, 30), phone: "", bayName: "Event",
               startsAt: new Date(new Date(e.starts_at).getTime() - (EVENT_BUFFER_MIN - DOOR_OPENS_EARLY_MINUTES) * 60000),
               endsAt: new Date(new Date(e.ends_at).getTime() + EVENT_BUFFER_MIN * 60000),
+              // Already buffered, and doorText tells the host exactly when it stops.
+              graceAfterEndMinutes: 0,
             })
             const { data: upd } = await db.from("events").update({ door_pin: g.pinCode, door_user_id: g.userId, door_policy_id: g.accessPolicyId, door_schedule_id: g.scheduleId, door_granted_at: new Date().toISOString(), door_error: null }).eq("id", e.id).select("*").single()
             e = upd as EventRow

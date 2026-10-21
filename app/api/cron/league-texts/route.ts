@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const start = new Date(Date.now() + 2 * 86400000)
     start.setUTCHours(7, 15, 0, 0)
     try {
-      const g = await grantBayAccess({ bookingId: "league-door-test", firstName: "League", lastName: "Door Test", phone: "", bayName: "Test", startsAt: start, endsAt: new Date(start.getTime() + 5 * 60000) })
+      const g = await grantBayAccess({ bookingId: "league-door-test", firstName: "League", lastName: "Door Test", phone: "", bayName: "Test", startsAt: start, endsAt: new Date(start.getTime() + 5 * 60000), graceAfterEndMinutes: 0 })
       if (!g.userId) return NextResponse.json({ granted: false, reason: "UniFi not configured" })
       await revokeBayAccess(g.userId, g.accessPolicyId, g.scheduleId)
       return NextResponse.json({ granted: true, pinLength: g.pinCode.length, revoked: true })

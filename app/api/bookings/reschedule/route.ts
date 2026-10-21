@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const { data: booking } = await serviceClient
       .from("bookings")
-      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied, grounds_crew_minutes, parent_booking_id")
+      .select("id, user_id, status, starts_at, duration_minutes, total, credit_hours_applied, grounds_crew_minutes, parent_booking_id, extension_minutes")
       .eq("id", bookingId)
       .eq("user_id", user.id)
       .single()
@@ -49,6 +49,14 @@ export async function POST(request: NextRequest) {
     // 2-bay limit at that time; repricing a move would have to redo both.
     if (Number((booking as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {
       return NextResponse.json({ error: "Grounds Crew bookings can't be moved. Cancel this one and book the new time, it's still free." }, { status: 400 })
+    }
+    // Self-reschedule rebuilds the booking from duration_minutes and reprices
+    // only that, so an extended booking would either lose the time it paid to
+    // add or get it re-sold at the new slot's rate. Rare (extensions happen
+    // mid-session, and this path refuses anything within 4 hours), so staff
+    // move these instead: the admin move keeps the full length. 2026-10-21.
+    if (Number((booking as { extension_minutes?: number }).extension_minutes ?? 0) > 0) {
+      return NextResponse.json({ error: "This booking has extra time added to it, so it can't be moved online. Call us at (574) 444-9365 and we'll move it for you." }, { status: 400 })
     }
     if (booking.status !== "confirmed" && booking.status !== "pending") {
       return NextResponse.json({ error: "Only active bookings can be rescheduled" }, { status: 400 })

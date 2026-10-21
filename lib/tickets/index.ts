@@ -414,7 +414,7 @@ export async function runParties(db: SupabaseClient, now: Date): Promise<string[
       try {
         if (step === "grant-door") {
           try {
-            const g = await grantBayAccess({ bookingId: `party-${p.id}`, firstName: "Party", lastName: p.title.slice(0, 40), phone: "", bayName: "Party", startsAt: new Date(p.starts_at), endsAt: new Date(p.ends_at) })
+            const g = await grantBayAccess({ bookingId: `party-${p.id}`, firstName: "Party", lastName: p.title.slice(0, 40), phone: "", bayName: "Party", startsAt: new Date(p.starts_at), endsAt: new Date(p.ends_at), graceAfterEndMinutes: 0 })
             await db.from("ticketed_events").update({ door_pin: g.pinCode, door_user_id: g.userId, door_policy_id: g.accessPolicyId, door_schedule_id: g.scheduleId, door_granted_at: new Date().toISOString(), door_error: null }).eq("id", p.id)
             await notifyOwner(`Party door code for "${p.title}": ${g.pinCode}. Buyers get it 3 hours before the start.`)
           } catch (e) {

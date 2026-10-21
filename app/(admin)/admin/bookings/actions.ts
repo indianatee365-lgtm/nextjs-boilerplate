@@ -377,7 +377,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
   const { data: booking } = await serviceClient
     .from("bookings")
     .select(`
-      id, status, duration_minutes, user_id, starts_at, parent_booking_id,
+      id, status, duration_minutes, user_id, starts_at, ends_at, parent_booking_id,
       subtotal, membership_discount, coupon_discount, tax, gift_card_applied, credit_discount, grounds_crew_discount, total,
       bays(name), profiles!user_id(first_name, phone, sms_consent)
     `)
@@ -386,7 +386,7 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
 
   const b = booking as {
     id: string; status: string; duration_minutes: number; user_id: string
-    starts_at: string; parent_booking_id: string | null
+    starts_at: string; ends_at: string; parent_booking_id: string | null
     subtotal: number; membership_discount: number; coupon_discount: number; tax: number
     gift_card_applied: number; credit_discount: number; grounds_crew_discount: number; total: number
     bays: { name: string } | null
@@ -411,8 +411,17 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
     throw new Error("This is part of a two-bay booking. You can move it to another bay at the same time, but not to a different time.")
   }
 
+  // Keep the booking's CURRENT length, not duration_minutes. duration_minutes
+  // is the originally booked length and never includes extensions, so until
+  // 2026-10-21 moving an extended booking silently threw away the time the
+  // customer had paid to add (and its door window with it). Measured from the
+  // row itself so it also covers any test booking shorter than the 60-min
+  // duration_minutes floor. Falls back to duration_minutes for a row that
+  // somehow has no usable span.
+  const currentLengthMs = new Date(b.ends_at).getTime() - new Date(b.starts_at).getTime()
+  const lengthMs = currentLengthMs > 0 ? currentLengthMs : b.duration_minutes * 60000
   const newStart = new Date(newStartsAt)
-  const newEnd = new Date(newStart.getTime() + b.duration_minutes * 60000)
+  const newEnd = new Date(newStart.getTime() + lengthMs)
 
   const { data: conflicts } = await serviceClient
     .from("bookings")

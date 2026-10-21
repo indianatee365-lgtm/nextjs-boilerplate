@@ -11,7 +11,7 @@
 // a locally-generated random PIN so the rest of the booking flow is unaffected.
 
 import { randomInt } from "crypto"
-import { DOOR_OPENS_EARLY_MINUTES } from "./constants"
+import { DOOR_OPENS_EARLY_MINUTES, DOOR_GRACE_AFTER_END_MINUTES } from "./constants"
 
 export interface AccessControlGrant {
   bookingId: string
@@ -21,6 +21,10 @@ export interface AccessControlGrant {
   bayName: string
   startsAt: Date
   endsAt: Date
+  // Re-entry grace past endsAt. Defaults to DOOR_GRACE_AFTER_END_MINUTES for
+  // customer bookings; events, league nights and parties pass 0 because their
+  // endsAt already includes their own stated buffer.
+  graceAfterEndMinutes?: number
 }
 
 export interface AccessControlResult {
@@ -74,7 +78,11 @@ type WeekSchedule = Record<string, Array<{ start_time: string; end_time: string 
 // The one definition of a booking's door window, shared by the initial grant
 // and by updateBayAccessSchedule (extensions), so an extended booking gets
 // exactly the window a fresh booking of that length would have.
-function buildBookingWeekSchedule(startsAt: Date, endsAt: Date): WeekSchedule {
+function buildBookingWeekSchedule(startsAt: Date, bookedEndsAt: Date, graceAfterEndMinutes: number): WeekSchedule {
+  // The grace is added before any of the midnight handling below, so a late
+  // session whose grace runs past local midnight is split across weekdays
+  // exactly like a session that itself crosses midnight.
+  const endsAt = new Date(bookedEndsAt.getTime() + graceAfterEndMinutes * 60 * 1000)
   // Populated with this exact booking's window (door-open time through
   // session end) - grants access for that one occurrence, not every week,
   // as long as the User is deleted promptly after the booking ends (see
@@ -120,7 +128,9 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   }
 
   const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
-  const weekSchedule = buildBookingWeekSchedule(grant.startsAt, grant.endsAt)
+  const weekSchedule = buildBookingWeekSchedule(
+    grant.startsAt, grant.endsAt, grant.graceAfterEndMinutes ?? DOOR_GRACE_AFTER_END_MINUTES,
+  )
 
   const schedule = await unifiCall<{ id: string }>(apiUrl, headers, "/access_policies/schedules", "POST", {
     name: `booking-${grant.bookingId}`,
@@ -173,7 +183,8 @@ export async function updateBayAccessSchedule(
     // Same name grantBayAccess gave it, so the controller's list still reads
     // as one schedule per booking.
     name: `booking-${bookingId}`,
-    week_schedule: buildBookingWeekSchedule(startsAt, endsAt),
+    // Only ever called for customer bookings, so always the booking grace.
+    week_schedule: buildBookingWeekSchedule(startsAt, endsAt, DOOR_GRACE_AFTER_END_MINUTES),
   })
   return true
 }

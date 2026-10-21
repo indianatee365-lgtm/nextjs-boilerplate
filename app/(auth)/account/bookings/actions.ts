@@ -164,7 +164,7 @@ export async function finalizeReschedule({
 
   const { data: original } = await serviceClient
     .from("bookings")
-    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied, grounds_crew_minutes, parent_booking_id")
+    .select("id, user_id, status, starts_at, total, duration_minutes, stripe_charge_id, credit_hours_applied, grounds_crew_minutes, parent_booking_id, extension_minutes")
     .eq("id", originalBookingId)
     .eq("user_id", user.id)
     .single()
@@ -183,6 +183,11 @@ export async function finalizeReschedule({
 
   const hoursUntil = (new Date(original.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   if (hoursUntil <= 4) throw new Error("Booking is within 4 hours and cannot be rescheduled")
+  // Same guard as /api/bookings/reschedule, repeated here because this is the
+  // step that actually cancels and recreates the row (without any extension).
+  if (Number((original as { extension_minutes?: number }).extension_minutes ?? 0) > 0) {
+    throw new Error("This booking has extra time added to it, so it can't be moved online. Call us at (574) 444-9365 and we'll move it for you.")
+  }
 
   const ob = original as typeof original & { stripe_charge_id: string | null }
 
