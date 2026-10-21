@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { announceExtension } from "@/lib/bookings/extension-notify"
+import { extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -85,6 +86,9 @@ export async function finalizeExtend({
   // webhook backstop got there first the RPC is a no-op and the customer has
   // already been told once.
   if (result?.applied) {
+    // Door first: a customer who steps out after their original end time
+    // needs their code to still work. Never throws.
+    await extendBookingAccessToCurrentEnd(serviceClient, bookingId)
     await announceExtension(serviceClient, {
       bookingId, paymentIntentId, addedMinutes: result.added_minutes,
       amount: amountPaid, newEndsAt, via: "finalize",

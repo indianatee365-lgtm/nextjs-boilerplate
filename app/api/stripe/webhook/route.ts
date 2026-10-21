@@ -9,7 +9,7 @@ import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, fo
 import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
 import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
 import { consumeHourCredits } from "@/lib/hour-credits"
-import { reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
+import { reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 import { announceExtension } from "@/lib/bookings/extension-notify"
@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
       // let a notification problem fail the webhook: the extension is applied.
       const extendResult = (Array.isArray(applied) ? applied[0] : applied) as { applied: boolean; added_minutes: number } | null
       if (extendResult?.applied) {
+        // The door code has to follow the new end time too. Never throws.
+        await extendBookingAccessToCurrentEnd(supabase, bookingId)
         try {
           await announceExtension(supabase, {
             bookingId, paymentIntentId: _pi.id, addedMinutes: extendResult.added_minutes,

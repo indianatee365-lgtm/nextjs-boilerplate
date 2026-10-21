@@ -8,7 +8,7 @@ import { restoreHourCredits } from "@/lib/hour-credits"
 import { createBooking } from "@/lib/bookings/create"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
 import { cancelBookingGroup, getBookingGroup, isGroupedBooking } from "@/lib/bookings/group"
-import { revokeBookingAccess, reissueBookingAccessForNewWindow } from "@/lib/access-control/booking-access"
+import { revokeBookingAccess, reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -656,4 +656,7 @@ export async function extendBookingComp(bookingId: string, minutes: number) {
     })
     .eq("id", bookingId)
   if (error) throw new Error("Failed to extend booking")
+
+  // Without this the door code still stopped at the original end time.
+  await extendBookingAccessToCurrentEnd(serviceClient, bookingId)
 }

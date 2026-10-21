@@ -1,4 +1,4 @@
-import { grantBayAccess, revokeBayAccess } from "@/lib/access-control"
+import { grantBayAccess, revokeBayAccess, updateBayAccessSchedule } from "@/lib/access-control"
 import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 
@@ -235,5 +235,112 @@ export async function reissueBookingAccessForNewWindow(db: DbClient, bookingId: 
       `Moved a booking starting within ${IMMEDIATE_ISSUE_WINDOW_MINUTES} min but could NOT issue a ` +
         `new door code. The customer cannot get in. Let them in manually and check UniFi Access.`,
     )
+  }
+}
+
+/**
+ * Stretch a booking's door window to match its current ends_at.
+ *
+ * Call after anything that adds time to a booking (customer paid extend, the
+ * Stripe webhook backstop, both admin comp-extend buttons). Until 2026-10-21
+ * none of them touched UniFi, so the code kept the window it was minted with:
+ * on 2026-10-21 Chase Coen was extended from 3:30 to 5:00pm on Bay 4 while
+ * his code still stopped at 3:30. Stepping out to the car meant no way back in.
+ *
+ * Reads ends_at fresh from the row rather than taking it as an argument, so
+ * it is idempotent and safe for finalizeExtend and the webhook to both reach.
+ * Never throws: the extension is already paid for and applied, and must not
+ * be undone or errored because the door controller is unreachable.
+ */
+export async function extendBookingAccessToCurrentEnd(db: DbClient, bookingId: string): Promise<void> {
+  interface ExtendRow {
+    id: string
+    status: string
+    starts_at: string
+    ends_at: string
+    parent_booking_id: string | null
+    event_id: string | null
+    unifi_schedule_id: string | null
+    access_revoked_at: string | null
+    bays: { name: string } | null
+    profiles: { first_name: string | null; last_name: string | null; phone: string | null } | null
+  }
+  const COLUMNS =
+    "id, status, starts_at, ends_at, parent_booking_id, event_id, unifi_schedule_id, access_revoked_at, " +
+    "bays(name), profiles!user_id(first_name, last_name, phone)"
+
+  let row: ExtendRow | null = null
+  try {
+    const { data } = await db.from("bookings").select(COLUMNS).eq("id", bookingId).maybeSingle()
+    row = (data as ExtendRow | null) ?? null
+  } catch {
+    // Fall through to the alert below: we cannot tell whether the door follows.
+  }
+
+  const endsLocal = (iso: string) => new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis",
+  })
+
+  if (!row) {
+    await logFailure(db, "booking-access-extend-FAILED", `booking=${bookingId} err=could not read booking`,
+      `ALERT Booking ${bookingId} was extended but its door code could NOT be extended (lookup failed). ` +
+        `Customer may be locked out if they step outside. CALL THEM.`)
+    return
+  }
+  if (row.status === "cancelled") return
+
+  // The second bay of a two-bay booking has no code of its own: the first
+  // bay's code opens the door for the whole group (see lib/bookings/group.ts).
+  // So extending either bay means stretching the parent's grant.
+  let holder: Pick<ExtendRow, "id" | "starts_at" | "ends_at" | "unifi_schedule_id" | "access_revoked_at"> = row
+  if (!row.unifi_schedule_id && row.parent_booking_id) {
+    try {
+      const { data } = await db.from("bookings")
+        .select("id, starts_at, ends_at, unifi_schedule_id, access_revoked_at")
+        .eq("id", row.parent_booking_id).maybeSingle()
+      if (data) holder = data
+    } catch { /* treated as no credential below */ }
+  }
+
+  if (!holder.unifi_schedule_id) {
+    // Nothing minted yet (the reminders cron and the immediate-issue paths
+    // read ends_at when they mint, so they pick up the extension on their
+    // own), or the bench-test fallback PIN with no UniFi behind it, or an
+    // event bay whose door code lives on the event. None of these need a call.
+    await logEvent(db, "booking-access-extend-skipped",
+      `booking=${bookingId} reason=${row.event_id ? "event bay, event door code" : "no unifi schedule"}`)
+    return
+  }
+  if (holder.access_revoked_at) {
+    await logEvent(db, "booking-access-extend-skipped", `booking=${bookingId} reason=credential already revoked`)
+    return
+  }
+
+  // The group's door has to stay open until its LAST bay ends, not just the
+  // bay that happened to be extended.
+  let groupEnd = new Date(holder.ends_at)
+  try {
+    const { data: kids } = await db.from("bookings").select("ends_at")
+      .eq("parent_booking_id", holder.id).eq("status", "confirmed")
+    for (const k of (kids ?? []) as { ends_at: string }[]) {
+      const t = new Date(k.ends_at)
+      if (t.getTime() > groupEnd.getTime()) groupEnd = t
+    }
+  } catch { /* a lone booking has no children anyway */ }
+
+  try {
+    const updated = await updateBayAccessSchedule(holder.unifi_schedule_id, holder.id, new Date(holder.starts_at), groupEnd)
+    if (updated) {
+      await logEvent(db, "booking-access-extended",
+        `booking=${bookingId} holder=${holder.id} schedule=${holder.unifi_schedule_id} newEnd=${groupEnd.toISOString()}`)
+    }
+  } catch (err) {
+    const p = row.profiles
+    const name = [p?.first_name, p?.last_name].filter(Boolean).join(" ") || "Customer"
+    await logFailure(db, "booking-access-extend-FAILED",
+      `booking=${bookingId} holder=${holder.id} schedule=${holder.unifi_schedule_id} newEnd=${groupEnd.toISOString()} err=${String(err).slice(0, 200)}`,
+      `ALERT Door code NOT extended: ${name}${p?.phone ? ` ${p.phone}` : ""}, ${row.bays?.name ?? "a bay"}, ` +
+        `booking now ends ${endsLocal(groupEnd.toISOString())} but their code still stops at the old end time. ` +
+        `Customer may be locked out if they step outside. CALL THEM.`)
   }
 }

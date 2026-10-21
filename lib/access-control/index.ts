@@ -69,6 +69,46 @@ async function unifiCall<T>(apiUrl: string, headers: HeadersInit, path: string, 
   return json.data as T
 }
 
+type WeekSchedule = Record<string, Array<{ start_time: string; end_time: string }>>
+
+// The one definition of a booking's door window, shared by the initial grant
+// and by updateBayAccessSchedule (extensions), so an extended booking gets
+// exactly the window a fresh booking of that length would have.
+function buildBookingWeekSchedule(startsAt: Date, endsAt: Date): WeekSchedule {
+  // Populated with this exact booking's window (door-open time through
+  // session end) - grants access for that one occurrence, not every week,
+  // as long as the User is deleted promptly after the booking ends (see
+  // revokeBayAccess). Door opens DOOR_OPENS_EARLY_MINUTES before the booked
+  // start; for a late booking that pushes the open time into the previous
+  // local day (or a session that itself runs past local midnight), the
+  // window is split across the two weekdays it actually touches - a single
+  // weekday's start/end pair can't represent a span that crosses midnight.
+  const doorOpensAt = new Date(startsAt.getTime() - DOOR_OPENS_EARLY_MINUTES * 60 * 1000)
+  const start = localTimeParts(doorOpensAt)
+  // A session ending exactly at local midnight has nothing left to grant on
+  // the following weekday - stepping back 1s makes it end at 23:59:59 on
+  // the door-open day instead, so it merges into the same-weekday branch
+  // below rather than the crosses-midnight branch producing a genuinely
+  // zero-width 00:00:00-00:00:00 window on the next weekday. That zero-width
+  // window is exactly what UniFi's schedule API was rejecting with
+  // CODE_PARAMS_INVALID - confirmed live 2026-08-29 for an 11pm-midnight
+  // booking, which left the customer with no door code minutes before
+  // arrival.
+  const endsAtEffective = localTimeParts(endsAt).time === "00:00:00"
+    ? new Date(endsAt.getTime() - 1000)
+    : endsAt
+  const end = localTimeParts(endsAtEffective)
+  const weekSchedule: WeekSchedule = {}
+  for (const day of WEEKDAYS) weekSchedule[day] = []
+  if (start.weekday === end.weekday) {
+    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: end.time }]
+  } else {
+    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: "23:59:59" }]
+    weekSchedule[end.weekday] = [{ start_time: "00:00:00", end_time: end.time }]
+  }
+  return weekSchedule
+}
+
 export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessControlResult> {
   const apiUrl   = process.env.UNIFI_ACCESS_API_URL
   const apiToken = process.env.UNIFI_ACCESS_TOKEN
@@ -80,38 +120,7 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   }
 
   const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
-
-  // Populated with this exact booking's window (door-open time through
-  // session end) - grants access for that one occurrence, not every week,
-  // as long as the User is deleted promptly after the booking ends (see
-  // revokeBayAccess). Door opens DOOR_OPENS_EARLY_MINUTES before the booked
-  // start; for a late booking that pushes the open time into the previous
-  // local day (or a session that itself runs past local midnight), the
-  // window is split across the two weekdays it actually touches - a single
-  // weekday's start/end pair can't represent a span that crosses midnight.
-  const doorOpensAt = new Date(grant.startsAt.getTime() - DOOR_OPENS_EARLY_MINUTES * 60 * 1000)
-  const start = localTimeParts(doorOpensAt)
-  // A session ending exactly at local midnight has nothing left to grant on
-  // the following weekday - stepping back 1s makes it end at 23:59:59 on
-  // the door-open day instead, so it merges into the same-weekday branch
-  // below rather than the crosses-midnight branch producing a genuinely
-  // zero-width 00:00:00-00:00:00 window on the next weekday. That zero-width
-  // window is exactly what UniFi's schedule API was rejecting with
-  // CODE_PARAMS_INVALID - confirmed live 2026-08-29 for an 11pm-midnight
-  // booking, which left the customer with no door code minutes before
-  // arrival.
-  const endsAtEffective = localTimeParts(grant.endsAt).time === "00:00:00"
-    ? new Date(grant.endsAt.getTime() - 1000)
-    : grant.endsAt
-  const end = localTimeParts(endsAtEffective)
-  const weekSchedule: Record<string, Array<{ start_time: string; end_time: string }>> = {}
-  for (const day of WEEKDAYS) weekSchedule[day] = []
-  if (start.weekday === end.weekday) {
-    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: end.time }]
-  } else {
-    weekSchedule[start.weekday] = [{ start_time: start.time, end_time: "23:59:59" }]
-    weekSchedule[end.weekday] = [{ start_time: "00:00:00", end_time: end.time }]
-  }
+  const weekSchedule = buildBookingWeekSchedule(grant.startsAt, grant.endsAt)
 
   const schedule = await unifiCall<{ id: string }>(apiUrl, headers, "/access_policies/schedules", "POST", {
     name: `booking-${grant.bookingId}`,
@@ -135,6 +144,38 @@ export async function grantBayAccess(grant: AccessControlGrant): Promise<AccessC
   await unifiCall(apiUrl, headers, `/users/${user.id}/access_policies`, "PUT", { access_policy_ids: [policy.id] })
 
   return { pinCode, userId: user.id, accessPolicyId: policy.id, scheduleId: schedule.id }
+}
+
+/**
+ * Rewrite an existing grant's schedule to a new window, in place.
+ *
+ * Added 2026-10-21 for extensions. The User, PIN and Access Policy stay as
+ * they are, so the customer keeps the code they were already texted; only
+ * the schedule the policy points at changes. Before this, extending a
+ * booking moved ends_at and nothing else, so the code stopped working at the
+ * ORIGINAL end time while the booking showed more paid time.
+ *
+ * Returns false (no controller call) in the bench-test fallback where UniFi
+ * is not configured. Throws on a controller error so the caller can alert.
+ */
+export async function updateBayAccessSchedule(
+  scheduleId: string,
+  bookingId: string,
+  startsAt: Date,
+  endsAt: Date,
+): Promise<boolean> {
+  const apiUrl   = process.env.UNIFI_ACCESS_API_URL
+  const apiToken = process.env.UNIFI_ACCESS_TOKEN
+  if (!apiUrl || !apiToken || !scheduleId) return false
+
+  const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
+  await unifiCall(apiUrl, headers, `/access_policies/schedules/${scheduleId}`, "PUT", {
+    // Same name grantBayAccess gave it, so the controller's list still reads
+    // as one schedule per booking.
+    name: `booking-${bookingId}`,
+    week_schedule: buildBookingWeekSchedule(startsAt, endsAt),
+  })
+  return true
 }
 
 // TODO(bay-power-tie-in): still has no real caller. week_schedule is keyed

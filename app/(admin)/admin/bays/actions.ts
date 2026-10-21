@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 
 async function assertAdmin() {
   const supabase = await createClient()
@@ -130,6 +131,9 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
     })
     .eq("id", booking.id)
   if (error) throw new Error("Failed to extend booking")
+
+  // Without this the door code still stopped at the original end time.
+  await extendBookingAccessToCurrentEnd(serviceClient, booking.id)
 
   revalidatePath("/admin/bays")
   return { newEndsAt: newEndsAt.toISOString() }
