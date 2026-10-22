@@ -5,6 +5,7 @@ import { logout } from "@/app/actions/auth"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
 import { mergeGroupedBookings } from "@/lib/bookings/group-display"
+import { LEAGUE_SLUG } from "@/lib/league"
 import PaymentMethodsSection from "./PaymentMethodsSection"
 import PersonalInfoSection from "./PersonalInfoSection"
 import CancelMembershipSection from "./CancelMembershipSection"
@@ -64,6 +65,16 @@ export default async function AccountDashboard({
   const serviceClient = await createServiceClient()
 
   const nowIso = new Date().toISOString()
+
+  // League players get a standings link. League tables are newer than
+  // lib/supabase/types.ts, so this lookup is untyped.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueDb: any = serviceClient
+  const { data: leagueRow } = await leagueDb.from("leagues").select("id, name").eq("slug", LEAGUE_SLUG).maybeSingle()
+  const { data: leagueSpot } = leagueRow
+    ? await leagueDb.from("league_participants").select("id").eq("league_id", leagueRow.id).eq("user_id", userId).maybeSingle()
+    : { data: null }
+  const leagueName = leagueSpot ? (leagueRow as { name: string }).name : null
   const [{ data: profile }, { data: membership }, { data: upcomingBookings }, { data: hourCredits }] =
     await Promise.all([
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked, veteran_verified_at").eq("id", userId).single(),
@@ -304,6 +315,15 @@ export default async function AccountDashboard({
 
       {/* Free hours balance + code redemption */}
       <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} />
+
+      {leagueName && (
+        <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3">
+          <p className="text-sm text-white">You&apos;re in the {leagueName}.</p>
+          <Nav interactive={interactive} href="/league/standings" className="btn-primary shrink-0 px-4 py-2 text-xs">
+            League standings
+          </Nav>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
