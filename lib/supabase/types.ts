@@ -67,6 +67,7 @@ export type Database = {
           eyexr_alerted_at: string | null
           override_state: string | null
           restart_requested_at: string | null
+          reboot_requested_at: string | null
           running_processes: Json | null
           session_state: string | null
           sim_running: boolean | null
@@ -85,6 +86,7 @@ export type Database = {
           eyexr_alerted_at?: string | null
           override_state?: string | null
           restart_requested_at?: string | null
+          reboot_requested_at?: string | null
           running_processes?: Json | null
           session_state?: string | null
           sim_running?: boolean | null
@@ -103,6 +105,7 @@ export type Database = {
           eyexr_alerted_at?: string | null
           override_state?: string | null
           restart_requested_at?: string | null
+          reboot_requested_at?: string | null
           running_processes?: Json | null
           session_state?: string | null
           sim_running?: boolean | null

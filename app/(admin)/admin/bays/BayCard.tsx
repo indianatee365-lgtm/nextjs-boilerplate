@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { setBayOverride, requestBayRestart, startTestBooking } from "./actions"
+import { setBayOverride, requestBayRestart, requestBayReboot, startTestBooking } from "./actions"
 import ExtendBookingButton from "./ExtendBookingButton"
 
 export type OverrideState = "occupied" | "available" | "maintenance" | null
@@ -56,8 +56,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function BayCard({ data }: { data: BayCardData }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [busyChoice, setBusyChoice] = useState<OverrideState | "restart" | "test" | null>(null)
+  const [busyChoice, setBusyChoice] = useState<OverrideState | "restart" | "reboot" | "test" | null>(null)
   const [flash, setFlash] = useState<{ kind: "ok" | "err"; text: string } | null>(null)
+  const [confirmReboot, setConfirmReboot] = useState(false)
 
   // Maintenance that this page did not ask for can only have come from the bay
   // PC itself, where ctrl+shift+m writes a local maintenance.flag file. The
@@ -76,7 +77,7 @@ export default function BayCard({ data }: { data: BayCardData }) {
   const simTrouble = data.online && data.actual === "occupied" && data.simRunning === false
 
   function act(
-    key: OverrideState | "restart" | "test",
+    key: OverrideState | "restart" | "reboot" | "test",
     fn: () => Promise<unknown>,
     okText: string,
   ) {
@@ -202,8 +203,47 @@ export default function BayCard({ data }: { data: BayCardData }) {
           >
             {busyChoice === "restart" && isPending ? "Requesting…" : "Restart simulator"}
           </button>
+          {!confirmReboot && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setConfirmReboot(true)}
+              className="rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-neutral-300 transition hover:border-white/30 disabled:opacity-60"
+            >
+              {busyChoice === "reboot" && isPending ? "Requesting…" : "Restart PC"}
+            </button>
+          )}
           <ExtendBookingButton bayId={data.bayId} />
         </div>
+        {confirmReboot && (
+          <div className="mt-2 rounded-md border border-amber-400/30 bg-amber-400/[0.06] p-3 text-xs text-neutral-300 space-y-2">
+            <p>
+              Restart the {data.name} computer? It goes dark for about 2 minutes, then signs back in and the agent comes back on its own.
+              {data.actual === "occupied" && <span className="text-amber-400"> Someone is in session on this bay right now.</span>}
+              {!data.online && <span className="text-amber-400"> This bay is offline, so it will only restart if it checks in within 10 minutes.</span>}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setConfirmReboot(false)
+                  act("reboot", () => requestBayReboot(data.bayId), "PC restart requested. It should go offline within a minute.")
+                }}
+                className="rounded-md border border-amber-400/40 px-2.5 py-1.5 font-medium text-amber-300 transition hover:border-amber-400 disabled:opacity-60"
+              >
+                Yes, restart the PC
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmReboot(false)}
+                className="rounded-md border border-white/10 px-2.5 py-1.5 text-neutral-400 transition hover:border-white/30"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </Field>
 
       {flash && (
