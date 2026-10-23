@@ -90,6 +90,25 @@ function bookingSlotSpan(startsAt: string, endsAt: string): { start: number; end
   return { start, end }
 }
 
+// Eastern calendar day (YYYY-MM-DD) an instant falls on.
+function etDateKey(date: Date): string {
+  return date.toLocaleDateString("en-CA", { timeZone: "America/Indiana/Indianapolis" })
+}
+
+// A block's span on the day being shown. Blocks can run for days (bay 3's
+// Uneekor block, 2026-10-22, runs to Dec 31), and bookingSlotSpan only reads
+// the time of day, which drew that block as a 6:30 to 7pm box on every day.
+// A block that started before this day starts at the top, one that ends after
+// it runs to the bottom.
+function blockSlotSpanOnDay(startsAt: string, endsAt: string, dayKey: string): { start: number; end: number; multiDay: boolean } {
+  const s = new Date(startsAt)
+  const e = new Date(endsAt)
+  const start = etDateKey(s) < dayKey ? 0 : etSlot(s, false)
+  let end = etDateKey(e) > dayKey ? SLOTS.length : etSlot(e, true)
+  if (end <= start) end = start + 1
+  return { start, end, multiDay: etDateKey(s) !== etDateKey(e) }
+}
+
 function money(n: number | null | undefined): string {
   return `$${Number(n ?? 0).toFixed(2)}`
 }
@@ -616,9 +635,14 @@ export default function BookingsManager({
               (not a handle) to remove it instead. */}
           {blockedTimes.map((block) => {
             const isBeingResized = resizePreview?.id === block.id
+            const daySpan = blockSlotSpanOnDay(block.starts_at, block.ends_at, selectedDate)
+            // Moving and resizing rebuild the block from this one day's times,
+            // which would cut a multi-day block down to a few hours. Click to
+            // remove (with its confirm) still works.
+            const multiDay = daySpan.multiDay
             const { start, end } = isBeingResized
               ? { start: resizePreview.start, end: resizePreview.end }
-              : bookingSlotSpan(block.starts_at, block.ends_at)
+              : daySpan
             const gridColumn = block.bay_id === null
               ? "2 / -1"
               : (() => {
@@ -630,25 +654,32 @@ export default function BookingsManager({
               <div
                 key={block.id}
                 style={{ gridColumn, gridRow: `${slotRow(start)} / ${slotRow(end)}`, pointerEvents: isResizing ? "none" : undefined }}
-                draggable
+                draggable={!multiDay}
                 onDragStart={(e) => handleDragStart(e, `block:${block.id}`)}
                 onDragEnd={handleDragEnd}
                 onClick={() => { if (!justDragged && !isResizing) handleRemoveBlock(block.id) }}
-                title="Drag to move, drag top/bottom edge to resize, click to remove"
-                className={`relative m-1 flex cursor-grab flex-col justify-center overflow-visible rounded border border-neutral-500/50 bg-[repeating-linear-gradient(135deg,rgba(115,115,115,0.25),rgba(115,115,115,0.25)_6px,rgba(115,115,115,0.1)_6px,rgba(115,115,115,0.1)_12px)] px-2 py-1 text-xs text-neutral-300 hover:border-neutral-300 active:cursor-grabbing ${isBeingResized ? "border-brand/60 ring-1 ring-brand/40" : ""}`}
+                title={multiDay
+                  ? `Blocked until ${fullDateTime(block.ends_at)}. Runs over several days, so it can't be moved or resized here. Click to remove the whole block.`
+                  : "Drag to move, drag top/bottom edge to resize, click to remove"}
+                className={`relative m-1 flex ${multiDay ? "cursor-pointer" : "cursor-grab"} flex-col justify-center overflow-visible rounded border border-neutral-500/50 bg-[repeating-linear-gradient(135deg,rgba(115,115,115,0.25),rgba(115,115,115,0.25)_6px,rgba(115,115,115,0.1)_6px,rgba(115,115,115,0.1)_12px)] px-2 py-1 text-xs text-neutral-300 hover:border-neutral-300 active:cursor-grabbing ${isBeingResized ? "border-brand/60 ring-1 ring-brand/40" : ""}`}
               >
-                <div
-                  onMouseDown={(e) => startResize(e, block, "start")}
-                  className="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize"
-                />
+                {!multiDay && (
+                  <div
+                    onMouseDown={(e) => startResize(e, block, "start")}
+                    className="absolute inset-x-0 top-0 h-1.5 cursor-ns-resize"
+                  />
+                )}
                 <div className="flex items-center gap-1 font-medium">
                   <Lock size={10} /> Blocked
                 </div>
                 {block.reason && <div className="truncate opacity-75">{block.reason}</div>}
-                <div
-                  onMouseDown={(e) => startResize(e, block, "end")}
-                  className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
-                />
+                {multiDay && <div className="truncate opacity-60">Until {fullDateTime(block.ends_at)}</div>}
+                {!multiDay && (
+                  <div
+                    onMouseDown={(e) => startResize(e, block, "end")}
+                    className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
+                  />
+                )}
               </div>
             )
           })}
