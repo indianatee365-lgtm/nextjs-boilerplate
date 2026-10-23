@@ -153,6 +153,21 @@ export async function requestBayRestart(bayId: string) {
   revalidatePath("/admin/bays")
 }
 
+// Restarts the whole bay PC, not just the sim programs. TeeBayService runs as
+// SYSTEM, so it can reboot even while the kiosk lockdown has taken Restart away
+// from the logged-in TeeKiosk session (which maintenance mode can't give back
+// until the next logon). The service ignores requests older than 10 minutes, so
+// a bay that was offline when this was clicked won't reboot hours later.
+export async function requestBayReboot(bayId: string) {
+  const { serviceClient } = await assertAdmin()
+  const { error } = await serviceClient
+    .from("bay_agent_status")
+    .update({ reboot_requested_at: new Date().toISOString() })
+    .eq("bay_id", bayId)
+  if (error) throw new Error("Failed to request the restart")
+  revalidatePath("/admin/bays")
+}
+
 // Blocking a bay "until cleared" rather than making staff pick an end time and
 // re-block it every day. Modelled as a normal blocked_times row with a
 // far-future ends_at plus the indefinite flag, NOT a null ends_at, so that

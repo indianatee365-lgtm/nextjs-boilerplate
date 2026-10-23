@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingStatus, error: existingStatusError } = await serviceClient
     .from("bay_agent_status")
-    .select("kiosk_kills, override_state, restart_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at, eyexr_missing_since, eyexr_alerted_at")
+    .select("kiosk_kills, override_state, restart_requested_at, reboot_requested_at, last_crash_restart_at, last_manual_restart_at, last_no_shot_alert_at, eyexr_missing_since, eyexr_alerted_at")
     .eq("bay_id", bayId)
     .single()
 
@@ -452,11 +452,16 @@ export async function POST(request: NextRequest) {
   }
 
   const overrideState = existingStatus?.override_state as "occupied" | "available" | "maintenance" | null
+  // Admin "Restart PC" (admin/bays/actions.ts requestBayReboot). Sent in every
+  // response, not just occupied, because a reboot is wanted most when the
+  // bay is stuck in maintenance or idle. TeeBayService acts once per value.
+  const rebootRequestedAt = existingStatus?.reboot_requested_at ?? null
 
   if (overrideState === "maintenance") {
     return NextResponse.json({
       desiredState: "maintenance",
       booking: null,
+      rebootRequestedAt,
       serverTime: new Date().toISOString(),
     })
   }
@@ -465,6 +470,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       desiredState: overrideState,
       booking: null,
+      rebootRequestedAt,
       serverTime: new Date().toISOString(),
     })
   }
@@ -473,6 +479,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       desiredState: "available",
       booking: null,
+      rebootRequestedAt,
       serverTime: new Date().toISOString(),
     })
   }
@@ -536,6 +543,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       desiredState: "available",
       booking: null,
+      rebootRequestedAt,
       serverTime: now.toISOString(),
     })
   }
@@ -565,6 +573,7 @@ export async function POST(request: NextRequest) {
     rosterNames?: string[] | null
     currentHitter?: string | null
     restartRequestedAt?: string | null
+    rebootRequestedAt?: string | null
   } = {
     desiredState: "occupied",
     booking: { id: booking.id, customerFirstName: profile?.first_name ?? null, endsAt: booking.ends_at },
@@ -599,6 +608,7 @@ export async function POST(request: NextRequest) {
   // last one it already acted on, so it only fires once per admin click, not
   // every poll while it's still the newest value.
   response.restartRequestedAt = existingStatus?.restart_requested_at ?? null
+  response.rebootRequestedAt = rebootRequestedAt
 
   return NextResponse.json(response)
 }
