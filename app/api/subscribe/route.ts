@@ -68,7 +68,7 @@ function buildWelcomeHtml(displayName: string, unsubscribeToken: string): string
         <div class="social-label">Follow along</div>
         <a href="https://www.instagram.com/tee365.mishawaka" class="social-link">IG</a>
         <a href="https://www.facebook.com/profile.php?id=61578292102933" class="social-link">FB</a>
-        <a href="https://www.tiktok.com/@tee36568" class="social-link">TK</a>
+        <a href="https://www.tiktok.com/@tee365_mishawaka" class="social-link">TK</a>
         <a href="https://tee365.org" class="social-link">&nearr;</a>
       </td></tr>
       <tr><td class="footer">
