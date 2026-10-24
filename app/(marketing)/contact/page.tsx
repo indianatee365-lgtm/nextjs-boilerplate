@@ -77,13 +77,13 @@ export default function ContactPage() {
                 Tee365 on Facebook
               </a>
               <a
-                href="https://www.tiktok.com/@tee36568"
+                href="https://www.tiktok.com/@tee365_mishawaka"
                 target="_blank"
                 rel="noreferrer noopener"
                 className="flex items-center gap-3 text-sm text-neutral-300 transition hover:text-white"
               >
                 <Music2 size={16} />
-                @tee36568
+                @tee365_mishawaka
               </a>
             </div>
           </div>
