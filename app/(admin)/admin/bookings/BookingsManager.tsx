@@ -7,6 +7,15 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight, Plus } from "lucide-react"
 import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking, sendBookingSms, extendBookingComp } from "./actions"
 
+// Who added the extra time. Admin extensions are free and tracked in
+// admin_extension_minutes; everything else in extension_minutes is time the
+// customer paid for, and extension_revenue is what they paid.
+function splitExtensions(b: Booking) {
+  const total = Number(b.extension_minutes ?? 0)
+  const admin = Math.min(total, Number(b.admin_extension_minutes ?? 0))
+  return { admin, customer: total - admin, paid: Number(b.extension_revenue ?? 0) }
+}
+
 interface Booking {
   id: string
   starts_at: string
@@ -17,6 +26,7 @@ interface Booking {
   extension_minutes?: number | null
   extension_count?: number | null
   extension_revenue?: number | null
+  admin_extension_minutes?: number | null
   access_code: string | null
   notes: string | null
   cancelled_at: string | null
@@ -723,9 +733,14 @@ export default function BookingsManager({
                       {" – "}
                       {new Date(booking.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
                     </div>
-                    {Number(booking.extension_minutes ?? 0) > 0 && (
+                    {splitExtensions(booking).customer > 0 && (
                       <div className="font-medium text-amber-400">
-                        +{booking.extension_minutes} min extended
+                        +{splitExtensions(booking).customer} min by customer, ${splitExtensions(booking).paid.toFixed(2)}
+                      </div>
+                    )}
+                    {splitExtensions(booking).admin > 0 && (
+                      <div className="font-medium text-sky-400">
+                        +{splitExtensions(booking).admin} min by you, $0
                       </div>
                     )}
                     {booking.status === "confirmed" && (
@@ -1000,9 +1015,16 @@ export default function BookingsManager({
                   {Number(detailBooking.extension_minutes ?? 0) > 0 && (
                     <>
                       {" "}
-                      <span className="text-amber-400">
-                        + {detailBooking.extension_minutes} min extended
-                      </span>
+                      {splitExtensions(detailBooking).customer > 0 && (
+                        <span className="text-amber-400">
+                          + {splitExtensions(detailBooking).customer} min extended by customer (${splitExtensions(detailBooking).paid.toFixed(2)})
+                        </span>
+                      )}
+                      {splitExtensions(detailBooking).admin > 0 && (
+                        <span className="text-sky-400">
+                          {" "}+ {splitExtensions(detailBooking).admin} min added by you ($0)
+                        </span>
+                      )}
                       <span className="text-neutral-500">
                         {" "}= {detailBooking.duration_minutes + Number(detailBooking.extension_minutes)} min total
                       </span>

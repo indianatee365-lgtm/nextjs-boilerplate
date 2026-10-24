@@ -628,7 +628,7 @@ export async function extendBookingComp(bookingId: string, minutes: number) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, bay_id, ends_at, status, extension_minutes, extension_count")
+    .select("id, bay_id, ends_at, status, extension_minutes, extension_count, admin_extension_minutes")
     .eq("id", bookingId)
     .single()
 
@@ -661,6 +661,7 @@ export async function extendBookingComp(bookingId: string, minutes: number) {
       ends_at: newEnd.toISOString(),
       extension_minutes: (booking.extension_minutes ?? 0) + minutes,
       extension_count: (booking.extension_count ?? 0) + 1,
+      admin_extension_minutes: (booking.admin_extension_minutes ?? 0) + minutes,
       last_extended_at: new Date().toISOString(),
     })
     .eq("id", bookingId)

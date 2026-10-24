@@ -87,7 +87,7 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
 
   const { data: booking } = await serviceClient
     .from("bookings")
-    .select("id, ends_at, extension_minutes, extension_count")
+    .select("id, ends_at, extension_minutes, extension_count, admin_extension_minutes")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now)
@@ -127,6 +127,7 @@ export async function extendActiveBooking(bayId: string, minutes: number) {
       ends_at: newEndsAt.toISOString(),
       extension_minutes: (booking.extension_minutes ?? 0) + minutes,
       extension_count: (booking.extension_count ?? 0) + 1,
+      admin_extension_minutes: (booking.admin_extension_minutes ?? 0) + minutes,
       last_extended_at: new Date().toISOString(),
     })
     .eq("id", booking.id)
