@@ -18,6 +18,7 @@ export type BayCardData = {
   override: OverrideState
   simRunning: boolean | null
   lastCrashRestartAt: string | null
+  lastCrashRestartReason: string | null
   recentKills: string[]
   enforcementMode: string | null
 }
@@ -256,7 +257,14 @@ export default function BayCard({ data }: { data: BayCardData }) {
       {(data.lastCrashRestartAt || data.recentKills.length > 0 || data.enforcementMode) && (
         <div className="space-y-0.5 border-t border-white/10 pt-3 text-[11px] text-neutral-600">
           {data.enforcementMode && <p>Enforcement: {data.enforcementMode}</p>}
-          {data.lastCrashRestartAt && <p>Last crash-restart: {data.lastCrashRestartAt}</p>}
+          {data.lastCrashRestartAt && (
+            <p>
+              {data.lastCrashRestartReason === "customer_exit"
+                ? "Last GSPro exit (customer clicked Exit)"
+                : "Last crash-restart"}
+              : {data.lastCrashRestartAt}
+            </p>
+          )}
           {data.recentKills.length > 0 && <p>Recently blocked: {data.recentKills.join(", ")}</p>}
         </div>
       )}

@@ -21,6 +21,7 @@ interface AgentStatus {
   session_state: string | null
   sim_running: boolean | null
   last_crash_restart_at: string | null
+  last_crash_restart_reason: string | null
   kiosk_kills: { process: string; at: string }[] | null
   override_state: "occupied" | "available" | "maintenance" | null
   enforcement_mode: string | null
@@ -37,7 +38,7 @@ export default async function AdminBaysPage() {
 
   const { data: bays } = await serviceClient
     .from("bays")
-    .select("id, number, name, active, bay_agent_status(last_heartbeat_at, session_state, sim_running, last_crash_restart_at, kiosk_kills, override_state, enforcement_mode)")
+    .select("id, number, name, active, bay_agent_status(last_heartbeat_at, session_state, sim_running, last_crash_restart_at, last_crash_restart_reason, kiosk_kills, override_state, enforcement_mode)")
     .order("number")
 
   const now = Date.now()
@@ -111,6 +112,7 @@ export default async function AdminBaysPage() {
                     timeZone: "America/Indiana/Indianapolis",
                   })
                 : null,
+              lastCrashRestartReason: status?.last_crash_restart_reason ?? null,
               recentKills: (status?.kiosk_kills ?? []).slice(-3).reverse().map((k) => k.process),
               enforcementMode: status?.enforcement_mode ?? null,
             }
