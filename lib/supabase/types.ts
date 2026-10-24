@@ -60,6 +60,7 @@ export type Database = {
           enforcement_mode: string | null
           kiosk_kills: Json | null
           last_crash_restart_at: string | null
+          last_crash_restart_reason: string | null
           last_heartbeat_at: string | null
           last_manual_restart_at: string | null
           last_no_shot_alert_at: string | null
@@ -79,6 +80,7 @@ export type Database = {
           enforcement_mode?: string | null
           kiosk_kills?: Json | null
           last_crash_restart_at?: string | null
+          last_crash_restart_reason?: string | null
           last_heartbeat_at?: string | null
           last_manual_restart_at?: string | null
           last_no_shot_alert_at?: string | null
@@ -98,6 +100,7 @@ export type Database = {
           enforcement_mode?: string | null
           kiosk_kills?: Json | null
           last_crash_restart_at?: string | null
+          last_crash_restart_reason?: string | null
           last_heartbeat_at?: string | null
           last_manual_restart_at?: string | null
           last_no_shot_alert_at?: string | null

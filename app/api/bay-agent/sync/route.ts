@@ -234,7 +234,8 @@ export async function POST(request: NextRequest) {
     // dedupe check was always true and the spam kept right on going.
     const incomingCrashMs = status.lastCrashRestartAt ? new Date(status.lastCrashRestartAt).getTime() : null
     const knownCrashMs = existingStatus?.last_crash_restart_at ? new Date(existingStatus.last_crash_restart_at).getTime() : null
-    if (incomingCrashMs !== null && incomingCrashMs !== knownCrashMs) {
+    const crashIsNew = incomingCrashMs !== null && incomingCrashMs !== knownCrashMs
+    if (crashIsNew) {
       // Diagnostics added 2026-09-03 after investigating a real Bay 1 crash
       // with nothing to go on but a bare timestamp - see companion.py's
       // last_crash_restart_diagnostics. missingProcesses is the one that
@@ -243,8 +244,12 @@ export async function POST(request: NextRequest) {
       // companion.py's 2026-09-03 fix) - a real crash-restart here now only
       // ever means the automatic mid-rental detection actually fired.
       const diagnostics = status.lastCrashRestartDiagnostics ?? {}
+      // 2026-10-24: the agent reads GSPro's own log to tell a customer
+      // pressing Exit in GSPro's menu (clean shutdown) from a real crash.
+      // Older agents send no exitReason, which is treated as a crash.
+      const customerExit = diagnostics.exitReason === "customer_exit"
       const detail =
-        `bay=${bay.name} at=${status.lastCrashRestartAt} ` +
+        `bay=${bay.name} at=${status.lastCrashRestartAt} exitReason=${diagnostics.exitReason ?? "unknown"} ` +
         `missingProcesses=${JSON.stringify(diagnostics.missingProcesses ?? [])} ` +
         `armClicked=${diagnostics.armClicked} gsproStartClicked=${diagnostics.gsproStartClicked} ` +
         `currentHitter=${diagnostics.currentHitter ?? "none"} ` +
@@ -252,13 +257,20 @@ export async function POST(request: NextRequest) {
       const crashNotifyEnabled = await getAdminSetting(serviceClient, "notify_crash_restarts")
       await logFailure(
         serviceClient,
-        "bay-agent-crash-restart",
+        customerExit ? "bay-agent-customer-exit" : "bay-agent-crash-restart",
         detail,
-        crashNotifyEnabled
-          ? `${bay.name}: simulator crashed mid-rental and auto-recovered. Missing: ` +
-            `${(diagnostics.missingProcesses ?? []).join(", ") || "unknown"}. Check admin/logs for details.`
-          : undefined,
+        !crashNotifyEnabled
+          ? undefined
+          : customerExit
+            ? `${bay.name}: customer clicked Exit on GSPro. The bay restarted the simulator on its own.`
+            : `${bay.name}: simulator crashed mid-rental and auto-recovered. Missing: ` +
+              `${(diagnostics.missingProcesses ?? []).join(", ") || "unknown"}. Check admin/logs for details.`,
       )
+      const { error: reasonError } = await serviceClient
+        .from("bay_agent_status")
+        .update({ last_crash_restart_reason: diagnostics.exitReason ?? null })
+        .eq("bay_id", bayId)
+      if (reasonError) console.error("bay-agent sync: failed to store crash reason", reasonError)
     }
 
     // Customer-clicked "Simulator issue? Click to restart" - Jerrod's ask
