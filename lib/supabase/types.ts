@@ -226,6 +226,7 @@ export type Database = {
           extend_token: string | null
           extension_count: number
           extension_minutes: number
+          admin_extension_minutes: number
           extension_revenue: number
           feedback_email_sent_at: string | null
           gift_card_applied: number
@@ -286,6 +287,7 @@ export type Database = {
           extend_token?: string | null
           extension_count?: number
           extension_minutes?: number
+          admin_extension_minutes?: number
           extension_revenue?: number
           feedback_email_sent_at?: string | null
           gift_card_applied?: number
@@ -346,6 +348,7 @@ export type Database = {
           extend_token?: string | null
           extension_count?: number
           extension_minutes?: number
+          admin_extension_minutes?: number
           extension_revenue?: number
           feedback_email_sent_at?: string | null
           gift_card_applied?: number
