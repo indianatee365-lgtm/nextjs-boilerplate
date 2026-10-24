@@ -37,7 +37,7 @@ const EVENTS_SERVICE_SCHEMA = {
     telephone: "+15744449365",
     address: {
       "@type": "PostalAddress",
-      streetAddress: "4615 Grape Rd",
+      streetAddress: "4615 Grape Rd, Unit A",
       addressLocality: "Mishawaka",
       addressRegion: "IN",
       postalCode: "46545",

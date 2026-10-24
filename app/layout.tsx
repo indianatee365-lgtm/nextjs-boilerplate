@@ -11,14 +11,14 @@ const LOCAL_BUSINESS_SCHEMA = {
   description:
     "24/7 indoor golf simulator bays in Mishawaka, Indiana near Notre Dame and the Michiana region.",
   url: "https://tee365.org",
-  logo: "https://tee365.org/favicon.ico",
+  logo: "https://tee365.org/logo.png",
   image: "https://tee365.org/hero.jpg",
   telephone: "+15744449365",
   email: "info@tee365.org",
   priceRange: "$$",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "4615 Grape Rd",
+    streetAddress: "4615 Grape Rd, Unit A",
     addressLocality: "Mishawaka",
     addressRegion: "IN",
     postalCode: "46545",
