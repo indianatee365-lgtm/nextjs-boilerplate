@@ -40,6 +40,7 @@ const LOCAL_BUSINESS_SCHEMA = {
     "https://www.instagram.com/tee365.mishawaka",
     "https://www.facebook.com/people/Tee365/61578292102933/",
     "https://www.tiktok.com/@tee365_mishawaka",
+    "https://www.google.com/search?kgmid=/g/11yfybc3fk",
   ],
 };
 
