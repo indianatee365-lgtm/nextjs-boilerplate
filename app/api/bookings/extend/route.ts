@@ -5,6 +5,7 @@ import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
+import { createSavedCardsSession } from "@/lib/payments/saved-cards"
 
 // Available extension lengths offered on the extend page, capped by whatever
 // room is actually free on the bay before the next booking/block.
@@ -124,10 +125,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Something went wrong calculating the price. Please contact us at info@tee365.org." }, { status: 400 })
     }
 
+    // Saved cards are offered only to the booking's owner signed in on this
+    // device. The QR/SMS extend link can be opened by anyone in the group, and
+    // it must never let them pay with the owner's card on file.
+    let ownerCustomerId: string | null = null
+    {
+      const supabase = await createClient()
+      const { data: { user: sessionUser } } = await supabase.auth.getUser()
+      if (sessionUser && sessionUser.id === booking.user_id) {
+        const { data: profile } = await serviceClient
+          .from("profiles").select("stripe_customer_id").eq("id", booking.user_id).single()
+        ownerCustomerId = (profile as { stripe_customer_id: string | null } | null)?.stripe_customer_id ?? null
+      }
+    }
+
     const pi = await getStripe().paymentIntents.create({
       amount: Math.round(netCharge * 100),
       currency: "usd",
       payment_method_types: ["card", "cashapp"],
+      // A saved card can only pay a PaymentIntent for the same Stripe customer.
+      ...(ownerCustomerId ? { customer: ownerCustomerId } : {}),
       metadata: {
         type: "extend",
         bookingId,
@@ -136,12 +153,17 @@ export async function POST(request: NextRequest) {
     }, {
       // A flaky phone connection retrying this request for the same extension
       // must never create a second charge.
-      idempotencyKey: `extend_${bookingId}_${newEnd.toISOString()}`,
+      // The key differs with the customer attached because Stripe rejects
+      // reusing a key with different parameters. Still no double charge:
+      // apply_booking_extension only ever applies one extension per end time.
+      idempotencyKey: `extend_${bookingId}_${newEnd.toISOString()}${ownerCustomerId ? "_saved" : ""}`,
     })
+    const customerSessionClientSecret = await createSavedCardsSession(getStripe(), ownerCustomerId)
 
     return NextResponse.json({
       pricing, netCharge,
       clientSecret: pi.client_secret,
+      customerSessionClientSecret,
       currentEndsAt: booking.ends_at,
       newEndsAt: newEnd.toISOString(),
       extendMinutes,

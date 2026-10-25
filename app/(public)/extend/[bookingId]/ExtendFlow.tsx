@@ -13,6 +13,7 @@ interface ExtendPreview {
   pricing: { subtotal: number; membershipDiscount: number; tax: number; total: number }
   netCharge: number
   clientSecret: string
+  customerSessionClientSecret?: string | null
   newEndsAt: string
   extendMinutes: number
 }
@@ -23,9 +24,10 @@ function fmtTime(iso: string) {
 }
 
 function PaymentForm({
-  clientSecret, netCharge, bookingId, token, newEndsAt,
+  clientSecret, netCharge, bookingId, token, newEndsAt, onLoadError,
 }: {
   clientSecret: string; netCharge: number; bookingId: string; token?: string; newEndsAt: string
+  onLoadError?: () => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -79,7 +81,10 @@ function PaymentForm({
 
   return (
     <form onSubmit={handlePay} className="space-y-5">
-      <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
+      <PaymentElement
+        options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
+        onLoadError={onLoadError}
+      />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={submitting || !stripe} className="btn-primary w-full">
         {submitting ? "Processing…" : `Pay ${fmt(netCharge)} & extend`}
@@ -97,6 +102,9 @@ export default function ExtendFlow({
 }) {
   const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null)
   const [preview, setPreview] = useState<ExtendPreview | null>(null)
+  // Same fallback as booking checkout: a payment form that fails to load with
+  // saved cards on is reloaded as the plain card form.
+  const [savedCardsFailed, setSavedCardsFailed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -165,13 +173,29 @@ export default function ExtendFlow({
             </div>
           </div>
 
-          <Elements stripe={stripePromise} options={{ clientSecret: preview.clientSecret, appearance: { theme: "night" } }}>
+          <Elements
+            key={savedCardsFailed ? "plain" : "saved"}
+            stripe={stripePromise}
+            options={{
+              clientSecret: preview.clientSecret,
+              // Saved cards, only for the signed-in booking owner (see the extend route).
+              ...(preview.customerSessionClientSecret && !savedCardsFailed
+                ? { customerSessionClientSecret: preview.customerSessionClientSecret }
+                : {}),
+              appearance: { theme: "night" },
+            }}
+          >
             <PaymentForm
               clientSecret={preview.clientSecret}
               netCharge={preview.netCharge}
               bookingId={bookingId}
               token={token}
               newEndsAt={preview.newEndsAt}
+              onLoadError={
+                preview.customerSessionClientSecret && !savedCardsFailed
+                  ? () => setSavedCardsFailed(true)
+                  : undefined
+              }
             />
           </Elements>
         </div>

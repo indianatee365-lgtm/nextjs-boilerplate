@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { createBooking } from "@/lib/bookings/create"
+import { createSavedCardsSession } from "@/lib/payments/saved-cards"
+import Stripe from "stripe"
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,9 +35,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
+    // Offer the customer's saved cards in the payment form. createBooking has
+    // just made sure they have a Stripe customer. Null on any failure, which
+    // only means a blank card form.
+    let customerSessionClientSecret: string | null = null
+    if (result.clientSecret) {
+      const { data: profile } = await serviceClient
+        .from("profiles").select("stripe_customer_id").eq("id", user.id).single()
+      customerSessionClientSecret = await createSavedCardsSession(
+        new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() }),
+        (profile as { stripe_customer_id: string | null } | null)?.stripe_customer_id ?? null,
+      )
+    }
+
     return NextResponse.json({
       bookingId: result.bookingId,
       clientSecret: result.clientSecret,
+      customerSessionClientSecret,
       pricing: result.pricing,
       bay: result.bay,
       secondBay: result.secondBay ?? null,
