@@ -78,6 +78,13 @@ function PaymentForm({
           options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
           onLoadError={onLoadError}
         />
+        {/* Every booking payment saves the card (setup_future_usage in
+            lib/bookings/create.ts), with no checkbox, so say so. Customers
+            assumed we didn't save cards at all (Chase, 2026-10-25). */}
+        <p className="mt-3 text-xs text-neutral-400">
+          Your card is saved to your account so next time is one tap. Manage your cards in{" "}
+          <a href="/account" className="text-brand underline underline-offset-2">My Account</a>.
+        </p>
       </div>
       <button
         onClick={handleSubmit}
