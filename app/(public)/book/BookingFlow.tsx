@@ -31,7 +31,7 @@ interface SlotData {
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
 interface Disclosure { id: string; title: string; body: string }
-interface ReservedBooking { id: string; clientSecret: string | null; expiresAt: Date }
+interface ReservedBooking { id: string; clientSecret: string | null; customerSessionClientSecret: string | null; expiresAt: Date }
 interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
 type Step = "date" | "time" | "review"
@@ -40,10 +40,12 @@ function PaymentForm({
   returnUrl,
   total,
   onError,
+  onLoadError,
 }: {
   returnUrl: string
   total: number
   onError: (msg: string) => void
+  onLoadError?: () => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -68,7 +70,10 @@ function PaymentForm({
   return (
     <>
       <div className="mt-5">
-        <PaymentElement options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }} />
+        <PaymentElement
+          options={{ wallets: { applePay: "auto", googlePay: "auto", link: "never" } as never }}
+          onLoadError={onLoadError}
+        />
       </div>
       <button
         onClick={handleSubmit}
@@ -159,6 +164,9 @@ export default function BookingFlow({
   const [calendarMonth, setCalendarMonth] = useState(prefilledDate ?? new Date())
   const [bookingError, setBookingError] = useState("")
   const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
+  // If the payment form ever fails to load with saved cards on, reload it as
+  // the plain card form so a customer can always pay.
+  const [savedCardsFailed, setSavedCardsFailed] = useState(false)
   const [reserving, setReserving] = useState(false)
   // Set once a booking has been created and we are leaving for the confirmation
   // page. Never cleared: there is nothing left on this screen to reserve.
@@ -426,6 +434,7 @@ export default function BookingFlow({
       setReservedBooking({
         id: data.bookingId,
         clientSecret: data.clientSecret,
+        customerSessionClientSecret: data.customerSessionClientSecret ?? null,
         expiresAt: new Date(Date.now() + EXPIRY_SECONDS * 1000),
       })
       setTimeLeft(EXPIRY_SECONDS)
@@ -1164,9 +1173,14 @@ export default function BookingFlow({
           {/* Payment form (after slot is reserved AND disclosures acknowledged) */}
           {reservedBooking && allDisclosuresAcknowledged && reservedBooking.clientSecret && (
             <Elements
+              key={savedCardsFailed ? "plain" : "saved"}
               stripe={stripePromise}
               options={{
                 clientSecret: reservedBooking.clientSecret,
+                // Shows the customer's saved cards (lib/payments/saved-cards.ts).
+                ...(reservedBooking.customerSessionClientSecret && !savedCardsFailed
+                  ? { customerSessionClientSecret: reservedBooking.customerSessionClientSecret }
+                  : {}),
                 appearance: { theme: "night" },
               }}
             >
@@ -1174,6 +1188,11 @@ export default function BookingFlow({
                 returnUrl={`${window.location.origin}/account/bookings?confirmed=${reservedBooking.id}`}
                 total={displayTotal}
                 onError={setBookingError}
+                onLoadError={
+                  reservedBooking.customerSessionClientSecret && !savedCardsFailed
+                    ? () => setSavedCardsFailed(true)
+                    : undefined
+                }
               />
             </Elements>
           )}
