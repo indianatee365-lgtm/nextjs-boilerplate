@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       bookingId: result.bookingId,
       clientSecret: result.clientSecret,
       customerSessionClientSecret,
+      amountDue: result.amountDue,
       pricing: result.pricing,
       bay: result.bay,
       secondBay: result.secondBay ?? null,

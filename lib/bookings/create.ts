@@ -117,6 +117,9 @@ export type CreateBookingResult =
       ok: true
       bookingId: string
       clientSecret: string | null
+      // What the customer is actually charged, every bay, coupon and gift
+      // card included. The booking page shows this once the slot is held.
+      amountDue: number
       pricing: ReturnType<typeof calculateBookingPrice>
       bay: { id: string; number: number; name: string }
       secondBay?: { id: string; number: number; name: string }
@@ -714,6 +717,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       ok: true,
       bookingId: booking.id,
       clientSecret: null,
+      amountDue: 0,
       pricing,
       bay,
       startsAt: startDate.toISOString(),
@@ -880,6 +884,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     ok: true,
     bookingId: booking.id,
     clientSecret: paymentIntent.client_secret,
+    amountDue: amountCents / 100,
     pricing,
     bay,
     ...(secondBayRow ? { secondBay: secondBayRow } : {}),

@@ -31,7 +31,11 @@ interface SlotData {
 }
 interface BayAvailability { bay: Bay; slots: SlotData[] }
 interface Disclosure { id: string; title: string; body: string }
-interface ReservedBooking { id: string; clientSecret: string | null; customerSessionClientSecret: string | null; expiresAt: Date }
+interface ReservedBooking { id: string; clientSecret: string | null; customerSessionClientSecret: string | null; amountDue: number | null; expiresAt: Date }
+
+type CouponCheck =
+  | { code: string; valid: true; discountType: "percent" | "fixed"; discountValue: number }
+  | { code: string; valid: false; error: string }
 interface NextAvailable { date: Date; slot: SlotData; bay: Bay }
 
 type Step = "date" | "time" | "review"
@@ -157,6 +161,11 @@ export default function BookingFlow({
   const [selectedDuration, setSelectedDuration] = useState(prefillDurationMinutes ?? 60)
   const [couponCode, setCouponCode] = useState(prefillCouponCode ?? "")
   const [giftCardCode, setGiftCardCode] = useState("")
+  // Result of checking the typed coupon, so "Total due" can show the discount
+  // before the slot is reserved. Until 2026-10-25 the page never included
+  // coupons or gift cards in its own total and showed full price on the Pay
+  // button, even though the server charged the discounted amount.
+  const [couponCheck, setCouponCheck] = useState<CouponCheck | null>(null)
   const [useFreeHours, setUseFreeHours] = useState(true)
   const [wantSecondBay, setWantSecondBay] = useState(false)
   const [availability, setAvailability] = useState<BayAvailability[]>([])
@@ -167,6 +176,26 @@ export default function BookingFlow({
   // If the payment form ever fails to load with saved cards on, reload it as
   // the plain card form so a customer can always pay.
   const [savedCardsFailed, setSavedCardsFailed] = useState(false)
+
+  // Check the typed coupon after a short pause so Total due can include it.
+  useEffect(() => {
+    const code = couponCode.trim()
+    if (!code || !isAuthenticated || reservedBooking) return
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/coupons/check?code=${encodeURIComponent(code)}`)
+        const data = await res.json()
+        setCouponCheck(
+          data.valid
+            ? { code, valid: true, discountType: data.discountType, discountValue: Number(data.discountValue) }
+            : { code, valid: false, error: data.error ?? "Invalid coupon code" },
+        )
+      } catch {
+        setCouponCheck({ code, valid: false, error: "Couldn't check that code. If it's valid it still applies when you reserve." })
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [couponCode, isAuthenticated, reservedBooking])
   const [reserving, setReserving] = useState(false)
   // Set once a booking has been created and we are leaving for the confirmation
   // page. Never cleared: there is nothing left on this screen to reserve.
@@ -435,6 +464,7 @@ export default function BookingFlow({
         id: data.bookingId,
         clientSecret: data.clientSecret,
         customerSessionClientSecret: data.customerSessionClientSecret ?? null,
+        amountDue: typeof data.amountDue === "number" ? data.amountDue : null,
         expiresAt: new Date(Date.now() + EXPIRY_SECONDS * 1000),
       })
       setTimeLeft(EXPIRY_SECONDS)
@@ -590,12 +620,17 @@ export default function BookingFlow({
     minutesInGroundsCrewWindow(selectedStartDate, selectedDuration) > 0 &&
     selectedStartDate.getTime() - Date.now() > GROUNDS_CREW_BOOK_AHEAD_HOURS * 3600 * 1000
 
+  // Only a check for the code currently in the box counts, so editing the
+  // code drops the old discount straight away.
+  const couponApplied = couponCheck && couponCheck.valid && couponCheck.code === couponCode.trim() ? couponCheck : null
   const pricingPreview = selectedStart
     ? calculateBookingPrice({
         pricePerHour: selectedStart.pricePerHour,
         durationMinutes: selectedDuration,
         membershipDiscountPercent,
         veteranDiscountPercent,
+        couponDiscountType: couponApplied?.discountType,
+        couponDiscountValue: couponApplied?.discountValue ?? 0,
         creditHours: useFreeHours ? availableCreditHours : 0,
         groundsCrewHours: groundsCrewMinutes / 60,
         context: getPricingContext(new Date(selectedStart.startsAt)),
@@ -622,7 +657,10 @@ export default function BookingFlow({
       })
     : null
   const secondBayPreview = secondBayOn ? secondBayQuote : null
-  const displayTotal = (pricingPreview?.total ?? 0) + (secondBayPreview?.total ?? 0)
+  const previewTotal = (pricingPreview?.total ?? 0) + (secondBayPreview?.total ?? 0)
+  // Once the slot is held, show exactly what the server will charge (gift
+  // cards included), not this page's own estimate.
+  const displayTotal = reservedBooking?.amountDue ?? previewTotal
   const twoBayAlternatives = twoBayEnabled && selectedStart && !secondBayAvailable
     ? mergedSlots
         .filter((s) => s.available && s.startsAt !== selectedStart.startsAt && countBaysFitting(s.startsAt, selectedDuration) >= 2)
@@ -1040,6 +1078,20 @@ export default function BookingFlow({
               className="input mt-1"
               disabled={!!reservedBooking}
             />
+            {couponCode.trim() && isAuthenticated && !reservedBooking && (
+              couponCheck?.code !== couponCode.trim() ? (
+                <p className="mt-1 text-xs text-neutral-400">Checking code…</p>
+              ) : couponCheck.valid ? (
+                <p className="mt-1 text-xs text-green-400">
+                  Coupon applied:{" "}
+                  {couponCheck.discountType === "percent"
+                    ? `${couponCheck.discountValue}% off`
+                    : `$${couponCheck.discountValue.toFixed(2)} off`}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-red-400">{couponCheck.error}</p>
+              )
+            )}
           </div>
 
           <div className="mt-3">
@@ -1054,6 +1106,12 @@ export default function BookingFlow({
               disabled={!!reservedBooking}
             />
           </div>
+
+          {giftCardCode.trim() && !reservedBooking && (
+            <p className="mt-3 text-xs text-neutral-400">
+              Your gift card balance comes off when you reserve, and the total below updates.
+            </p>
+          )}
 
           <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
             <span className="font-semibold text-white">Total due</span>
