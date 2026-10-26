@@ -167,16 +167,21 @@ export default async function AdminUserDetailPage({
           </div>
         ) : <p className="text-sm text-neutral-500">No money in or out for this customer yet.</p>}
         {unusedHours > 0 && (
-          <p className="mt-2 text-xs text-neutral-400">
-            Unused free hours: <span className="text-white">{unusedHours} hr</span>
-            {unusedSoonest && (
-              <>
-                {" "}(expire{unusedCredits.length > 1 ? " from" : "s"}{" "}
-                {new Date(unusedSoonest).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })})
-              </>
-            )}
-            . Not counted above until they are used.
-          </p>
+          <div className="mt-3 flex items-center gap-4 rounded-xl border border-brand/40 bg-brand/10 px-4 py-3">
+            <div className="text-center">
+              <p className="text-3xl font-bold leading-none text-brand">{unusedHours}</p>
+              <p className="mt-1 text-[11px] uppercase tracking-wider text-brand/80">{unusedHours === 1 ? "hour" : "hours"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Unused free hours</p>
+              <p className="text-xs text-neutral-300">
+                {unusedSoonest
+                  ? `Expire${unusedCredits.length > 1 ? " from" : "s"} ${new Date(unusedSoonest).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })}. `
+                  : "No expiry. "}
+                Not counted in the value above until they are used.
+              </p>
+            </div>
+          </div>
         )}
       </section>
 
