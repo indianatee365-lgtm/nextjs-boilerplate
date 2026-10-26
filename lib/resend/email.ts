@@ -1235,3 +1235,22 @@ ${cta}
     kind,
   })
 }
+
+// Fall 2026 league called off (lib/league/wind-down.ts). Same words as the
+// text, for a player with no phone on file. Replies reach info@.
+export async function sendLeagueCancelledEmail({ to, firstName, body }: { to: string; firstName: string; body: string }) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  const text = body.replace(/^Hi [^,]+, /, "").replace(/ - jerrod, Tee365$/, "")
+  await sendResendEmail({
+    to,
+    from: "jerrod | Tee365 <jerrod@tee365.org>",
+    subject: "Thursday Night League update, and a thank you",
+    kind: "league-called-off",
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222">
+<p>Hi ${esc(firstName)},</p>
+<p>${esc(text)}</p>
+<p>Just reply to this email, I read every one.</p>
+<p>Thanks again,<br>jerrod, Tee365</p>
+</div>`,
+  })
+}
