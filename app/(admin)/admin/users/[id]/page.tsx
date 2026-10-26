@@ -145,12 +145,13 @@ export default async function AdminUserDetailPage({
                 <ValueRow label="Grounds Crew minutes" b={value.givenAway.groundsCrew} />
                 <ValueRow label="Free membership (sign-up waived)" b={value.givenAway.freeMembership} />
                 <ValueRow label="Given away" b={value.givenAway.total} strong tone="bad" />
+                <ValueRow label="Net" b={value.net} strong tone="net" />
                 <ValueRow label="Paid with a gift card" b={value.giftCardRedeemed} muted />
                 <ValueRow label="Refunded" b={value.refunded} muted />
               </tbody>
             </table>
             <p className="mt-3 text-xs text-neutral-500">
-              Cash in is money actually collected, after refunds and gift cards. Given away is the list-price value of discounts and free time on bookings that were not cancelled. Gift card payments are shown separately because that money was already counted when the card was sold.
+              Cash in is money actually collected, after refunds and gift cards. Given away is the list-price value of discounts and free time on bookings that were not cancelled. Free hours count only once they are used. Net is cash in minus given away. Gift card payments are shown separately because that money was already counted when the card was sold.
             </p>
           </div>
         ) : <p className="text-sm text-neutral-500">No money in or out for this customer yet.</p>}
@@ -417,18 +418,22 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ValueRow({ label, b, strong, tone, muted }: { label: string; b: ValueBuckets; strong?: boolean; tone?: "good" | "bad"; muted?: boolean }) {
+function ValueRow({ label, b, strong, tone, muted }: { label: string; b: ValueBuckets; strong?: boolean; tone?: "good" | "bad" | "net"; muted?: boolean }) {
   // Lines with nothing in them ever are hidden so a casual customer's card is
   // three rows, not sixteen zeros. Totals always show.
   if (!strong && b.lifetime === 0) return null
-  const money = (n: number) => `$${n.toFixed(2)}`
-  const color = tone === "good" ? "text-green-400" : tone === "bad" ? "text-red-400" : muted ? "text-neutral-500" : "text-neutral-300"
+  // Net can go below zero, so it gets a real minus sign and is colored per
+  // column: green when the customer is ahead, red only when actually behind.
+  const money = (n: number) => (n < -0.004 ? `-$${Math.abs(n).toFixed(2)}` : `$${Math.abs(n).toFixed(2)}`)
+  const colorFor = (n: number) =>
+    tone === "net" ? (n < -0.004 ? "text-red-400" : "text-green-400")
+      : tone === "good" ? "text-green-400" : tone === "bad" ? "text-red-400" : muted ? "text-neutral-500" : "text-neutral-300"
   return (
     <tr className={strong ? "border-t border-white/10" : ""}>
       <td className={`py-1.5 pr-4 text-xs ${strong ? "font-semibold text-white" : muted ? "text-neutral-500" : "text-neutral-400"}`}>{label}</td>
-      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.mtd)}</td>
-      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.ytd)}</td>
-      <td className={`py-1.5 pl-3 text-right text-xs tabular-nums ${color} ${strong ? "font-semibold" : ""}`}>{money(b.lifetime)}</td>
+      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${colorFor(b.mtd)} ${strong ? "font-semibold" : ""}`}>{money(b.mtd)}</td>
+      <td className={`py-1.5 px-3 text-right text-xs tabular-nums ${colorFor(b.ytd)} ${strong ? "font-semibold" : ""}`}>{money(b.ytd)}</td>
+      <td className={`py-1.5 pl-3 text-right text-xs tabular-nums ${colorFor(b.lifetime)} ${strong ? "font-semibold" : ""}`}>{money(b.lifetime)}</td>
     </tr>
   )
 }

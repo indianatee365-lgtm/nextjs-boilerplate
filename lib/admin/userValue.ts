@@ -32,6 +32,10 @@ export type UserValue = {
     freeMembership: ValueBuckets
     total: ValueBuckets
   }
+  /** Cash in minus given away: the one bottom line. Added 2026-10-26 because
+   * the two totals side by side, green and red, read as "this customer costs
+   * us money" whenever the red one was bigger in a column. */
+  net: ValueBuckets
   /** Paid for with a gift card someone already bought. Not new money, so not in cashIn. */
   giftCardRedeemed: ValueBuckets
   refunded: ValueBuckets
@@ -143,6 +147,7 @@ export async function computeUserValue(
   const v: UserValue = {
     cashIn: { bookings: empty(), extensions: empty(), memberships: empty(), renewals: empty(), giftCards: empty(), total: empty() },
     givenAway: { membership: empty(), coupons: empty(), sales: empty(), veteran: empty(), freeHours: empty(), groundsCrew: empty(), freeMembership: empty(), total: empty() },
+    net: empty(),
     giftCardRedeemed: empty(),
     refunded: empty(),
     hasData: bookings.length + memberships.length + gifts.length > 0,
@@ -195,6 +200,11 @@ export async function computeUserValue(
   c.total = sum([c.bookings, c.extensions, c.memberships, c.renewals, c.giftCards])
   const g = v.givenAway
   g.total = sum([g.membership, g.coupons, g.sales, g.veteran, g.freeHours, g.groundsCrew, g.freeMembership])
+  v.net = {
+    mtd: c.total.mtd - g.total.mtd,
+    ytd: c.total.ytd - g.total.ytd,
+    lifetime: c.total.lifetime - g.total.lifetime,
+  }
   if (c.total.lifetime + g.total.lifetime > 0) v.hasData = true
   return v
 }
