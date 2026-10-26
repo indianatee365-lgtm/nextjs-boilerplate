@@ -80,7 +80,7 @@ Reply STOP to opt out, HELP for info. Msg & data rates may apply.`}
           <p className="font-medium text-white mb-1 mt-4">Access Code Reminder:</p>
           <div className="bg-white/5 border border-white/10 rounded-lg p-4 font-mono text-xs text-neutral-300 whitespace-pre-wrap">
 {`Tee365 reminder: [First Name], your session at Bay [N] starts at [Time].
-🔐 Access code: [6-digit code]
+🔐 Access code: [4-digit code]
 Reply STOP to opt out.`}
           </div>
         </section>

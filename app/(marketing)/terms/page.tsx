@@ -64,7 +64,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-2">5. Access Codes</h2>
           <p>
-            A unique 6-digit access code will be sent via SMS approximately 15 minutes before your session. This code is required to access the facility. Do not share your access code. Tee365 is not responsible for unauthorized use of shared access codes.
+            A unique 4-digit access code will be sent via SMS approximately 15 minutes before your session. This code is required to access the facility. Do not share your access code. Tee365 is not responsible for unauthorized use of shared access codes.
           </p>
         </section>
 
