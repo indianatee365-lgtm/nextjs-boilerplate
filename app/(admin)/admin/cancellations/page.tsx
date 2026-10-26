@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { filterRealCancellations, filterAbandonedCheckouts } from "@/lib/admin/cancellations"
+import RefundControl from "../bookings/RefundControl"
 
 export const metadata = { title: "Cancellations | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -206,6 +207,14 @@ export default async function AdminCancellationsPage({
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
                         {badge.text}
                       </span>
+                      {b.paid_at && Math.round(Number(b.total) * 100) > Math.round(refundAmt * 100) && (
+                        <RefundControl
+                          compact
+                          bookingId={b.id}
+                          remaining={Number(b.total) - refundAmt}
+                          customerName={b.profiles?.first_name ?? "the customer"}
+                        />
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-500">{fmtWhen(b.cancelled_at)}</td>
                   </tr>
