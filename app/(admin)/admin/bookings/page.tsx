@@ -29,7 +29,7 @@ function easternDayBoundsUtc(dateStr: string): { start: Date; end: Date } {
 export default async function AdminBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; status?: string; view?: string }>
+  searchParams: Promise<{ date?: string; status?: string; view?: string; booking?: string }>
 }) {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
@@ -136,6 +136,7 @@ export default async function AdminBookingsPage({
         blockedTimes={blockedTimes}
         selectedDate={dateStr}
         pendingMode={pendingMode}
+        initialBookingId={params.booking}
       />
     </main>
   )
