@@ -67,10 +67,27 @@ export default async function AdminBookingsPage({
       .gte("starts_at", monthStart.toISOString())
       .lt("starts_at", monthEnd.toISOString())
 
+    // Blocks layer (2026-10-26). Overlap with a day either side so a block
+    // touching the month's first or last Eastern day is never missed; the
+    // calendar works out which days each block covers.
+    const [{ data: monthBlocks }, { data: monthBays }] = await Promise.all([
+      serviceClient
+        .from("blocked_times")
+        .select("id, bay_id, starts_at, ends_at, reason")
+        .lt("starts_at", new Date(monthEnd.getTime() + 86400000).toISOString())
+        .gt("ends_at", new Date(monthStart.getTime() - 86400000).toISOString()),
+      serviceClient.from("bays").select("id, name").eq("active", true).order("number"),
+    ])
+
     return (
       <main className="mx-auto max-w-6xl px-4 py-10">
         <h1 className="text-2xl font-semibold text-white">Manage Bookings</h1>
-        <MonthCalendar bookings={monthBookings ?? []} selectedDate={dateStr} />
+        <MonthCalendar
+          bookings={monthBookings ?? []}
+          blocks={monthBlocks ?? []}
+          bays={monthBays ?? []}
+          selectedDate={dateStr}
+        />
       </main>
     )
   }
