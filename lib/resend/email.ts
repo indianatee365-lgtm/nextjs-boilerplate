@@ -240,7 +240,7 @@ function buildEmailHtml({
 
               <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px;margin-top:24px;">
                 <p style="margin:0;color:#166534;font-size:14px;line-height:1.5;">
-                  &#128274; Your 6-digit access code will be sent to your phone via SMS approximately 15 minutes before your session. You&rsquo;ll need it to enter the facility.
+                  &#128274; Your 4-digit access code will be sent to your phone via SMS approximately 15 minutes before your session. You&rsquo;ll need it to enter the facility.
                 </p>
               </div>
 ${showGuideNote ? `
