@@ -58,6 +58,17 @@ export default async function AdminUserDetailPage({
       .eq("user_id", id)
       .order("created_at", { ascending: false }),
   ])
+
+  // Free hours held but not used yet. Shown on the value card for information
+  // only: they cost nothing until a booking uses them (Jerrod, 2026-10-26).
+  const nowForCredits = new Date()
+  const unusedCredits = ((creditRows ?? []) as { hours_remaining: number | null; active: boolean | null; expires_at: string | null }[])
+    .filter((c) => c.active !== false && Number(c.hours_remaining ?? 0) > 0 && (!c.expires_at || new Date(c.expires_at) > nowForCredits))
+  const unusedHours = unusedCredits.reduce((s, c) => s + Number(c.hours_remaining ?? 0), 0)
+  const unusedSoonest = unusedCredits
+    .map((c) => c.expires_at)
+    .filter((e): e is string => Boolean(e))
+    .sort()[0] ?? null
   type CreditRow = { id: string; code: string | null; hours: number; hours_remaining: number; reason: string | null; expires_at: string | null; active: boolean; created_at: string; redeemed_at: string | null }
   type UseRow = { booking_id: string; hour_credit_id: string; hours_used: number; created_at: string; bookings: { starts_at: string; status: string; bays: { name: string } | null } | null }
   const credits = (creditRows ?? []) as CreditRow[]
@@ -144,17 +155,29 @@ export default async function AdminUserDetailPage({
                 <ValueRow label="Free hours" b={value.givenAway.freeHours} />
                 <ValueRow label="Grounds Crew minutes" b={value.givenAway.groundsCrew} />
                 <ValueRow label="Free membership (sign-up waived)" b={value.givenAway.freeMembership} />
-                <ValueRow label="Given away" b={value.givenAway.total} strong tone="bad" />
+                <ValueRow label="Discounts and free time" b={value.givenAway.total} strong tone="bad" />
                 <ValueRow label="Net" b={value.net} strong tone="net" />
                 <ValueRow label="Paid with a gift card" b={value.giftCardRedeemed} muted />
                 <ValueRow label="Refunded" b={value.refunded} muted />
               </tbody>
             </table>
             <p className="mt-3 text-xs text-neutral-500">
-              Cash in is money actually collected, after refunds and gift cards. Given away is the list-price value of discounts and free time on bookings that were not cancelled. Free hours count only once they are used. Net is cash in minus given away. Gift card payments are shown separately because that money was already counted when the card was sold.
+              Cash in is money actually collected, after refunds and gift cards. Discounts and free time is the list-price value of discounts and free hours on bookings that were not cancelled. Free hours count only once they are used. Net is cash in minus discounts and free time. Gift card payments are shown separately because that money was already counted when the card was sold.
             </p>
           </div>
         ) : <p className="text-sm text-neutral-500">No money in or out for this customer yet.</p>}
+        {unusedHours > 0 && (
+          <p className="mt-2 text-xs text-neutral-400">
+            Unused free hours: <span className="text-white">{unusedHours} hr</span>
+            {unusedSoonest && (
+              <>
+                {" "}(expire{unusedCredits.length > 1 ? " from" : "s"}{" "}
+                {new Date(unusedSoonest).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })})
+              </>
+            )}
+            . Not counted above until they are used.
+          </p>
+        )}
       </section>
 
       {/* Memberships */}
