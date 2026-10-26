@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/parties",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/league-wind-down",
+      "schedule": "7 12 28 10 *"
     }
   ]
 }
