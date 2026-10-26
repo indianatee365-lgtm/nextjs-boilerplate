@@ -14,6 +14,34 @@ interface MonthBooking {
   extension_revenue?: number | null
 }
 
+interface MonthBlock {
+  id: string
+  bay_id: string | null
+  starts_at: string
+  ends_at: string
+  reason: string | null
+}
+
+const ET = "America/Indiana/Indianapolis"
+const etKey = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { timeZone: ET })
+
+// Every Eastern calendar day a block touches. Steps 6 hours at a time so a
+// 23-hour DST day can never be skipped, and stops at the block's last instant
+// so one ending exactly at midnight does not spill onto the next day.
+function blockDayKeys(b: MonthBlock, monthFirst: string, monthLast: string): string[] {
+  const start = new Date(b.starts_at).getTime()
+  const last = new Date(b.ends_at).getTime() - 1
+  const keys = new Set<string>()
+  for (let t = start; t <= last; t += 6 * 3600 * 1000) {
+    const k = etKey(t)
+    if (k > monthLast) break
+    if (k >= monthFirst) keys.add(k)
+  }
+  const lastKey = etKey(last)
+  if (lastKey >= monthFirst && lastKey <= monthLast) keys.add(lastKey)
+  return [...keys]
+}
+
 function money(n: number): string {
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
 }
@@ -32,14 +60,19 @@ function bookingColorForDay(status: { confirmed: number; pending: number; cancel
 
 export default function MonthCalendar({
   bookings,
+  blocks = [],
+  bays = [],
   selectedDate,
 }: {
   bookings: MonthBooking[]
+  blocks?: MonthBlock[]
+  bays?: { id: string; name: string }[]
   selectedDate: string
 }) {
   const router = useRouter()
   const [showBookings, setShowBookings] = useState(true)
   const [showRevenue, setShowRevenue] = useState(true)
+  const [showBlocks, setShowBlocks] = useState(true)
   const anchor = new Date(`${selectedDate}T12:00:00`)
   const year = anchor.getFullYear()
   const month = anchor.getMonth()
@@ -78,6 +111,26 @@ export default function MonthCalendar({
   const firstOfMonth = new Date(year, month, 1)
   const startWeekday = firstOfMonth.getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  // Blocks per Eastern day: which bays ("all" for a whole-building block) and
+  // the reasons, shown on the cell and in its hover text.
+  const monthFirst = `${year}-${String(month + 1).padStart(2, "0")}-01`
+  const monthLast = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`
+  const bayName = new Map(bays.map((b) => [b.id, b.name]))
+  const dayBlocks = new Map<string, { allBays: boolean; bayNames: Set<string>; reasons: Set<string> }>()
+  for (const b of blocks) {
+    for (const k of blockDayKeys(b, monthFirst, monthLast)) {
+      const entry = dayBlocks.get(k) ?? { allBays: false, bayNames: new Set<string>(), reasons: new Set<string>() }
+      if (b.bay_id === null) entry.allBays = true
+      else entry.bayNames.add(bayName.get(b.bay_id) ?? "a bay")
+      if (b.reason?.trim()) entry.reasons.add(b.reason.trim())
+      dayBlocks.set(k, entry)
+    }
+  }
+  const blockLabel = (e: { allBays: boolean; bayNames: Set<string> }) =>
+    e.allBays || (bays.length > 0 && e.bayNames.size >= bays.length)
+      ? "All bays blocked"
+      : `${[...e.bayNames].sort().join(", ")} blocked`
 
   const cells: (string | null)[] = []
   for (let i = 0; i < startWeekday; i++) cells.push(null)
@@ -141,6 +194,15 @@ export default function MonthCalendar({
           />
           Revenue
         </label>
+        <label className="flex items-center gap-2 text-neutral-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showBlocks}
+            onChange={(e) => setShowBlocks(e.target.checked)}
+            className="h-4 w-4 rounded border-white/20 bg-white/5 accent-brand"
+          />
+          Blocks
+        </label>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500">
@@ -156,6 +218,7 @@ export default function MonthCalendar({
           const isToday = dateStr === todayStr
           const isPast = dateStr < todayStr
           const status = dayStatus.get(dateStr)
+          const blocked = showBlocks ? dayBlocks.get(dateStr) : undefined
 
           // Revenue takes the green whenever it's the layer being shown and
           // the day actually made money - Jerrod's explicit call: a
@@ -177,6 +240,7 @@ export default function MonthCalendar({
               key={dateStr}
               onClick={() => openDay(dateStr)}
               className={`aspect-square rounded-lg border p-2 text-left text-sm transition hover:opacity-80 ${color} ${isToday ? "ring-1 ring-white/40" : ""}`}
+              title={blocked ? `${blockLabel(blocked)}${blocked.reasons.size ? `: ${[...blocked.reasons].join("; ")}` : ""}` : undefined}
             >
               <div className={`font-medium ${isPast ? "text-neutral-500" : ""}`}>{dayNum}</div>
               {status && (
@@ -191,6 +255,11 @@ export default function MonthCalendar({
                   {showRevenue && hasRevenue && <div>{money(status.revenue)}</div>}
                 </div>
               )}
+              {blocked && (
+                <div className="mt-1 truncate rounded bg-violet-500/20 px-1 text-[10px] leading-tight text-violet-300">
+                  {blockLabel(blocked)}
+                </div>
+              )}
             </button>
           )
         })}
@@ -200,6 +269,9 @@ export default function MonthCalendar({
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-brand" /> {showRevenue ? "Made revenue, or has a confirmed booking" : "Has a confirmed booking"}</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400" /> Pending only</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Cancelled only</span>
+        {showBlocks && (
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-violet-400" /> Blocked time (hover a day for the reason)</span>
+        )}
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-white/20" /> Nothing to show</span>
       </div>
     </div>
