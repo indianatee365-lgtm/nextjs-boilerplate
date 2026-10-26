@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight, Plus } from "lucide-react"
 import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking, sendBookingSms, extendBookingComp } from "./actions"
+import RefundControl from "./RefundControl"
 
 // Who added the extra time. Admin extensions are free and tracked in
 // admin_extension_minutes; everything else in extension_minutes is time the
@@ -1116,6 +1117,18 @@ export default function BookingsManager({
                     <div className="flex justify-between">
                       <span className="text-neutral-500">Refunded</span>
                       <span className="text-white">{money(detailBooking.refund_amount)}</span>
+                    </div>
+                  )}
+                  {detailBooking.paid_at && detailBooking.stripe_payment_intent_id &&
+                    Math.round(Number(detailBooking.total) * 100) > Math.round(Number(detailBooking.refund_amount ?? 0) * 100) && (
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-neutral-500">Refund</span>
+                      <RefundControl
+                        key={detailBooking.id}
+                        bookingId={detailBooking.id}
+                        remaining={Number(detailBooking.total) - Number(detailBooking.refund_amount ?? 0)}
+                        customerName={detailBooking.profiles?.first_name ?? "the customer"}
+                      />
                     </div>
                   )}
                 </>

@@ -670,3 +670,87 @@ export async function extendBookingComp(bookingId: string, minutes: number) {
   // Without this the door code still stopped at the original end time.
   await extendBookingAccessToCurrentEnd(serviceClient, bookingId)
 }
+
+// Refund money kept on a booking that is already cancelled. Until 2026-10-26
+// the only refund in admin was the one built into Cancel, so a booking that
+// was cancelled without one (a customer's late cancel forfeited by the rules,
+// or a cancel made outside that button) could only be refunded in the Stripe
+// dashboard, and the site kept calling it forfeited.
+//
+// Stripe is checked first, because a refund made in the Stripe dashboard never
+// reaches this site. If the charge is already fully refunded there, the
+// booking is just marked to match and no new refund is sent.
+export async function refundCancelledBooking(bookingId: string, amount: number) {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Unauthorized")
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single()
+  if ((profile as { role: string } | null)?.role !== "admin") throw new Error("Forbidden")
+
+  const { data: booking } = await serviceClient
+    .from("bookings")
+    .select("id, status, total, refund_amount, stripe_charge_id, event_id")
+    .eq("id", bookingId)
+    .single()
+  const b = booking as {
+    id: string; status: string; total: number; refund_amount: number | null
+    stripe_charge_id: string | null; event_id: string | null
+  } | null
+  if (!b) throw new Error("Booking not found")
+  if (b.status !== "cancelled") throw new Error("Only cancelled bookings are refunded here. Cancelling a booking refunds it.")
+  if (b.event_id) throw new Error("This bay is part of a private event. Refund it from Events.")
+  if (!b.stripe_charge_id) throw new Error("This booking was never charged, so there is nothing to refund")
+  // One payment covers both bays of a two-bay booking, so a per-bay refund
+  // here could not be matched to the right share of it.
+  if ((await getBookingGroup(serviceClient, bookingId)).length > 1) {
+    throw new Error("This is a two-bay booking on one payment. Refund it from the Stripe dashboard and tell Claude to mark it.")
+  }
+
+  const alreadyCents = Math.round(Number(b.refund_amount ?? 0) * 100)
+  const remainingCents = Math.round(Number(b.total) * 100) - alreadyCents
+  const amountCents = Math.round(Number(amount) * 100)
+  if (!Number.isFinite(amountCents) || amountCents <= 0) throw new Error("Enter an amount to refund")
+  if (amountCents > remainingCents) {
+    throw new Error(`At most $${(Math.max(0, remainingCents) / 100).toFixed(2)} of this booking can still be refunded`)
+  }
+
+  const stripe = getStripe()
+  const charge = await stripe.charges.retrieve(b.stripe_charge_id)
+  const stripeLeftCents = charge.amount - charge.amount_refunded
+
+  if (stripeLeftCents <= 0) {
+    await serviceClient
+      .from("bookings")
+      .update({ refund_amount: Number(b.total), refunded_at: new Date().toISOString() })
+      .eq("id", bookingId)
+    await serviceClient.from("admin_logs").insert({
+      event: "admin-refund-synced",
+      detail: `booking=${bookingId} charge=${b.stripe_charge_id} already fully refunded in Stripe, marked here by=${user.id}`,
+    })
+    return { refunded: 0, message: "This was already refunded in Stripe. Marked as refunded here." }
+  }
+  if (amountCents > stripeLeftCents) {
+    throw new Error(`Stripe shows only $${(stripeLeftCents / 100).toFixed(2)} left to refund on this payment. Part of it was refunded in the Stripe dashboard.`)
+  }
+
+  await stripe.refunds.create(
+    { charge: b.stripe_charge_id, amount: amountCents },
+    // A double click or a retried request must never refund twice.
+    { idempotencyKey: `admin_refund_${bookingId}_${alreadyCents}_${amountCents}` },
+  )
+
+  const newRefund = (alreadyCents + amountCents) / 100
+  await serviceClient
+    .from("bookings")
+    .update({ refund_amount: newRefund, refunded_at: new Date().toISOString() })
+    .eq("id", bookingId)
+  await serviceClient.from("admin_logs").insert({
+    event: "admin-refund",
+    detail: `booking=${bookingId} charge=${b.stripe_charge_id} amount=${(amountCents / 100).toFixed(2)} total_refunded=${newRefund.toFixed(2)} by=${user.id}`,
+  })
+
+  return { refunded: amountCents / 100, message: `Refunded $${(amountCents / 100).toFixed(2)}. It shows on their card in 5 to 10 business days.` }
+}
