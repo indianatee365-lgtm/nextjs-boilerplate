@@ -83,6 +83,8 @@ export default async function AdminPage() {
     .filter(g => g.active)
     .reduce((sum, g) => sum + Number(g.balance), 0)
   const fmtMoney = (n: number) => `$${n.toFixed(2)}`
+  // Eastern calendar dates (YYYY-MM-DD) for links into Manage Bookings' day view.
+  const etDateKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Indiana/Indianapolis" })
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -116,7 +118,12 @@ export default async function AdminPage() {
 
       {/* Operational stats */}
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard icon={<Calendar size={18} />} label="Bookings today" value={String(todayCount ?? 0)} />
+        <StatCard
+          icon={<Calendar size={18} />}
+          label="Bookings today"
+          value={String(todayCount ?? 0)}
+          href={`/admin/bookings?view=day&date=${etDateKey(new Date())}`}
+        />
         <StatCard
           icon={<MessageSquare size={18} />}
           label="Communications (24h)"
@@ -279,25 +286,35 @@ export default async function AdminPage() {
                   const dateLabel = startDayET === todayDayET
                     ? "Today"
                     : startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis" })
+                  // Every cell links to the booking's detail panel in Manage
+                  // Bookings (its day view, with the panel open).
+                  const detailHref = `/admin/bookings?view=day&date=${etDateKey(startDate)}&booking=${b.id}`
+                  const cell = "block px-4 py-3"
                   return (
-                    <tr key={b.id} className="border-b border-white/5 text-neutral-300">
-                      <td className="px-4 py-3">{p ? `${p.first_name} ${p.last_name}` : "N/A"}</td>
-                      <td className="px-4 py-3">{bay?.name}</td>
-                      <td className="px-4 py-3">
-                        <span className={dateLabel === "Today" ? "text-white font-medium" : ""}>{dateLabel}</span>
+                    <tr key={b.id} className="border-b border-white/5 text-neutral-300 transition hover:bg-white/[0.04]">
+                      <td><Link href={detailHref} className={cell}>{p ? `${p.first_name} ${p.last_name}` : "N/A"}</Link></td>
+                      <td><Link href={detailHref} className={cell}>{bay?.name}</Link></td>
+                      <td>
+                        <Link href={detailHref} className={cell}>
+                          <span className={dateLabel === "Today" ? "text-white font-medium" : ""}>{dateLabel}</span>
+                        </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        {startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
-                        {" – "}
-                        {new Date(b.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                      <td>
+                        <Link href={detailHref} className={cell}>
+                          {startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                          {" – "}
+                          {new Date(b.ends_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })}
+                        </Link>
                       </td>
-                      <td className="px-4 py-3">${Number(b.total).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          b.status === "confirmed" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
-                        }`}>
-                          {b.status}
-                        </span>
+                      <td><Link href={detailHref} className={cell}>${Number(b.total).toFixed(2)}</Link></td>
+                      <td>
+                        <Link href={detailHref} className={cell}>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            b.status === "confirmed" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
+                          }`}>
+                            {b.status}
+                          </span>
+                        </Link>
                       </td>
                     </tr>
                   )

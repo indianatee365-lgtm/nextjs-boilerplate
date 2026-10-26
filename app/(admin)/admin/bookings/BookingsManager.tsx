@@ -146,12 +146,16 @@ export default function BookingsManager({
   blockedTimes = [],
   selectedDate,
   pendingMode = false,
+  initialBookingId,
 }: {
   bookings: Booking[]
   bays: Bay[]
   blockedTimes?: BlockedTime[]
   selectedDate: string
   pendingMode?: boolean
+  // ?booking=<id>: open that booking's detail panel on load (links from the
+  // dashboard's Upcoming bookings list).
+  initialBookingId?: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -180,7 +184,9 @@ export default function BookingsManager({
   })
   const [statusFilter, setStatusFilter] = useState<"active" | "pending" | "cancelled" | "all">("active")
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
-  const [detailBooking, setDetailBooking] = useState<Booking | null>(null)
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(
+    () => (initialBookingId ? bookings.find((b) => b.id === initialBookingId) ?? null : null),
+  )
 
   // Clear the compose box and any result line whenever a different booking is
   // opened, so a half-typed message or a stale "Sent" never carries over onto
