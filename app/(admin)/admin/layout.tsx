@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { LayoutDashboard, ExternalLink, Phone, MessageSquare, ClipboardList, DollarSign, Users, Settings, Trophy, CalendarDays, Ticket } from "lucide-react"
+import { LayoutDashboard, ExternalLink, Phone, MessageSquare, DollarSign, Users, Settings, Trophy, CalendarCheck, UserCircle } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +13,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <LayoutDashboard size={15} />
               Admin Dashboard
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
+            <Link
+              href="/admin/bookings"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <CalendarCheck size={13} />
+              Manage Bookings
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
+            <Link
+              href="/admin/users"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <UserCircle size={13} />
+              Users
             </Link>
             <span className="text-neutral-700 hidden sm:inline">·</span>
             <Link
@@ -29,14 +45,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <MessageSquare size={13} />
               SMS
-            </Link>
-            <span className="text-neutral-700 hidden sm:inline">·</span>
-            <Link
-              href="/admin/incidents"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
-            >
-              <ClipboardList size={13} />
-              Incidents
             </Link>
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <Link
@@ -61,22 +69,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <Settings size={13} />
               Settings
-            </Link>
-            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
-            <Link
-              href="/admin/events"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
-            >
-              <CalendarDays size={13} />
-              Events
-            </Link>
-            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
-            <Link
-              href="/admin/tickets"
-              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
-            >
-              <Ticket size={13} />
-              Parties
             </Link>
             <span className="text-neutral-700 hidden sm:inline">&middot;</span>
             <Link
