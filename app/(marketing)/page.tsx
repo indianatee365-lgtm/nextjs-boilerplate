@@ -5,6 +5,7 @@ import FeatureBand from "@/app/components/sections/FeatureBand"
 import Info from "@/app/components/sections/Info"
 import LeagueBand from "@/app/components/sections/LeagueBand"
 import LocalSEO from "@/app/components/sections/LocalSEO"
+import Reviews from "@/app/components/sections/Reviews"
 import PageContainer from "@/app/components/PageContainer"
 
 // The league band reads the leagues row; refresh every 5 minutes.
@@ -21,6 +22,7 @@ export default function HomePage() {
         <div className="space-y-16">
           <LeagueBand />
           <HowItWorks />
+          <Reviews />
           <TechBand />
           <LocalSEO />
           <FeatureBand />
