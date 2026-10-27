@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendFounderMessage } from "@/lib/resend/email"
+import { sendReviewRequestSms } from "@/lib/telnyx/sms"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   const { data: sessions, error } = await serviceClient
     .from("bookings")
-    .select("id, user_id, ends_at, bays(name), profiles!user_id(first_name)")
+    .select("id, user_id, ends_at, bays(name), profiles!user_id(first_name, phone, sms_consent, review_sms_sent_at, google_review_at)")
     .eq("status", "confirmed")
     .is("feedback_email_sent_at", null)
     // One feedback email per group: the second bay of a two-bay booking is
@@ -53,7 +54,33 @@ export async function GET(request: NextRequest) {
 
   for (const booking of sessions ?? []) {
     const bay = booking.bays as { name: string } | null
-    const profile = booking.profiles as { first_name: string } | null
+    const profile = booking.profiles as {
+      first_name: string; phone: string | null; sms_consent: boolean
+      review_sms_sent_at: string | null; google_review_at: string | null
+    } | null
+
+    // One review text per customer, ever (Jerrod 2026-10-27): first-timers
+    // after their first session, regulars after their next one, and never
+    // anyone who already left a Google review or didn't consent to texts.
+    // Runs before the email so a missing email address doesn't skip it.
+    if (profile?.phone && profile.sms_consent && !profile.review_sms_sent_at && !profile.google_review_at) {
+      // Claim first: only the run that flips the column sends, so two
+      // overlapping bookings can't double-text the same person.
+      const { data: claimed } = await serviceClient
+        .from("profiles")
+        .update({ review_sms_sent_at: new Date().toISOString() })
+        .eq("id", booking.user_id)
+        .is("review_sms_sent_at", null)
+        .select("id")
+      if (claimed?.length) {
+        try {
+          await sendReviewRequestSms({ to: profile.phone, firstName: profile.first_name ?? "there", reviewUrl: GOOGLE_REVIEW_URL })
+        } catch (e) {
+          await logFailure(serviceClient, "review-request-sms-FAILED",
+            `booking=${booking.id} user=${booking.user_id} err=${String(e).slice(0, 200)}`)
+        }
+      }
+    }
 
     const { data: { user: authUser } } = await serviceClient.auth.admin.getUserById(booking.user_id)
     if (!authUser?.email) {
