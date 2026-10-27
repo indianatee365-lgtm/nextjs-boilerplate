@@ -8,7 +8,7 @@ import { Instagram, Facebook, Music2, MapPin } from "lucide-react";
 // Book Now and stopped making sense the day we opened.
 const SOCIALS = [
   { href: "https://www.instagram.com/tee365.mishawaka", label: "Tee365 on Instagram", Icon: Instagram },
-  { href: "https://www.facebook.com/people/Tee365/61578292102933/", label: "Tee365 on Facebook", Icon: Facebook },
+  { href: "https://www.facebook.com/tee365.mishawaka", label: "Tee365 on Facebook", Icon: Facebook },
   { href: "https://www.tiktok.com/@tee365_mishawaka", label: "Tee365 on TikTok", Icon: Music2 },
   { href: "https://share.google/d8bNieAsQUqaYomQZ", label: "Tee365 on Google Maps", Icon: MapPin },
 ];
