@@ -1558,6 +1558,8 @@ export type Database = {
           veteran_verification_source: string | null
           role: string
           sms_consent: boolean
+          review_sms_sent_at: string | null
+          google_review_at: string | null
           stripe_customer_id: string | null
         }
         Insert: {
@@ -1582,6 +1584,8 @@ export type Database = {
           veteran_verification_source?: string | null
           role?: string
           sms_consent?: boolean
+          review_sms_sent_at?: string | null
+          google_review_at?: string | null
           stripe_customer_id?: string | null
         }
         Update: {
@@ -1606,6 +1610,8 @@ export type Database = {
           veteran_verification_source?: string | null
           role?: string
           sms_consent?: boolean
+          review_sms_sent_at?: string | null
+          google_review_at?: string | null
           stripe_customer_id?: string | null
         }
         Relationships: []

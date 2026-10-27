@@ -486,6 +486,16 @@ export async function sendBookingPaymentFailedSms({
   )
 }
 
+// Sent once per customer ever, after a session, unless they are already
+// known to have left a Google review (see post-session-feedback cron).
+export async function sendReviewRequestSms({ to, firstName, reviewUrl }: { to: string; firstName: string; reviewUrl: string }) {
+  await sendSms(
+    to,
+    `Thanks for playing at Tee365, ${firstName}! If you had a good time, a quick Google review helps us a ton: ${reviewUrl}\nReply STOP to opt out.`,
+    "review-request"
+  )
+}
+
 export async function sendBookingCancellationSms({
   to,
   firstName,
