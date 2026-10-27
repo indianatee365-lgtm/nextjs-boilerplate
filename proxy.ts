@@ -10,6 +10,8 @@ export async function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.stripe.com https://www.google-analytics.com",
     "font-src 'self'",
+    // Call recordings: the admin <audio> player follows a redirect to Vapi's signed storage URL.
+    "media-src 'self' https://*.r2.cloudflarestorage.com https://storage.vapi.ai",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://r.stripe.com https://errors.stripe.com https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com",
     "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
     "object-src 'none'",

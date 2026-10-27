@@ -717,16 +717,20 @@ async function fetchVapiCallTimes(callId: string): Promise<{ startedAt?: string;
 }
 
 async function resolveCallTimes(
-  call: Record<string, unknown> | undefined
+  msg: Record<string, unknown>
 ): Promise<{ startedAt?: string; endedAt?: string; durationSeconds: number | null }> {
-  let startedAt = call?.startedAt as string | undefined
-  let endedAt = call?.endedAt as string | undefined
+  const call = msg.call as Record<string, unknown> | undefined
+  // The report also carries the times at its top level, where call.startedAt is often missing.
+  let startedAt = (call?.startedAt ?? msg.startedAt) as string | undefined
+  let endedAt = (call?.endedAt ?? msg.endedAt) as string | undefined
 
   if ((!startedAt || !endedAt) && call?.id) {
     const fetched = await fetchVapiCallTimes(call.id as string)
     startedAt = startedAt ?? fetched.startedAt
     endedAt = endedAt ?? fetched.endedAt
   }
+  // Last resort, so the call still sorts and shows a time on /admin/phone.
+  startedAt = startedAt ?? (call?.createdAt as string | undefined)
 
   const durationSeconds = startedAt && endedAt
     ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
@@ -1040,7 +1044,7 @@ export async function POST(request: NextRequest) {
 
   if (msg.type === "end-of-call-report") {
     const callerPhone = msg.call?.customer?.number ?? "unknown"
-    const times = await resolveCallTimes(msg.call)
+    const times = await resolveCallTimes(msg)
     await persistCallLog(msg, times)
     await forwardToN8n({
       type: "vapi-call-ended",
