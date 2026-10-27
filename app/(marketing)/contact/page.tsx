@@ -68,7 +68,7 @@ export default function ContactPage() {
                 @tee365.mishawaka
               </a>
               <a
-                href="https://www.facebook.com/people/Tee365/61578292102933/"
+                href="https://www.facebook.com/tee365.mishawaka"
                 target="_blank"
                 rel="noreferrer noopener"
                 className="flex items-center gap-3 text-sm text-neutral-300 transition hover:text-white"
