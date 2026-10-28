@@ -32,6 +32,14 @@ interface ShotRequestBody {
   raw?: Record<string, unknown> | null
 }
 
+// Uneekor sends TotalSpin as 0 on every shot (seen on all bays since at least
+// 2026-09-18) but fills BackSpin and SideSpin, so derive the total from those.
+function totalSpin(body: ShotRequestBody): number | null {
+  if (body.totalSpin) return body.totalSpin
+  if (body.backSpin == null || body.sideSpin == null) return body.totalSpin ?? null
+  return Math.hypot(body.backSpin, body.sideSpin)
+}
+
 export async function POST(request: NextRequest) {
   let body: ShotRequestBody
   try {
@@ -134,7 +142,7 @@ export async function POST(request: NextRequest) {
       ball_speed_mph: body.ballSpeedMph ?? null,
       club_speed_mph: body.clubSpeedMph ?? null,
       carry_yards: body.carryYards ?? null,
-      total_spin: body.totalSpin ?? null,
+      total_spin: totalSpin(body),
       back_spin: body.backSpin ?? null,
       side_spin: body.sideSpin ?? null,
       hla: body.hla ?? null,
