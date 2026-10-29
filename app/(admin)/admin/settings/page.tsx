@@ -70,6 +70,18 @@ export default async function AdminSettingsPage() {
           description="Sends your phone a text the moment a bay's been ready for several minutes with zero shots captured - catches a stuck customer while it's happening, not after they've already given up."
           initialValue={settingsMap.notify_no_shot_alert ?? true}
         />
+        <SettingsToggle
+          settingKey="notify_door_entries"
+          label="Text me when a customer enters the building"
+          description="Sends your phone a text the first time a customer's door code opens the front door for a booking, with their name and bay. Re-entries during the same booking never text twice."
+          initialValue={settingsMap.notify_door_entries ?? true}
+        />
+        <SettingsToggle
+          settingKey="notify_door_entries_first_visit_only"
+          label="Only text me for first visits"
+          description="Narrows the door text above to customers on their first ever booking, so you know who to look for on the cameras. Off: you get a text for every customer's first entry."
+          initialValue={settingsMap.notify_door_entries_first_visit_only ?? true}
+        />
       </div>
     </main>
   )
