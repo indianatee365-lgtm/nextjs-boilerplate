@@ -219,3 +219,27 @@ export async function revokeBayAccess(userId: string, accessPolicyId: string | n
     await unifiCall(apiUrl, headers, `/access_policies/schedules/${scheduleId}`, "DELETE")
   }
 }
+
+/**
+ * Door entry alerts (2026-10-29): subscribe a URL to every door unlock.
+ * Needs UniFi Access 2.2.10 or later. Any endpoint already registered at the
+ * same URL is removed first, so running this again never leaves UniFi posting
+ * to us twice. Returns the new endpoint's id and its signing secret.
+ */
+export async function registerDoorUnlockWebhook(endpoint: string): Promise<{ id: string; secret: string }> {
+  const apiUrl   = process.env.UNIFI_ACCESS_API_URL
+  const apiToken = process.env.UNIFI_ACCESS_TOKEN
+  if (!apiUrl || !apiToken) throw new Error("UniFi Access is not configured")
+
+  const headers = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" }
+  const existing = await unifiCall<Array<{ id: string; endpoint: string }> | null>(apiUrl, headers, "/webhooks/endpoints", "GET")
+  for (const e of existing ?? []) {
+    if (e.endpoint === endpoint) await unifiCall(apiUrl, headers, `/webhooks/endpoints/${e.id}`, "DELETE")
+  }
+
+  return unifiCall<{ id: string; secret: string }>(apiUrl, headers, "/webhooks/endpoints", "POST", {
+    name: "tee365-door-entries",
+    endpoint,
+    events: ["access.door.unlock"],
+  })
+}
