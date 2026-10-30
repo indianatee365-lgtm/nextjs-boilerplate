@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { LayoutDashboard, ExternalLink, Phone, MessageSquare, DollarSign, Users, Settings, Trophy, CalendarCheck, UserCircle } from "lucide-react"
+import { LayoutDashboard, ExternalLink, Phone, MessageSquare, DollarSign, Users, Settings, Trophy, CalendarCheck, UserCircle, DoorOpen } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -77,6 +77,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <Trophy size={13} />
               League
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">&middot;</span>
+            <Link
+              href="/admin/door"
+              className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <DoorOpen size={13} />
+              Door Log
             </Link>
             <span className="text-neutral-700 hidden sm:inline">·</span>
             <span className="text-xs text-neutral-600 hidden sm:inline">tee365.org</span>

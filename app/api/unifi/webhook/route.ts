@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createHmac, timingSafeEqual } from "crypto"
 import { createServiceClient } from "@/lib/supabase/server"
 import { notifyOwner, logFailure, getAdminSetting } from "@/lib/observability/notify"
+import { describeUnlockMethod } from "@/lib/access-control/door-entries"
 
 // UniFi Access posts every door unlock here (registered once through
 // /api/admin/door-webhook, needs Access 2.2.10+). A booking's PIN belongs to
@@ -14,6 +15,8 @@ import { notifyOwner, logFailure, getAdminSetting } from "@/lib/observability/no
 // on /admin/settings: notify_door_entries (all alerts) and
 // notify_door_entries_first_visit_only (Jerrod 2026-10-29: he already watches
 // most first-timers on the cameras, this narrows down who to look for).
+// A third switch, notify_all_door_unlocks, texts every unlock of any kind
+// (app, owner code, re-entries) and overrides the other two.
 
 const MAX_SIGNATURE_AGE_SECONDS = 300
 
@@ -108,10 +111,11 @@ export async function POST(request: NextRequest) {
   }
 
   const shouldAlert =
-    !!booking &&
-    !alreadyAlerted &&
-    (await getAdminSetting(db, "notify_door_entries")) &&
-    (firstVisit || !(await getAdminSetting(db, "notify_door_entries_first_visit_only")))
+    (await getAdminSetting(db, "notify_all_door_unlocks")) ||
+    (!!booking &&
+      !alreadyAlerted &&
+      (await getAdminSetting(db, "notify_door_entries")) &&
+      (firstVisit || !(await getAdminSetting(db, "notify_door_entries_first_visit_only"))))
 
   // unifi_event_id is unique, so a UniFi retry of the same event stops here.
   const { error: insertErr } = await db.from("door_entries").insert({
@@ -129,15 +133,19 @@ export async function POST(request: NextRequest) {
     await logFailure(db, "door-entry-log-FAILED", `event=${event.event_object_id} err=${insertErr.message.slice(0, 200)}`)
   }
 
-  if (shouldAlert && booking) {
-    const name = [booking.profiles?.first_name, booking.profiles?.last_name].filter(Boolean).join(" ") || "A customer"
+  if (shouldAlert) {
+    const name =
+      [booking?.profiles?.first_name, booking?.profiles?.last_name].filter(Boolean).join(" ") ||
+      actor?.name ||
+      "Someone"
     const time = new Date().toLocaleString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       timeZone: "America/Indiana/Indianapolis",
     })
     await notifyOwner(
-      `Door: ${name} just came in for ${booking.bays?.name ?? "their bay"}, ${time}.${firstVisit ? " First visit." : ""}`,
+      `Door: ${name} came in by ${describeUnlockMethod(obj?.authentication_type)}` +
+        `${booking?.bays?.name ? ` for ${booking.bays.name}` : ""}, ${time}.${firstVisit ? " First visit." : ""}`,
     )
   }
 
