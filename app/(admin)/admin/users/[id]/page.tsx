@@ -8,6 +8,7 @@ import ReinstateBlockToggle from "./ReinstateBlockToggle"
 import BanCustomerPanel from "./BanCustomerPanel"
 import VeteranToggle from "./VeteranToggle"
 import DeleteAccountPanel from "./DeleteAccountPanel"
+import GrantHoursForm from "./GrantHoursForm"
 import { VETERAN_DISCOUNT_PERCENT } from "@/lib/pricing/engine"
 import { computeUserValue, type ValueBuckets } from "@/lib/admin/userValue"
 
@@ -295,6 +296,7 @@ export default async function AdminUserDetailPage({
             </table>
           </div>
         ) : <p className="text-sm text-neutral-500">No free hours on this account.</p>}
+        <GrantHoursForm userId={id} />
       </section>
 
       {/* Account controls. Deliberately their own section: a ban and a veteran
