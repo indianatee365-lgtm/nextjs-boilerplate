@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { requireAdmin } from "@/lib/admin/guard"
 import { describeUnlockMethod } from "@/lib/access-control/door-entries"
+import DoorRefresher from "./DoorRefresher"
 
 export const metadata = { title: "Door Log | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -33,6 +34,7 @@ export default async function AdminDoorPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
+      <DoorRefresher />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Door Log</h1>
