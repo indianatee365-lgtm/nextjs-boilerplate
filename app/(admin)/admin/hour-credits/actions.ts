@@ -75,19 +75,51 @@ export async function grantHoursByEmail(formData: FormData): Promise<void> {
   const target = usersPage.users.find((u: { email?: string }) => u.email?.toLowerCase() === email)
   if (!target) throw new Error(`No account found for ${email}`)
 
+  await insertGrant(serviceClient, user.id, target.id, hours, reason, expiresAt)
+  revalidatePath("/admin/hour-credits")
+}
+
+/**
+ * Same direct grant, by account id, for the Grant hours form on
+ * /admin/users/[id] (no email lookup needed there).
+ */
+export async function grantHoursToUser(formData: FormData): Promise<void> {
+  const { user, serviceClient } = await requireAdmin()
+
+  const userId = ((formData.get("user_id") as string) || "").trim()
+  const hours = parseFloat(formData.get("hours") as string)
+  const reason = ((formData.get("reason") as string) || "").trim()
+  const expiresAt = formData.get("expires_at")
+    ? new Date(formData.get("expires_at") as string).toISOString()
+    : null
+
+  if (!userId) throw new Error("Missing account")
+  if (isNaN(hours) || hours <= 0 || hours > 24) throw new Error("Hours must be between 0 and 24")
+
+  await insertGrant(serviceClient, user.id, userId, hours, reason, expiresAt)
+  revalidatePath(`/admin/users/${userId}`)
+  revalidatePath("/admin/hour-credits")
+}
+
+async function insertGrant(
+  serviceClient: Awaited<ReturnType<typeof createServiceClient>>,
+  adminId: string,
+  userId: string,
+  hours: number,
+  reason: string,
+  expiresAt: string | null,
+): Promise<void> {
   const { error } = await serviceClient.from("hour_credits").insert({
-    user_id: target.id,
+    user_id: userId,
     hours,
     hours_remaining: hours,
     reason: reason || null,
     expires_at: expiresAt,
     active: true,
-    created_by: user.id,
+    created_by: adminId,
     redeemed_at: new Date().toISOString(),
   })
   if (error) throw new Error("Failed to grant hours")
-
-  revalidatePath("/admin/hour-credits")
 }
 
 export async function toggleHourCredit(id: string, active: boolean): Promise<void> {
