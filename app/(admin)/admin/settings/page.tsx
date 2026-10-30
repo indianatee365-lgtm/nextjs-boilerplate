@@ -82,6 +82,12 @@ export default async function AdminSettingsPage() {
           description="Narrows the door text above to customers on their first ever booking, so you know who to look for on the cameras. Off: you get a text for every customer's first entry."
           initialValue={settingsMap.notify_door_entries_first_visit_only ?? true}
         />
+        <SettingsToggle
+          settingKey="notify_all_door_unlocks"
+          label="Text me on every door unlock"
+          description="Sends a text for every unlock of any kind: customer codes, re-entries, the app, your own code. Overrides the two door switches above. Every unlock is always listed on the Door Log page either way."
+          initialValue={settingsMap.notify_all_door_unlocks === true}
+        />
       </div>
     </main>
   )
