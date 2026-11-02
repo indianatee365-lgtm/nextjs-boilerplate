@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 // /admin/sales/extensions would have 404'd while the dashboard happily linked
 // to it. Derived from the same constant the other two views use.
 const SOURCES = REVENUE_SOURCE_ORDER
-const PERIODS = ["today", "week", "mtd", "ytd"] as const
+const PERIODS = ["today", "week", "mtd", "lastMonth", "ytd"] as const
 
 export default async function AdminSalesSourcePage({
   params, searchParams,

@@ -1,7 +1,12 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { computeRevenue, computeMrr, mrrContribution, REVENUE_SOURCE_LABELS, REVENUE_SOURCE_ORDER } from "@/lib/admin/revenue"
+import {
+  computeRevenue, computeMrr, mrrContribution,
+  COMPARISON_LABELS, PERIOD_LABELS, REVENUE_SOURCE_LABELS, REVENUE_SOURCE_ORDER,
+  type PeriodKey,
+} from "@/lib/admin/revenue"
+import { computeSalesInsights, DAYPARTS, WEEKDAYS } from "@/lib/admin/monthly"
 
 export const metadata = { title: "Sales | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -21,6 +26,23 @@ type Membership = {
   profiles: { first_name: string; last_name: string } | null
 }
 
+const fmt = (n: number) => `$${n.toFixed(2)}`
+const fmt0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`
+
+function Change({ now, before }: { now: number; before: number | null }) {
+  if (before === null) return null
+  if (before === 0) {
+    return now > 0 ? <span className="text-green-400">new</span> : <span className="text-neutral-600">no change</span>
+  }
+  const pct = ((now - before) / before) * 100
+  const up = pct >= 0
+  return (
+    <span className={up ? "text-green-400" : "text-red-400"}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%
+    </span>
+  )
+}
+
 export default async function AdminSalesPage() {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
@@ -29,8 +51,9 @@ export default async function AdminSalesPage() {
   const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).single()
   if ((profile as { role: string } | null)?.role !== "admin") redirect("/account")
 
-  const [revenue, { data: subsRaw }] = await Promise.all([
+  const [revenue, insights, { data: subsRaw }] = await Promise.all([
     computeRevenue(serviceClient),
+    computeSalesInsights(serviceClient),
     serviceClient
       .from("memberships")
       .select(`id, status, started_at, current_period_end, plan_type, stripe_subscription_id,
@@ -42,24 +65,18 @@ export default async function AdminSalesPage() {
   ])
 
   const subs = (subsRaw ?? []) as Membership[]
-  const fmt = (n: number) => `$${n.toFixed(2)}`
 
-  const periods = [
-    { key: "today" as const, label: "Today" },
-    { key: "week" as const, label: "Last 7 days" },
-    { key: "mtd" as const, label: "Month to date" },
-    { key: "ytd" as const, label: "Year to date" },
-  ]
+  const periods: PeriodKey[] = ["today", "week", "mtd", "lastMonth", "ytd"]
 
   // Every cell links to /admin/sales/[source] so a number that looks wrong can
   // be opened to see the individual rows behind it, including the ones
   // deliberately excluded from revenue and why.
   // Order and labels both come from lib/admin/revenue.ts so this page cannot
-  // drift out of agreement with the dashboard about either.
-  const sourceRows = REVENUE_SOURCE_ORDER.map((source) => ({
-    source,
-    label: REVENUE_SOURCE_LABELS[source],
-  }))
+  // drift out of agreement with the dashboard about either. Sources with no
+  // money yet this year or last month are hidden until they earn something.
+  const sourceRows = REVENUE_SOURCE_ORDER
+    .filter((source) => periods.some((p) => revenue[source][p] > 0))
+    .map((source) => ({ source, label: REVENUE_SOURCE_LABELS[source] }))
 
   const statusBadge = (s: string) => {
     if (s === "active") return "bg-green-500/20 text-green-400"
@@ -72,6 +89,10 @@ export default async function AdminSalesPage() {
   // renew. See lib/admin/revenue.ts for the rules and the reason on each row.
   const { mrr, deferred, billingCount, excludedCount } = computeMrr(subs)
 
+  const { months, busiest } = insights
+  const monthSources = REVENUE_SOURCE_ORDER.filter((s) => months.some((m) => m.revenue[s] > 0))
+  const maxBusy = Math.max(...busiest.hours.flat(), 0.0001)
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -83,11 +104,20 @@ export default async function AdminSalesPage() {
 
       {/* Revenue summary */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 mb-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           {periods.map(p => (
-            <div key={p.key}>
-              <p className="text-xs text-neutral-500 uppercase tracking-widest">{p.label}</p>
-              <p className="mt-1 text-3xl font-bold text-white">{fmt(revenue.total[p.key])}</p>
+            <div key={p}>
+              <p className="text-xs text-neutral-500 uppercase tracking-widest">{PERIOD_LABELS[p]}</p>
+              <p className="mt-1 text-3xl font-bold text-white">{fmt(revenue.total[p])}</p>
+              {COMPARISON_LABELS[p] && revenue.previous[p] !== null && (
+                <p className="mt-1 text-xs text-neutral-500">
+                  <Change now={revenue.total[p]} before={revenue.previous[p]} />{" "}
+                  {COMPARISON_LABELS[p]} ({fmt0(revenue.previous[p] ?? 0)})
+                </p>
+              )}
+              {p === "mtd" && insights.projectedMonth !== null && (
+                <p className="mt-0.5 text-xs text-neutral-500">On pace for {fmt0(insights.projectedMonth)}</p>
+              )}
             </div>
           ))}
         </div>
@@ -99,7 +129,7 @@ export default async function AdminSalesPage() {
           <thead>
             <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
               <th className="px-4 py-3">Source</th>
-              {periods.map(p => <th key={p.key} className="px-4 py-3 text-right">{p.label}</th>)}
+              {periods.map(p => <th key={p} className="px-4 py-3 text-right">{PERIOD_LABELS[p]}</th>)}
             </tr>
           </thead>
           <tbody className="text-neutral-300">
@@ -107,13 +137,13 @@ export default async function AdminSalesPage() {
               <tr key={row.source} className="border-t border-white/5 hover:bg-white/[0.02]">
                 <td className="px-4 py-3">{row.label}</td>
                 {periods.map(p => (
-                  <td key={p.key} className="px-4 py-0 text-right">
+                  <td key={p} className="px-4 py-0 text-right">
                     <Link
-                      href={`/admin/sales/${row.source}?period=${p.key}`}
+                      href={`/admin/sales/${row.source}?period=${p}`}
                       className="block px-0 py-3 hover:text-white hover:underline"
-                      title={`See what makes up ${row.label} for ${p.label.toLowerCase()}`}
+                      title={`See what makes up ${row.label} for ${PERIOD_LABELS[p].toLowerCase()}`}
                     >
-                      {fmt(revenue[row.source][p.key])}
+                      {fmt(revenue[row.source][p])}
                     </Link>
                   </td>
                 ))}
@@ -121,8 +151,138 @@ export default async function AdminSalesPage() {
             ))}
             <tr className="border-t border-white/10 font-semibold text-white bg-white/[0.03]">
               <td className="px-4 py-3">Total</td>
-              {periods.map(p => <td key={p.key} className="px-4 py-3 text-right">{fmt(revenue.total[p.key])}</td>)}
+              {periods.map(p => <td key={p} className="px-4 py-3 text-right">{fmt(revenue.total[p])}</td>)}
             </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Month by month */}
+      <h2 className="text-lg font-semibold text-white mb-1">Month by month</h2>
+      <p className="text-xs text-neutral-500 mb-4">The current month is to date. Change compares each full month with the one before it.</p>
+      <div className="rounded-xl border border-white/10 overflow-x-auto mb-6">
+        <table className="w-full text-sm whitespace-nowrap">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
+              <th className="px-4 py-3">Month</th>
+              <th className="px-4 py-3 text-right">Revenue</th>
+              <th className="px-4 py-3 text-right">Change</th>
+              <th className="px-4 py-3 text-right" title="Bookings played, not counting cancellations or admin tests">Sessions</th>
+              <th className="px-4 py-3 text-right">Bay hours</th>
+              <th className="px-4 py-3 text-right" title="Bay hours played out of 4 bays x 24 hours a day">Utilization</th>
+              <th className="px-4 py-3 text-right" title="Bay booking and extension revenue per bay hour played">Per bay hour</th>
+              <th className="px-4 py-3 text-right" title="Average cash collected per paid booking">Avg booking</th>
+              <th className="px-4 py-3 text-right" title="People who played that month, and how many of them were playing for the first time">Customers (new)</th>
+              <th className="px-4 py-3 text-right" title="Member, coupon, promo, veteran, free-hour and Grounds Crew discounts given">Discounts</th>
+              <th className="px-4 py-3 text-right" title="Bookings cancelled that month, and what was refunded">Cancelled</th>
+            </tr>
+          </thead>
+          <tbody className="text-neutral-300">
+            {months.map((m, i) => {
+              const prior = months[i + 1]
+              return (
+                <tr key={m.key} className="border-t border-white/5 hover:bg-white/[0.02]">
+                  <td className="px-4 py-3 text-white font-medium">
+                    {m.label}{m.partial && <span className="ml-2 text-xs text-neutral-500">to date</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-white font-semibold">{fmt(m.total)}</td>
+                  <td className="px-4 py-3 text-right text-xs">
+                    {m.partial
+                      ? (insights.projectedMonth !== null ? <span className="text-neutral-500">pace {fmt0(insights.projectedMonth)}</span> : <span className="text-neutral-600">-</span>)
+                      : prior ? <Change now={m.total} before={prior.total} /> : <span className="text-neutral-600">-</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right">{m.sessions}</td>
+                  <td className="px-4 py-3 text-right">{m.bayHours.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-right">{m.utilization.toFixed(1)}%</td>
+                  <td className="px-4 py-3 text-right">{fmt(m.revenuePerBayHour)}</td>
+                  <td className="px-4 py-3 text-right">{fmt(m.avgBooking)}</td>
+                  <td className="px-4 py-3 text-right">{m.customers} <span className="text-neutral-500">({m.newCustomers})</span></td>
+                  <td className="px-4 py-3 text-right">{fmt(m.discounts)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {m.cancellations}
+                    {m.refunds > 0 && <span className="text-neutral-500"> ({fmt(m.refunds)})</span>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Revenue by source per month */}
+      <div className="rounded-xl border border-white/10 overflow-x-auto mb-10">
+        <table className="w-full text-sm whitespace-nowrap">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
+              <th className="px-4 py-3">Source</th>
+              {months.map(m => <th key={m.key} className="px-4 py-3 text-right">{m.label}</th>)}
+            </tr>
+          </thead>
+          <tbody className="text-neutral-300">
+            {monthSources.map(s => (
+              <tr key={s} className="border-t border-white/5">
+                <td className="px-4 py-3">{REVENUE_SOURCE_LABELS[s]}</td>
+                {months.map(m => <td key={m.key} className="px-4 py-3 text-right">{fmt(m.revenue[s])}</td>)}
+              </tr>
+            ))}
+            <tr className="border-t border-white/10 font-semibold text-white bg-white/[0.03]">
+              <td className="px-4 py-3">Total</td>
+              {months.map(m => <td key={m.key} className="px-4 py-3 text-right">{fmt(m.total)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Customers and what is owed */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+        {[
+          { label: "Customers all time", value: insights.customersAllTime.toLocaleString("en-US"), hint: "People who have played at least once" },
+          { label: "Repeat customers", value: `${insights.repeatRate.toFixed(0)}%`, hint: "Played more than once" },
+          { label: "Gift card balance owed", value: fmt(insights.giftCardBalance), hint: "Unspent on purchased cards" },
+          { label: "Comp card balance", value: fmt(insights.compGiftCardBalance), hint: "Unspent on cards you issued" },
+          { label: "Free hours owed", value: insights.creditHoursOutstanding.toFixed(1), hint: "Unused, not expired" },
+        ].map(c => (
+          <div key={c.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs text-neutral-500 uppercase tracking-widest">{c.label}</p>
+            <p className="mt-1 text-2xl font-bold text-white">{c.value}</p>
+            <p className="mt-1 text-xs text-neutral-500">{c.hint}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Busiest times */}
+      <h2 className="text-lg font-semibold text-white mb-1">Busiest times</h2>
+      <p className="text-xs text-neutral-500 mb-4">
+        Average bay hours played per week over the last {busiest.weeks} full weeks, by when the session started.
+      </p>
+      <div className="rounded-xl border border-white/10 overflow-x-auto mb-10">
+        <table className="w-full text-sm whitespace-nowrap">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs text-neutral-500 bg-white/[0.02]">
+              <th className="px-4 py-3">Day</th>
+              {DAYPARTS.map(d => <th key={d.key} className="px-4 py-3 text-right">{d.label}</th>)}
+              <th className="px-4 py-3 text-right">Hours</th>
+              <th className="px-4 py-3 text-right">Bay revenue</th>
+            </tr>
+          </thead>
+          <tbody className="text-neutral-300">
+            {WEEKDAYS.map((day, wi) => (
+              <tr key={day} className="border-t border-white/5">
+                <td className="px-4 py-3 text-white">{day}</td>
+                {busiest.hours[wi].map((h, di) => (
+                  <td key={di} className="px-4 py-3 text-right">
+                    <span
+                      className="inline-block min-w-12 rounded px-2 py-0.5"
+                      style={{ backgroundColor: `rgba(34, 197, 94, ${(h / maxBusy) * 0.45})` }}
+                    >
+                      {h.toFixed(1)}
+                    </span>
+                  </td>
+                ))}
+                <td className="px-4 py-3 text-right">{busiest.hours[wi].reduce((a, b) => a + b, 0).toFixed(1)}</td>
+                <td className="px-4 py-3 text-right">{fmt(busiest.revenue[wi])}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -162,9 +322,9 @@ export default async function AdminSalesPage() {
             <tbody className="text-neutral-300">
               {subs.map(s => {
                 const p = s.profiles
-                const name = p ? `${p.first_name} ${p.last_name}`.trim() : "—"
-                const started = s.started_at ? new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "—"
-                const renewal = s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "—"
+                const name = p ? `${p.first_name} ${p.last_name}`.trim() : "-"
+                const started = s.started_at ? new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "-"
+                const renewal = s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" }) : "-"
                 const contribution = mrrContribution(s)
                 return (
                   <tr key={s.id} className="border-t border-white/5 hover:bg-white/[0.02]">
@@ -194,13 +354,16 @@ export default async function AdminSalesPage() {
       )}
 
       <p className="mt-6 text-xs text-neutral-500">
-        Click any amount above to see the individual rows behind it.
-        Bay bookings shown as cash received (total minus gift-card applied minus refunds).
+        Click any amount in the top table to see the individual rows behind it.
+        Bay bookings shown as cash received (total minus gift-card applied minus refunds), on the day paid.
         Bay extensions are counted separately, on the day the extension was bought rather than
         the day the original booking was paid for. Extensions from before 2026-09-12 are missing:
         the amount was never recorded at the time.
         Gift cards shown at face value, excluding admin-issued comps. Membership sign-ups include first month + joining fee,
-        excluding free grants. Renewals pulled from Stripe webhook events.
+        excluding free grants. Renewals pulled from Stripe webhook events. Private events, party tickets and league
+        charges count when paid, and appear once they have any revenue.
+        Month-by-month sessions, bay hours and customers go by when the session was played, so a booking paid in
+        October for November shows its money in October and its hours in November.
         MRR counts only memberships that will actually be charged in the next cycle. Comped members,
         free grants, paused memberships and anything already paid up past this cycle show as $0 with
         the reason, and start counting on the day they renew.
