@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { revokeBayAccess } from "@/lib/access-control"
+import { revokeGuestCode } from "@/lib/access-control/guest-codes"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
@@ -43,6 +44,22 @@ export async function GET(request: NextRequest) {
   if (error) {
     await logFailure(serviceClient, "revoke-access-CRON-query-FAILED", `err=${error.message}`)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Guest codes from /admin/door. Their UniFi schedule is keyed by weekday,
+  // so it would open the door again next week unless deleted.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: guests } = await (serviceClient as any)
+    .from("guest_door_codes")
+    .select("id")
+    .is("revoked_at", null)
+    .lte("ends_at", new Date().toISOString())
+  for (const g of (guests ?? []) as { id: string }[]) {
+    try {
+      await revokeGuestCode(serviceClient, g.id)
+    } catch (err) {
+      await logFailure(serviceClient, "revoke-guest-code-FAILED", `guest=${g.id} err=${String(err).slice(0, 200)}`)
+    }
   }
 
   if (!candidates?.length) return NextResponse.json({ revoked: 0 })

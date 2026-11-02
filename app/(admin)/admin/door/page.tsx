@@ -2,6 +2,9 @@ import Link from "next/link"
 import { requireAdmin } from "@/lib/admin/guard"
 import { describeUnlockMethod } from "@/lib/access-control/door-entries"
 import DoorRefresher from "./DoorRefresher"
+import GuestCodes from "./GuestCodes"
+import { easternDateKey } from "@/lib/time/eastern"
+import type { GuestCode } from "@/lib/access-control/guest-codes"
 
 export const metadata = { title: "Door Log | Tee365 Admin" }
 export const dynamic = "force-dynamic"
@@ -17,6 +20,15 @@ export default async function AdminDoorPage() {
     .select("id, created_at, actor_name, auth_type, result, first_visit, alerted, bookings(bays(name), profiles!user_id(first_name, last_name))")
     .order("created_at", { ascending: false })
     .limit(200)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: guestData } = await (serviceClient as any)
+    .from("guest_door_codes")
+    .select("id, name, pin_code, starts_at, ends_at")
+    .is("revoked_at", null)
+    .gt("ends_at", new Date().toISOString())
+    .order("starts_at")
+  const guestCodes = (guestData ?? []) as GuestCode[]
 
   const rows = (data ?? []) as Array<{
     id: string
@@ -42,6 +54,8 @@ export default async function AdminDoorPage() {
         </div>
         <Link href="/admin/settings" className="text-xs text-neutral-400 hover:text-white">Door text settings</Link>
       </div>
+
+      <GuestCodes codes={guestCodes} today={easternDateKey(new Date())} />
 
       {rows.length === 0 ? (
         <p className="py-10 text-center text-sm text-neutral-500">No unlocks recorded yet.</p>
