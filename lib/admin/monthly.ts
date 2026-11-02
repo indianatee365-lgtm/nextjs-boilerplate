@@ -16,8 +16,11 @@ import {
 const TZ = "America/Indiana/Indianapolis"
 const BAY_HOURS_PER_DAY = 96 // 4 bays x 24 hours, same as lib/admin/operations.ts
 
-// Nothing was sold before the Founders Day opening, so history starts here.
-const FIRST_MONTH = "2026-08-01"
+// Founder memberships were sold from May 2026, before the bays opened on
+// Founders Day (Aug 29). History starts at the first month with any revenue,
+// looking no further back than the year the business started.
+const DATA_FLOOR = "2026-01-01"
+const OPENING_DAY = "2026-08-29"
 
 export type MonthRow = {
   key: string            // "2026-10-01"
@@ -27,7 +30,7 @@ export type MonthRow = {
   total: number
   sessions: number       // bookings that were played (not cancelled, not admin tests)
   bayHours: number
-  utilization: number    // 0-100, of 24/7 capacity over the days covered
+  utilization: number | null // 0-100, of 24/7 capacity over the days covered; null before opening
   revenuePerBayHour: number
   avgBooking: number     // cash per paid booking
   customers: number      // distinct people who played
@@ -98,7 +101,7 @@ function daypartIndex(hour: number): number {
 export async function computeSalesInsights(serviceClient: any, now: Date = new Date()): Promise<SalesInsights> {
   const todayKey = easternDateKey(now)
   const currentMonthKey = `${todayKey.slice(0, 8)}01`
-  const firstMonthStart = easternMidnightUtc(FIRST_MONTH)
+  const firstMonthStart = easternMidnightUtc(DATA_FLOOR)
 
   const [events, bookings, giftCards, credits] = await Promise.all([
     collectRevenueEvents(serviceClient, firstMonthStart),
@@ -131,7 +134,7 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
   }
 
   const months: MonthRow[] = []
-  for (let key = FIRST_MONTH; key <= currentMonthKey; key = shiftMonthKey(key, 1)) {
+  for (let key = DATA_FLOOR; key <= currentMonthKey; key = shiftMonthKey(key, 1)) {
     const start = easternMidnightUtc(key)
     const nextStart = easternMidnightUtc(shiftMonthKey(key, 1))
     const partial = key === currentMonthKey
@@ -165,9 +168,10 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
         + Number(b.veteran_discount ?? 0) + Number(b.credit_discount ?? 0) + Number(b.grounds_crew_discount ?? 0), 0)
     const cancelled = bookings.filter((b) => b.status === "cancelled" && b.source !== "admin" && inMonth(b.cancelled_at))
 
-    // Utilization counts from opening day (Aug 29) in the first month, and
-    // only the days elapsed so far in the current one.
-    const capacityStart = key === FIRST_MONTH ? easternMidnightUtc("2026-08-29") : start
+    // Utilization counts from opening day in the opening month, only the days
+    // elapsed so far in the current one, and not at all before the bays opened.
+    const opening = easternMidnightUtc(OPENING_DAY)
+    const capacityStart = start < opening ? opening : start
     const days = Math.max((end.getTime() - capacityStart.getTime()) / 86_400_000, 0)
     const bayRevenue = revenue.bookings + revenue.extensions
 
@@ -179,7 +183,7 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
       total,
       sessions: monthPlayed.length,
       bayHours: Math.round(bayHours * 10) / 10,
-      utilization: days > 0 ? (bayHours / (BAY_HOURS_PER_DAY * days)) * 100 : 0,
+      utilization: days > 0 ? (bayHours / (BAY_HOURS_PER_DAY * days)) * 100 : null,
       revenuePerBayHour: bayHours > 0 ? bayRevenue / bayHours : 0,
       avgBooking: cashBookings.length ? cashBookings.reduce((a, c) => a + c, 0) / cashBookings.length : 0,
       customers: people.size,
@@ -189,6 +193,8 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
       refunds: Math.round(cancelled.reduce((r, b) => r + Number(b.refund_amount ?? 0), 0) * 100) / 100,
     })
   }
+  // Drop the empty months before the first sale.
+  while (months.length > 1 && months[0].total === 0 && months[0].sessions === 0) months.shift()
   months.reverse()
 
   // Busiest times: the last 8 full weeks (Mon to Sun), averaged per week.
