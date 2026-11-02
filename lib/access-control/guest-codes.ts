@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto"
 import { grantBayAccess, revokeBayAccess } from "@/lib/access-control"
 import { DOOR_OPENS_EARLY_MINUTES } from "@/lib/access-control/constants"
-import { addDaysToDateKey, easternMidnightUtc } from "@/lib/time/eastern"
+import { addDaysToDateKey, easternMidnightUtc, easternTimeUtc } from "@/lib/time/eastern"
 
 // One-day front door codes for non-customers (Jerrod 2026-11-02: "a code for
 // my landlord, good only for today"). Works from midnight to midnight
-// Eastern on the chosen day.
+// Eastern on the chosen day, or between optional From/Until times.
 
 export type GuestCode = {
   id: string
@@ -20,13 +20,16 @@ type Db = {
   from: (table: string) => any
 }
 
-export async function createGuestCode(db: Db, adminId: string, name: string, dateKey: string): Promise<GuestCode> {
-  const dayStart = easternMidnightUtc(dateKey)
-  const dayEnd = easternMidnightUtc(addDaysToDateKey(dateKey, 1))
+export async function createGuestCode(
+  db: Db, adminId: string, name: string, dateKey: string, fromTime?: string, untilTime?: string,
+): Promise<GuestCode> {
+  const dayStart = fromTime ? easternTimeUtc(dateKey, fromTime) : easternMidnightUtc(dateKey)
+  const dayEnd = untilTime ? easternTimeUtc(dateKey, untilTime) : easternMidnightUtc(addDaysToDateKey(dateKey, 1))
+  if (dayEnd.getTime() <= dayStart.getTime()) throw new Error("Until must be after From")
   const id = randomUUID()
 
   // grantBayAccess opens the door DOOR_OPENS_EARLY_MINUTES before startsAt,
-  // so start that much after midnight to make the code begin at midnight.
+  // so start that much later to make the code begin exactly at dayStart.
   const grant = await grantBayAccess({
     bookingId: `guest-${id}`,
     firstName: name,

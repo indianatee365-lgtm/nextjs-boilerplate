@@ -36,3 +36,20 @@ export function easternMidnightUtc(key: string): Date {
   }
   return new Date(Date.UTC(y, m - 1, d, 5))
 }
+
+/**
+ * The UTC instant of an HH:MM wall-clock time Eastern on a YYYY-MM-DD day.
+ * Tries both offsets and keeps the one that reads back as that time.
+ */
+export function easternTimeUtc(key: string, hhmm: string): Date {
+  const [y, m, d] = key.split("-").map(Number)
+  const [h, min] = hhmm.split(":").map(Number)
+  for (const offsetHours of [4, 5]) {
+    const candidate = new Date(Date.UTC(y, m - 1, d, h + offsetHours, min))
+    const local = new Intl.DateTimeFormat("en-US", {
+      timeZone: BUSINESS_TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(candidate)
+    if (easternDateKey(candidate) === key && local.replace(/^24/, "00") === hhmm) return candidate
+  }
+  return new Date(Date.UTC(y, m - 1, d, h + 5, min))
+}
