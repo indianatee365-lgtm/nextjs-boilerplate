@@ -5,10 +5,19 @@ import { useRouter } from "next/navigation"
 import { createGuestCodeAction, revokeGuestCodeAction } from "./actions"
 import type { GuestCode } from "@/lib/access-control/guest-codes"
 
-function dayLabel(startsAt: string) {
-  return new Date(startsAt).toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", timeZone: "America/Indiana/Indianapolis",
+const TZ = "America/Indiana/Indianapolis"
+
+function timeLabel(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: TZ })
+}
+
+// "Mon, Nov 2" for an all-day code, "Mon, Nov 2, 11:45 AM to 12:15 PM" otherwise.
+function dayLabel(startsAt: string, endsAt: string) {
+  const day = new Date(startsAt).toLocaleDateString("en-US", {
+    weekday: "short", month: "short", day: "numeric", timeZone: TZ,
   })
+  const allDay = timeLabel(startsAt) === "12:00 AM" && timeLabel(endsAt) === "12:00 AM"
+  return allDay ? day : `${day}, ${timeLabel(startsAt)} to ${timeLabel(endsAt)}`
 }
 
 // One-day front door codes for people who aren't customers (landlord,
@@ -47,9 +56,9 @@ export default function GuestCodes({ codes, today }: { codes: GuestCode[]; today
   return (
     <section className="mb-8 rounded-xl border border-white/10 bg-white/5 p-4">
       <h2 className="text-sm font-semibold text-white">Guest codes</h2>
-      <p className="mt-1 text-xs text-neutral-500">A front door code for one day, midnight to midnight. No bay or booking.</p>
+      <p className="mt-1 text-xs text-neutral-500">A front door code for one day, midnight to midnight unless you set times. No bay or booking.</p>
 
-      <form action={submit} className="mt-3 grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
+      <form action={submit} className="mt-3 grid gap-3 sm:grid-cols-[1fr_10rem_7rem_7rem_auto] sm:items-end">
         <div>
           <label className="label" htmlFor="guest-name">Name</label>
           <input id="guest-name" name="name" type="text" required placeholder="e.g. Landlord" className="input mt-1" />
@@ -58,13 +67,21 @@ export default function GuestCodes({ codes, today }: { codes: GuestCode[]; today
           <label className="label" htmlFor="guest-date">Day</label>
           <input id="guest-date" name="date" type="date" required defaultValue={today} min={today} className="input mt-1" />
         </div>
+        <div>
+          <label className="label" htmlFor="guest-from">From</label>
+          <input id="guest-from" name="from" type="time" className="input mt-1" />
+        </div>
+        <div>
+          <label className="label" htmlFor="guest-until">Until</label>
+          <input id="guest-until" name="until" type="time" className="input mt-1" />
+        </div>
         <button type="submit" disabled={isPending} className="btn-primary whitespace-nowrap disabled:opacity-50">
           {isPending ? "Working..." : "Create code"}
         </button>
       </form>
       {created && (
         <p className="mt-2 text-sm text-green-400">
-          {created.name}: <span className="font-mono text-lg">{created.pin_code}</span> works {dayLabel(created.starts_at)}
+          {created.name}: <span className="font-mono text-lg">{created.pin_code}</span> works {dayLabel(created.starts_at, created.ends_at)}
         </p>
       )}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
@@ -75,7 +92,7 @@ export default function GuestCodes({ codes, today }: { codes: GuestCode[]; today
             <div key={c.id} className="flex items-center gap-4 px-3 py-2 text-sm">
               <span className="flex-1 text-white">{c.name}</span>
               <span className="font-mono text-white">{c.pin_code}</span>
-              <span className="w-28 text-xs text-neutral-400">{dayLabel(c.starts_at)}</span>
+              <span className="text-xs text-neutral-400">{dayLabel(c.starts_at, c.ends_at)}</span>
               <button type="button" disabled={isPending} onClick={() => revoke(c.id)}
                 className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
                 Turn off

@@ -10,8 +10,13 @@ export async function createGuestCodeAction(formData: FormData): Promise<GuestCo
   const date = ((formData.get("date") as string) || "").trim()
   if (!name) throw new Error("Give the code a name")
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Pick a day")
+  const from = ((formData.get("from") as string) || "").trim()
+  const until = ((formData.get("until") as string) || "").trim()
+  for (const t of [from, until]) {
+    if (t && !/^\d{2}:\d{2}$/.test(t)) throw new Error("Times must be HH:MM")
+  }
 
-  const code = await createGuestCode(serviceClient, user.id, name, date)
+  const code = await createGuestCode(serviceClient, user.id, name, date, from || undefined, until || undefined)
   revalidatePath("/admin/door")
   return code
 }
