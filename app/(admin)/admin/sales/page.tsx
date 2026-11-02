@@ -26,13 +26,13 @@ type Membership = {
   profiles: { first_name: string; last_name: string } | null
 }
 
-const fmt = (n: number) => `$${n.toFixed(2)}`
+const fmt = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmt0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`
 
 function Change({ now, before }: { now: number; before: number | null }) {
   if (before === null) return null
   if (before === 0) {
-    return now > 0 ? <span className="text-green-400">new</span> : <span className="text-neutral-600">no change</span>
+    return now > 0 ? <span className="text-green-400">▲</span> : <span className="text-neutral-600">no change</span>
   }
   const pct = ((now - before) / before) * 100
   const up = pct >= 0
@@ -193,7 +193,7 @@ export default async function AdminSalesPage() {
                   </td>
                   <td className="px-4 py-3 text-right">{m.sessions}</td>
                   <td className="px-4 py-3 text-right">{m.bayHours.toFixed(1)}</td>
-                  <td className="px-4 py-3 text-right">{m.utilization.toFixed(1)}%</td>
+                  <td className="px-4 py-3 text-right">{m.utilization === null ? <span className="text-neutral-600">-</span> : `${m.utilization.toFixed(1)}%`}</td>
                   <td className="px-4 py-3 text-right">{fmt(m.revenuePerBayHour)}</td>
                   <td className="px-4 py-3 text-right">{fmt(m.avgBooking)}</td>
                   <td className="px-4 py-3 text-right">{m.customers} <span className="text-neutral-500">({m.newCustomers})</span></td>
