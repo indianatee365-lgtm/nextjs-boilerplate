@@ -26,8 +26,8 @@ const LOCAL_BUSINESS_SCHEMA = {
   },
   geo: {
     "@type": "GeoCoordinates",
-    latitude: "41.6764",
-    longitude: "-86.2520",
+    latitude: "41.7014",
+    longitude: "-86.1876",
   },
   areaServed: [
     { "@type": "City", name: "South Bend" },
