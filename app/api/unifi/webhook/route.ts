@@ -133,7 +133,20 @@ export async function POST(request: NextRequest) {
     await logFailure(db, "door-entry-log-FAILED", `event=${event.event_object_id} err=${insertErr.message.slice(0, 200)}`)
   }
 
-  if (shouldAlert) {
+  // UniFi posts wrong PINs as access.door.unlock too, with result "Access
+  // Denied" and no actor. Those used to text as "Someone came in by code"
+  // (Jerrod 2026-11-06: a customer mistyping, then getting it right 11s
+  // later, read as two people coming in).
+  const denied = !!obj?.result && obj.result !== "Access Granted"
+
+  if (shouldAlert && denied) {
+    const time = new Date().toLocaleString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/Indiana/Indianapolis",
+    })
+    await notifyOwner(`Door: wrong ${describeUnlockMethod(obj?.authentication_type)} entered, ${time}. Door stayed locked.`)
+  } else if (shouldAlert) {
     const name =
       [booking?.profiles?.first_name, booking?.profiles?.last_name].filter(Boolean).join(" ") ||
       actor?.name ||
