@@ -1,3 +1,4 @@
+import { eagleHoursUnlockDate, EAGLE_HOURS_REASON } from "@/lib/membership/eagle-hours"
 import { createServiceClient } from "@/lib/supabase/server"
 import Link from "next/link"
 import Stripe from "stripe"
@@ -80,7 +81,7 @@ export default async function AccountDashboard({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked, veteran_verified_at").eq("id", userId).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly, grounds_crew_daily_hours)")
+        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, granted_free, comped, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly, grounds_crew_daily_hours)")
         .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(1)
@@ -106,6 +107,20 @@ export default async function AccountDashboard({
   const creditRows = (hourCredits ?? []) as { hours_remaining: number; expires_at: string | null }[]
   const availableCreditHours = creditRows.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
   const nextCreditExpiry = creditRows.find((c) => c.expires_at)?.expires_at ?? null
+
+  // Eagle's 2 free hours land with the 3rd monthly payment. Until then, say
+  // when, so nobody expects them at signup.
+  const { data: eagleCredit } = await serviceClient
+    .from("hour_credits").select("id").eq("user_id", userId)
+    .in("reason", [EAGLE_HOURS_REASON, "Eagle signup bonus"]).limit(1)
+  const eagleHoursPendingDate =
+    (membership?.membership_plans as { slug?: string } | null)?.slug === "eagle"
+    && membership?.status === "active"
+    && !(membership as { granted_free?: boolean }).granted_free
+    && !(membership as { comped?: boolean }).comped
+    && !(eagleCredit && eagleCredit.length > 0)
+      ? eagleHoursUnlockDate(membership.started_at as string).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis" })
+      : null
 
   // Fetch saved payment methods from Stripe, and which one is the default
   // (used for subscription renewals) so the account page can show it and
@@ -252,6 +267,16 @@ export default async function AccountDashboard({
               <div className="rounded-lg bg-black/20 px-3 py-2">
                 <p className="text-neutral-500">Member number</p>
                 <p className="text-brand font-bold mt-0.5">#{founderNumber} of 100</p>
+              </div>
+            )}
+            {eagleHoursPendingDate && (
+              <div className="col-span-2 rounded-lg bg-black/20 px-3 py-2">
+                <p className="text-neutral-500">Free hours</p>
+                <p className="text-white font-medium mt-0.5">
+                  {(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at
+                    ? "Your 2 free hours come with your 3rd monthly payment. Since your membership is set to end first, they won't be added."
+                    : `2 free hours land with your 3rd monthly payment, around ${eagleHoursPendingDate}. Good for 60 days.`}
+                </p>
               </div>
             )}
             {bonusHours && bonusExpires && new Date(bonusExpires) > new Date() && (

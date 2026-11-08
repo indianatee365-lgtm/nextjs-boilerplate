@@ -10,7 +10,7 @@ export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-3xl font-bold text-white mb-2">Terms &amp; Conditions</h1>
-      <p className="text-sm text-neutral-500 mb-10">Last updated: May 5, 2026</p>
+      <p className="text-sm text-neutral-500 mb-10">Last updated: November 8, 2026</p>
 
       <div className="prose prose-invert prose-sm max-w-none space-y-8 text-neutral-300">
 
@@ -47,6 +47,7 @@ export default function TermsPage() {
             <li>Monthly membership fees already paid are non-refundable. We do not pro-rate partial months.</li>
             <li>Founder's Club: the one-time joining fee is refundable only within 30 days of joining. After 30 days the joining fee is non-refundable. Your Founder member number and Founders Wall placement are permanent. You may reactivate at any time at your original Founder's terms (same discount, same booking window, same number).</li>
             <li>To reactivate after a membership has fully ended, contact us at info@tee365.org.</li>
+            <li>Eagle free hours: 2 free hours are added once your third monthly payment is collected and are good for 60 days from that date. They are granted once per person, have no cash value, and are not included with free, gifted, or comped memberships. If you cancel before your third payment is collected, no free hours are added.</li>
           </ul>
         </section>
 

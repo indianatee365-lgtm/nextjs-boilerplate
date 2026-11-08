@@ -241,6 +241,20 @@ export async function sendFounderMonthlyHoursNotice({
   await sendSms(to, message, "founder-monthly-hours-notice")
 }
 
+export async function sendEagleHoursUnlockedSms({
+  to,
+  firstName,
+  expiresLabel,
+}: {
+  to: string
+  firstName: string
+  expiresLabel: string
+}) {
+  const message = `Hi ${firstName}, thanks for sticking with Eagle. Your 3rd month just renewed, so 2 free hours of bay time are now in your account. Book at tee365.org/book and they come off automatically. Use them by ${expiresLabel}.\n- jerrod`
+
+  await sendSms(to, message, "eagle-hours-unlocked")
+}
+
 export async function sendLeagueTeamConfirmedSms({
   to,
   firstName,

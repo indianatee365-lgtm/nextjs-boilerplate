@@ -503,10 +503,13 @@ export async function sendFounderConfirmationEmail({
 export async function sendEagleConfirmationEmail({
   to,
   firstName,
+  hoursUnlockDate,
 }: {
   to: string
   firstName: string
+  hoursUnlockDate: Date
 }) {
+  const unlockLabel = hoursUnlockDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Indiana/Indianapolis" })
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -515,7 +518,7 @@ export async function sendEagleConfirmationEmail({
     <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
       <tr><td style="background:#111;padding:28px 32px;text-align:center;">
         <p style="margin:0;font-size:22px;font-weight:700;color:#4ade80;letter-spacing:1px;">TEE365</p>
-        <p style="margin:6px 0 0;color:#a3a3a3;font-size:13px;">Indoor Golf Simulator &mdash; Mishawaka, IN</p>
+        <p style="margin:6px 0 0;color:#a3a3a3;font-size:13px;">Indoor Golf Simulator, Mishawaka, IN</p>
       </td></tr>
       <tr><td style="padding:36px 32px;">
         <h2 style="margin:0 0 6px;color:#111;font-size:24px;font-weight:800;">Welcome to Eagle, ${firstName}.</h2>
@@ -525,14 +528,14 @@ export async function sendEagleConfirmationEmail({
             <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Bay discount</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#16a34a;font-size:13px;font-weight:700;">20% off every session</td></tr>
             <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Advance booking</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#111;font-size:13px;font-weight:600;">14 days out</td></tr>
             <tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#777;font-size:13px;">Active reservations</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#111;font-size:13px;font-weight:600;">Up to 3 at a time</td></tr>
-            <tr><td style="padding:8px 0;color:#777;font-size:13px;">Signup bonus</td><td style="padding:8px 0;text-align:right;color:#16a34a;font-size:13px;font-weight:700;">2 free hours (90-day credit)</td></tr>
+            <tr><td style="padding:8px 0;color:#777;font-size:13px;">Free hours</td><td style="padding:8px 0;text-align:right;color:#16a34a;font-size:13px;font-weight:700;">2 hours with your 3rd payment</td></tr>
           </table>
         </td></tr></table>
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px;margin-bottom:24px;">
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#166534;">Your 2 free hours</p>
-          <p style="margin:0;color:#166534;font-size:13px;line-height:1.6;">Your signup bonus is credited to your account and valid for 90 days. The discount applies automatically when you book. No code needed.</p>
+          <p style="margin:0;color:#166534;font-size:13px;line-height:1.6;">When your 3rd monthly payment goes through, around ${unlockLabel}, 2 free hours land in your account and we'll let you know. They're good for 60 days and come off automatically when you book. No code needed.</p>
         </div>
-        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.7;">Tee365 opens September 2026. Your 14-day advance booking window and 20% discount apply from your first session.</p>
+        <p style="margin:0 0 20px;color:#555;font-size:14px;line-height:1.7;">Your 20% discount and 14-day booking window start now, on your very next booking.</p>
         <div style="text-align:center;"><a href="https://tee365.org/account" style="display:inline-block;background:#111;color:#4ade80;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View your account</a></div>
       </td></tr>
       <tr><td style="padding:20px 32px;border-top:1px solid #eee;text-align:center;">
@@ -545,7 +548,7 @@ export async function sendEagleConfirmationEmail({
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: "Welcome to Eagle, your 2 free hours are waiting",
+    subject: "Welcome to Eagle",
     html,
     kind: "eagle-confirmation",
   })
