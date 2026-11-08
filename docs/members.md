@@ -46,7 +46,7 @@ At a blended $40/hr rack rate, the 10% discount saves $4/hr. The membership pays
 - 20% off rack rate on all bay time
 - 14-day advance booking window (vs. 7 days for non-members)
 - Maximum of 3 active reservations at a time (rolling)
-- 2 free hours at signup (one-time, non-transferable, expires 90 days after signup)
+- 2 free hours with the 3rd monthly payment (one-time per person, non-transferable, good for 60 days; not on free or comped memberships). Changed 2026-11-08 from 2 hours at signup, which members were using and then cancelling.
 - Early registration for leagues and events
 - Access to member-only communications and updates
 
@@ -56,7 +56,7 @@ At a blended $45/hr rack rate, the 20% discount saves $9/hr. The membership pays
 ### Annual Option: Eagle Season Pass
 - **Price:** $349/year (saves $119 vs monthly)
 - Annual period begins September 1, 2026 for pre-launch purchases regardless of purchase date
-- 2-hour signup bonus still applies
+- No free hours on the annual pass: Eagle free hours come with the 3rd monthly payment (annual pass is not on sale)
 
 ---
 
@@ -100,7 +100,7 @@ Founders are already making a long-term commitment. No annual prepay option is o
 | Discount floor | None | None | $20/hr |
 | Booking window | 10 days | 14 days | 21 days |
 | Active reservations | 2 | 3 | 3 |
-| Signup bonus | None | 2 hrs | 2 hrs at Founders and Friends Day (Aug 31) |
+| Free hours | None | 2 hrs with 3rd payment | 2 hrs at Founders and Friends Day (Aug 31) |
 | League priority | None | Early registration | Early reg + reserved slot |
 | Founders Wall | No | No | Yes |
 | Member number | No | No | Yes (#1-100) |

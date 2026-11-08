@@ -8,6 +8,7 @@ import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure, notifyOwner, getCustomerName, getAdminSetting, formatDuration } from "@/lib/observability/notify"
 import { PLAN_DISPLAY_NAMES, FOUNDER_YEAR_ONE_DISCOUNT_EXPIRES } from "@/lib/membership/first-year"
 import { signupBonusFor, grantSignupBonus } from "@/lib/membership/signup-bonus"
+import { maybeGrantEagleHours, eagleHoursUnlockDate } from "@/lib/membership/eagle-hours"
 import { consumeHourCredits } from "@/lib/hour-credits"
 import { reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
@@ -276,7 +277,7 @@ export async function POST(request: NextRequest) {
             if (plan_slug === "founder") {
               await sendFounderConfirmationEmail({ to: userEmail, firstName, founderNumber: insertData.founder_number as number })
             } else if (plan_slug === "eagle") {
-              await sendEagleConfirmationEmail({ to: userEmail, firstName })
+              await sendEagleConfirmationEmail({ to: userEmail, firstName, hoursUnlockDate: eagleHoursUnlockDate(now) })
             } else {
               // Any other plan (Birdie, or a future tier) - generic welcome
               // instead of silently sending nothing. sendResendEmail logs
@@ -800,6 +801,16 @@ export async function POST(request: NextRequest) {
     })
     if (invoice.billing_reason === "subscription_cycle") {
       await notifyOwner(`Renewal succeeded, ${userInfo} $${amount}.`)
+    }
+    // Eagle's 2 free hours land with the 3rd monthly payment.
+    if (subId && (invoice.amount_paid ?? 0) > 0) {
+      try {
+        await maybeGrantEagleHours(supabase, getStripe(), { subscriptionId: subId, now: new Date() })
+      } catch (err) {
+        await logFailure(supabase, "eagle-hours-check-FAILED",
+          `sub=${subId} err=${String(err).slice(0, 200)}`,
+          `ALERT Eagle 3rd-month hours check failed, ${userInfo}. Check whether they're owed 2 free hours.`)
+      }
     }
   }
 

@@ -12,6 +12,7 @@ const PLAN_DETAILS: Record<string, {
   price: string
   subtext: string
   firstCharge?: string
+  disclosure?: string
   benefits: string[]
 }> = {
   birdie: {
@@ -31,11 +32,12 @@ const PLAN_DETAILS: Record<string, {
     subtext: "No joining fee · Cancel anytime",
     benefits: [
       "20% off all bay time",
-      "2 free hours at signup (up to $100 value)",
+      "2 free hours with your 3rd monthly payment",
       "14-day advance booking window",
       "Up to 3 active reservations",
       "Early league & event registration",
     ],
+    disclosure: "$39 today, then $39 every month until you cancel. Your 2 free hours are added once your 3rd monthly payment goes through and are good for 60 days. Cancel before then and they aren't added. Cancel any time from your account and you keep member benefits through the month you've paid for.",
   },
   founder: {
     name: "Founder's Club",
@@ -188,6 +190,9 @@ function CheckoutContent() {
               </ul>
               {plan.firstCharge && (
                 <p className="mt-4 pt-4 border-t border-white/10 text-xs text-neutral-500">{plan.firstCharge}</p>
+              )}
+              {plan.disclosure && (
+                <p className="mt-4 pt-4 border-t border-white/10 text-xs text-neutral-400">{plan.disclosure}</p>
               )}
             </div>
 

@@ -122,7 +122,7 @@ export default async function JoinPage() {
             <ul className="space-y-2.5 mb-8 flex-1">
               {[
                 "20% off all bay time",
-                "2 free hours at signup (up to $100 value)",
+                "2 free hours with your 3rd monthly payment",
                 `${eagle.advance_booking_days}-day advance booking`,
                 `Up to ${eagle.max_active_reservations} active reservations`,
                 "Early league & event registration",
@@ -222,7 +222,7 @@ export default async function JoinPage() {
               ["Grounds Crew hours", "None", "None", `${groundsCrewHours} free hrs each weekday morning`],
               ["Advance booking", "10 days", "14 days", `${albatross?.advance_booking_days ?? 0} days`],
               ["Active reservations", "2", "3", String(albatross?.max_active_reservations ?? "")],
-              ["Signup bonus", "None", "2 free hours", "None"],
+              ["Free hours", "None", "2 hrs with 3rd payment", "None"],
               ["League priority", "None", "Early registration", "Early registration"],
               ["Cancel anytime", "✓", "✓", "✓"],
             ]
@@ -247,6 +247,10 @@ export default async function JoinPage() {
             {
               q: "When do membership benefits start?",
               a: "Immediately after payment. Your discount applies to the next booking you make.",
+            },
+            {
+              q: "When do Eagle's 2 free hours start?",
+              a: "With your 3rd monthly payment. Once it goes through, 2 free hours land in your account automatically and we'll text or email you. They're good for 60 days. It's a one-time thank-you for staying, so cancelling before your 3rd payment means no free hours, and free or gifted memberships don't include them.",
             },
             {
               q: "Can I switch plans later?",

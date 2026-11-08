@@ -31,21 +31,18 @@ export interface SignupBonus {
   reason: string
 }
 
-const EAGLE_BONUS_DAYS = 90
-
 /**
  * Founder hours deliberately never expire: they were sold for Friends &
  * Founders Day (2026-08-29), and a capacity or scheduling conflict that day
- * shouldn't forfeit the benefit. Eagle hours run 90 days from signup.
+ * shouldn't forfeit the benefit.
+ *
+ * Eagle got 2 hours here (90-day expiry) until 2026-11-08. They now come with
+ * the 3rd monthly payment instead, see lib/membership/eagle-hours.ts.
  */
-export function signupBonusFor(planSlug: string, now: Date): SignupBonus | null {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function signupBonusFor(planSlug: string, _now: Date): SignupBonus | null {
   if (planSlug === "founder") {
     return { hours: 2, expiresAt: null, reason: "Founders Day 2026" }
-  }
-  if (planSlug === "eagle") {
-    const expiry = new Date(now)
-    expiry.setDate(expiry.getDate() + EAGLE_BONUS_DAYS)
-    return { hours: 2, expiresAt: expiry.toISOString(), reason: "Eagle signup bonus" }
   }
   return null
 }
