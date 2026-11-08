@@ -222,7 +222,7 @@ export default async function JoinPage() {
               ["Grounds Crew hours", "None", "None", `${groundsCrewHours} free hrs each weekday morning`],
               ["Advance booking", "10 days", "14 days", `${albatross?.advance_booking_days ?? 0} days`],
               ["Active reservations", "2", "3", String(albatross?.max_active_reservations ?? "")],
-              ["Free hours", "None", "2 hrs with 3rd payment", "None"],
+              ["Free hours", "None", "2 hrs with 3rd payment", "Grounds Crew hours only"],
               ["League priority", "None", "Early registration", "Early registration"],
               ["Cancel anytime", "✓", "✓", "✓"],
             ]
