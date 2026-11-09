@@ -25,6 +25,12 @@ export const giftCardRatelimit = redis
 // (a couple more if they retry), while an unthrottled create-intent endpoint
 // is a card-testing surface. Added 2026-09-11 - /api/gift-cards/payment-intent
 // had no limiter at all.
+// Booking funnel events (/api/funnel). A real visitor sends at most five per
+// visit; this only stops someone filling the table from a script.
+export const funnelRatelimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "60s"), analytics: true })
+  : noopLimiter
+
 export const checkoutRatelimit = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(8, "300s"), analytics: true })
   : noopLimiter

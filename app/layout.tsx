@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { Analytics } from "@vercel/analytics/next";
+import { Clarity } from "@/app/components/Clarity";
 
 const LOCAL_BUSINESS_SCHEMA = {
   "@context": "https://schema.org",
@@ -94,6 +96,10 @@ export default async function RootLayout({
         />
         <div className="pointer-events-none fixed -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full blur-3xl opacity-20" style={{ backgroundColor: "var(--brandGlow)", willChange: "transform" }} />
         {children}
+        <Analytics />
+        {process.env.NEXT_PUBLIC_CLARITY_ID && (
+          <Clarity projectId={process.env.NEXT_PUBLIC_CLARITY_ID} nonce={nonce} />
+        )}
       </body>
       <GoogleAnalytics gaId="G-LJZ2L1GD7Y" nonce={nonce} />
     </html>

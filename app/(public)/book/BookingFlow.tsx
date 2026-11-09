@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { trackFunnel } from "@/lib/funnel"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import {
   GROUNDS_CREW_BOOK_AHEAD_HOURS,
@@ -163,6 +164,13 @@ export default function BookingFlow({
   const prefilledDate = parseLocalDate(prefillDate)
   const [step, setStep] = useState<Step>(prefilledDate ? "time" : "date")
   const [selectedDate, setSelectedDate] = useState<Date | null>(prefilledDate)
+
+  // Booking funnel (/admin/funnel): reaching the time grid means a date was
+  // picked, reaching review means a time was. Repeats are ignored server-side.
+  useEffect(() => {
+    trackFunnel(step === "date" ? "view" : step === "time" ? "date" : "time")
+    if (step !== "date") trackFunnel("view")
+  }, [step])
   const [selectedBay, setSelectedBay] = useState<Bay | null>(null)
   const [selectedStart, setSelectedStart] = useState<SlotData | null>(null)
   const [selectedDuration, setSelectedDuration] = useState(prefillDurationMinutes ?? 60)
@@ -425,6 +433,7 @@ export default function BookingFlow({
     // firing a POST that /api/bookings would reject with a 401 and no
     // explanation. `return` brings them straight back to the tee sheet.
     if (!isAuthenticated) {
+      trackFunnel("login")
       router.push(`/login?return=${encodeURIComponent("/book")}`)
       return
     }
@@ -460,6 +469,7 @@ export default function BookingFlow({
         // is already confirmed. Nothing further can be reserved here, and the
         // navigation takes a moment, so the button stays dead and says so.
         booked = true
+        trackFunnel("reserved", data.bookingId)
         setNavigatingToBooking(true)
         router.push(`/account/bookings?confirmed=${data.bookingId}`)
         return
@@ -467,6 +477,7 @@ export default function BookingFlow({
       // The server released any earlier unpaid hold of theirs before taking
       // this one, so the "waiting for payment" banner no longer applies.
       setUnfinishedHold(null)
+      trackFunnel("reserved", data.bookingId)
       setReservedBooking({
         id: data.bookingId,
         clientSecret: data.clientSecret,

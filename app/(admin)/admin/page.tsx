@@ -221,6 +221,7 @@ export default async function AdminPage() {
               ? `Cancellations 30d (${cancellations30d ?? 0}, +${abandoned30d} abandoned)`
               : `Cancellations 30d (${cancellations30d ?? 0})`,
           },
+          { href: "/admin/funnel", icon: <TrendingUp size={16} />, label: "Booking Funnel" },
           { href: "/admin/members", icon: <Users size={16} />, label: "Members" },
           { href: "/admin/members?plan=founder", icon: <Users size={16} />, label: `Founders (${founderCount ?? 0})` },
           { href: "/admin/coupons", icon: <Tag size={16} />, label: "Coupons" },
