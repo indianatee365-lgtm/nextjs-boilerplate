@@ -1,6 +1,8 @@
 // Booking funnel tracking for /book. One event per step per browser tab
 // (the server ignores repeats), read back on /admin/funnel. Fire and forget:
 // it never throws and never holds up the booking itself.
+import { clarityEvent } from "@/lib/clarity"
+
 export type FunnelStep = "view" | "date" | "time" | "login" | "reserved"
 
 const KEY = "t365_funnel_session"
@@ -22,6 +24,7 @@ function sessionId(): string {
 }
 
 export function trackFunnel(step: FunnelStep, bookingId?: string) {
+  clarityEvent(`book_${step}`)
   try {
     fetch("/api/funnel", {
       method: "POST",
