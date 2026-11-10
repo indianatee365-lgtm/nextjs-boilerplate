@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { LEAGUE_SLUG, type League } from "@/lib/league"
 import { FAQ, RULES, SIM_SETTINGS } from "@/lib/league/rules"
@@ -19,7 +19,7 @@ export default async function LeagueRulesPage() {
   const service: any = await createServiceClient()
   const { data: leagueRow } = await service.from("leagues").select("*").eq("slug", LEAGUE_SLUG).maybeSingle()
   const league = leagueRow as League | null
-  if (!league) notFound()
+  if (!league) redirect("/league")
 
   // Same visibility as /league: hidden until published, except to admins and
   // the league's preview list.
@@ -31,7 +31,8 @@ export default async function LeagueRulesPage() {
       const { data: profile } = await service.from("profiles").select("role").eq("id", user.id).maybeSingle()
       allowed = (profile as { role: string } | null)?.role === "admin" || (league.preview_user_ids ?? []).includes(user.id)
     }
-    if (!allowed) notFound()
+    // No league open: /league says "Coming soon" instead of a 404.
+    if (!allowed) redirect("/league")
   }
 
   return (

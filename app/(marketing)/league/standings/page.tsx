@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { LEAGUE_SLUG, teeTimeLabel, type League } from "@/lib/league"
 import { getStandings } from "@/lib/league/standings"
@@ -14,7 +14,7 @@ export default async function LeagueStandingsPage() {
   const db: any = await createServiceClient()
   const { data: leagueRow } = await db.from("leagues").select("*").eq("slug", LEAGUE_SLUG).maybeSingle()
   const league = leagueRow as League | null
-  if (!league) notFound()
+  if (!league) redirect("/league")
   if (!league.active) {
     const { data: { user } } = await (await createClient()).auth.getUser()
     let ok = false
@@ -22,7 +22,8 @@ export default async function LeagueStandingsPage() {
       const { data: p } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle()
       ok = (p as { role: string } | null)?.role === "admin" || (league.preview_user_ids ?? []).includes(user.id)
     }
-    if (!ok) notFound()
+    // No league open: /league says "Coming soon" instead of a 404.
+    if (!ok) redirect("/league")
   }
 
   const { rows, pot, weeks } = await getStandings(db)

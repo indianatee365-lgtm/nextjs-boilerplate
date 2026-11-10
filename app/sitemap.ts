@@ -23,9 +23,8 @@ const EXCLUDED = new Set([
   "/join/checkout/return",
   "/gift-cards/success",
   "/unsubscribed",
-  // Draft. /league 404s for everyone but admins until the league row is
-  // set active, so listing it would feed Google a 404. Remove this line
-  // the same day you publish the league.
+  // While no league is open /league is a "Coming soon" page (it 404'd until
+  // 2026-11-10). Remove this line the same day you publish a league.
   "/league",
 ])
 
