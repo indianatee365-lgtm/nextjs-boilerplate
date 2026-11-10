@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import {
   COMMISSIONER_NAME,
@@ -20,13 +19,31 @@ import {
 import LeagueSignup, { type MyTeam } from "./LeagueSignup"
 import FreeAgentJoin from "./FreeAgentJoin"
 import Link from "next/link"
+import LeagueComingSoon from "./ComingSoon"
 
 export const dynamic = "force-dynamic"
 
 const DESCRIPTION =
   "Thursday Night League at Tee365 in Mishawaka. Two-person teams, A/B match play, 9 holes, 7 weeks from October 29. $20 a week, and 100% of the pot is paid out in cash."
 
-export const metadata: Metadata = {
+const COMING_SOON_DESCRIPTION =
+  "The next Tee365 indoor golf league in Mishawaka is coming soon. Follow @tee365.mishawaka on Instagram, Facebook and TikTok for dates and signup."
+
+// While no league is open the page is "Coming soon", so search and AI tools
+// shouldn't be told about a season that isn't running.
+export async function generateMetadata(): Promise<Metadata> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const service: any = await createServiceClient()
+  const { data } = await service.from("leagues").select("active").eq("slug", LEAGUE_SLUG).maybeSingle()
+  if (data?.active) return metadata
+  return {
+    title: "Golf League Coming Soon | Tee365 Indoor Golf Simulator",
+    description: COMING_SOON_DESCRIPTION,
+    alternates: { canonical: "https://tee365.org/league" },
+  }
+}
+
+const metadata: Metadata = {
   title: "Thursday Night Golf League | Tee365 Indoor Golf Simulator",
   description: DESCRIPTION,
   alternates: { canonical: "https://tee365.org/league" },
@@ -60,7 +77,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   const service: any = await createServiceClient()
   const { data: leagueRow } = await service.from("leagues").select("*").eq("slug", LEAGUE_SLUG).maybeSingle()
   const league = leagueRow as League | null
-  if (!league) notFound()
+  if (!league) return <LeagueComingSoon />
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -73,7 +90,7 @@ export default async function LeaguePage({ searchParams }: { searchParams: Promi
   // A draft until active is turned on: admins and anyone on the league's
   // preview list (preview_user_ids, view only) see it, everyone else 404s.
   const isPreviewer = Boolean(user && (league.preview_user_ids ?? []).includes(user.id))
-  if (!league.active && !isAdmin && !isPreviewer) notFound()
+  if (!league.active && !isAdmin && !isPreviewer) return <LeagueComingSoon />
 
   const nights = leagueNights(league)
   const weeks = nights.length
