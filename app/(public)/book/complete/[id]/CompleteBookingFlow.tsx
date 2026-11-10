@@ -1,5 +1,6 @@
 "use client"
 
+import { clarityEvent } from "@/lib/clarity"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -42,16 +43,25 @@ function PaymentForm({ returnUrl, total, onError }: { returnUrl: string; total: 
   async function handleSubmit() {
     if (!stripe || !elements) return
     setSubmitting(true)
+    let paid = false
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) { onError(submitError.message ?? "Payment failed"); return }
+      // redirect "if_required": card payments resolve here instead of Stripe
+      // navigating away, so Clarity can record the purchase first. Payments
+      // that need a bank redirect (3D Secure) still go through return_url.
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: { return_url: returnUrl },
+        redirect: "if_required",
       })
-      if (error) onError(error.message ?? "Payment failed")
+      if (error) { onError(error.message ?? "Payment failed"); return }
+      clarityEvent("book_paid")
+      paid = true
+      window.location.assign(returnUrl)
     } finally {
-      setSubmitting(false)
+      // Stay on "Processing" while the confirmation page loads.
+      if (!paid) setSubmitting(false)
     }
   }
 
@@ -128,7 +138,7 @@ export default function CompleteBookingFlow({ bookingId }: { bookingId: string }
   if (state.status === "confirmed") {
     return (
       <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
-        <p className="text-white">You&apos;re all set — this booking is already confirmed.</p>
+        <p className="text-white">You&apos;re all set, this booking is already confirmed.</p>
         <p className="mt-1 text-sm text-neutral-400">
           We&apos;ll text your access code shortly before your session starts.
         </p>

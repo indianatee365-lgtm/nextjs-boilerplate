@@ -1,5 +1,6 @@
 "use client"
 
+import { clarityEvent } from "@/lib/clarity"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
@@ -39,6 +40,7 @@ function PaymentStep({ details, onBack, discountPercent }: { details: GiftCardDe
         setError(stripeError.message ?? "Payment failed. Please try again.")
         setSubmitting(false)
       } else if (paymentIntent) {
+        clarityEvent("giftcard_paid")
         router.push(`/gift-cards/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`)
       }
     } catch {
@@ -122,6 +124,7 @@ export function PurchaseForm({ discountPercent = 0 }: { discountPercent?: number
       if (!res.ok) { setError(data.error ?? "Something went wrong"); return }
       setDetails({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim() })
       setClientSecret(data.clientSecret)
+      clarityEvent("giftcard_checkout")
       setStep("payment")
     } catch {
       setError("Something went wrong. Please try again.")

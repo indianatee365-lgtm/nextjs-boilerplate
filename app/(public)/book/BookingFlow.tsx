@@ -1,5 +1,6 @@
 "use client"
 
+import { clarityEvent } from "@/lib/clarity"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { trackFunnel } from "@/lib/funnel"
@@ -59,16 +60,25 @@ function PaymentForm({
   async function handleSubmit() {
     if (!stripe || !elements) return
     setSubmitting(true)
+    let paid = false
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) { onError(submitError.message ?? "Payment failed"); return }
+      // redirect "if_required": card payments resolve here instead of Stripe
+      // navigating away, so Clarity can record the purchase first. Payments
+      // that need a bank redirect (3D Secure) still go through return_url.
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: { return_url: returnUrl },
+        redirect: "if_required",
       })
-      if (error) onError(error.message ?? "Payment failed")
+      if (error) { onError(error.message ?? "Payment failed"); return }
+      clarityEvent("book_paid")
+      paid = true
+      window.location.assign(returnUrl)
     } finally {
-      setSubmitting(false)
+      // Stay on "Processing" while the confirmation page loads.
+      if (!paid) setSubmitting(false)
     }
   }
 

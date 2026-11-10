@@ -1,5 +1,6 @@
 "use client"
 
+import { clarityEvent, clarityTag } from "@/lib/clarity"
 import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
@@ -92,6 +93,7 @@ function MembershipPaymentForm({ planSlug }: { planSlug: string }) {
         setError(stripeError.message ?? "Payment failed. Please try again.")
         setSubmitting(false)
       } else if (paymentIntent) {
+        clarityEvent("join_paid")
         const status = paymentIntent.status === "succeeded" ? "succeeded" : "processing"
         router.push(`/join/checkout/return?redirect_status=${status}`)
       }
@@ -149,6 +151,8 @@ function CheckoutContent() {
         return
       }
       setClientSecret(data.clientSecret)
+      clarityTag("plan", planSlug)
+      clarityEvent("join_checkout")
     }).catch(() => {
       setApiError("Connection error. Please try again.")
     })
