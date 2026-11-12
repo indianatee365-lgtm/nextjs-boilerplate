@@ -1809,6 +1809,24 @@ export type Database = {
         }
         Relationships: []
       }
+      system_heartbeats: {
+        Row: {
+          alerted: boolean
+          last_seen_at: string | null
+          name: string
+        }
+        Insert: {
+          alerted?: boolean
+          last_seen_at?: string | null
+          name: string
+        }
+        Update: {
+          alerted?: boolean
+          last_seen_at?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       waitlist: {
         Row: {
           converted_at: string | null

@@ -20,9 +20,17 @@ const REMOTE_ACCESS_PROCESSES: Record<string, string> = {
   "rustdesk.exe": "RustDesk",
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const started = Date.now()
   const serviceClient = await createServiceClient()
+  // labserver's monitor sends this header so /api/cron/watchdog can text
+  // Jerrod when labserver itself goes quiet. Other callers are not recorded.
+  const monitorSecret = process.env.UPTIME_MONITOR_SECRET
+  if (monitorSecret && request.headers.get("x-uptime-monitor") === monitorSecret) {
+    await serviceClient
+      .from("system_heartbeats")
+      .upsert({ name: "labserver", last_seen_at: new Date().toISOString() }, { onConflict: "name" })
+  }
   const since = new Date(Date.now() - SYNC_ERROR_WINDOW_MINUTES * 60_000).toISOString()
 
   const [baysRes, statusRes, errorsRes] = await Promise.all([
