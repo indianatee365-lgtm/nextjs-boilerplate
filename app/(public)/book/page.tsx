@@ -8,6 +8,7 @@ import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
 import { groundsCrewDateKey } from "@/lib/membership/grounds-crew"
 import { holdsBayFilter, pendingHoldCutoff } from "@/lib/bookings/pending-hold"
 import { isTwoBayBookingOn } from "@/lib/bookings/group"
+import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
@@ -18,7 +19,7 @@ export default async function BookPage({
 }: {
   searchParams: Promise<Record<string, string>>
 }) {
-  const { code: guestCode, date: dateParam, duration: durationParam } = await searchParams
+  const { code: guestCode, date: dateParam, duration: durationParam, start: startParam, bays: baysParam } = await searchParams
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
@@ -184,18 +185,31 @@ export default async function BookPage({
   // lands on the real tee sheet with their request already filled in. Both are
   // validated here rather than trusted: a stale or malformed link quietly falls
   // back to the normal empty flow instead of opening on a broken or empty grid.
+  //
+  // Compared as Eastern YYYY-MM-DD keys. This used to build both ends with
+  // setHours() on the server, which runs in UTC, so after 8pm Eastern a link
+  // for tonight read as yesterday and was thrown away.
   let prefillDate: string | null = null
-  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    const [y, m, d] = dateParam.split("-").map(Number)
-    const asked = new Date(y, m - 1, d)
-    const earliest = new Date()
-    earliest.setHours(0, 0, 0, 0)
-    const latest = new Date(earliest)
-    latest.setDate(latest.getDate() + advanceDays)
-    if (!Number.isNaN(asked.getTime()) && asked >= earliest && asked <= latest) {
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && !Number.isNaN(Date.parse(dateParam))) {
+    const earliest = easternDateKey(new Date())
+    const latest = addDaysToDateKey(earliest, advanceDays)
+    if (dateParam >= earliest && dateParam <= latest) {
       prefillDate = dateParam
     }
   }
+
+  // A guest sent to sign in from the review step comes back with the exact
+  // start they picked (and the second bay, if they added one). Only the shape
+  // is checked here: whether that time is still open is BookingFlow's call
+  // once it has loaded the day, and it falls back to the day's grid if not.
+  let prefillStart: string | null = null
+  if (prefillDate && startParam && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(startParam)) {
+    const asked = new Date(startParam)
+    if (!Number.isNaN(asked.getTime()) && asked.getTime() % (30 * 60 * 1000) === 0) {
+      prefillStart = asked.toISOString()
+    }
+  }
+  const prefillSecondBay = !!prefillStart && baysParam === "2" && twoBayEnabled
 
   const askedDuration = durationParam ? parseInt(durationParam, 10) : NaN
   const prefillDurationMinutes =
@@ -210,7 +224,7 @@ export default async function BookPage({
     <main className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold text-white">Book a Bay</h1>
       <p className="mt-1 text-sm text-neutral-400">
-        Select a date and time. Payment required to confirm.
+        Pick a day and time. Payment required to confirm.
       </p>
       <BookingFlow
         bays={bays ?? []}
@@ -228,6 +242,8 @@ export default async function BookPage({
         prefillCouponCode={hasGuestCode ? FRIENDS_DAY_COUPON_CODE : undefined}
         prefillDate={prefillDate}
         prefillDurationMinutes={prefillDurationMinutes}
+        prefillStart={prefillStart}
+        prefillSecondBay={prefillSecondBay}
         heldBooking={heldBooking}
       />
       <UpcomingParties heading="Upcoming parties" className="mt-12" />

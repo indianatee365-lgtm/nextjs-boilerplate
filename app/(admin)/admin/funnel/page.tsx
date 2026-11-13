@@ -16,6 +16,9 @@ const STAGES = [
   { key: "paid", label: "Paid" },
 ] as const
 
+// The day the same-day time grid went live. Set at deploy.
+const BOOK_OPENS_ON_TODAY_SINCE = "November 13, 2026"
+
 type FunnelRow = { session_id: string; step: string; booking_id: string | null; user_id: string | null }
 
 export default async function FunnelPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
@@ -78,6 +81,11 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
       </div>
       <p className="mt-1 text-sm text-neutral-500">
         Visitors to /book in the last {days} days, by the furthest step they reached. Admin test visits are left out. Tracking started November 9, 2026.
+      </p>
+      {/* The step meanings did not change, but what the page does did, so the
+          same number reads differently on either side of the change. */}
+      <p className="mt-2 text-sm text-amber-300/90">
+        Since {BOOK_OPENS_ON_TODAY_SINCE}, /book opens straight on today&apos;s times instead of a calendar, so almost every visitor counts as &quot;Picked a date&quot;. Compare &quot;Picked a time&quot; with &quot;Opened /book&quot; across that date, not &quot;Picked a date&quot;.
       </p>
 
       <div className="mt-6 space-y-3">

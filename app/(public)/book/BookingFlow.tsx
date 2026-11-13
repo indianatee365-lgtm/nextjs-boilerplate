@@ -12,9 +12,10 @@ import {
   minutesInGroundsCrewWindow,
 } from "@/lib/membership/grounds-crew"
 import { pickBestBay, slotGridGap, type BayUsage } from "@/lib/bookings/bay-selection"
+import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
-import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer, CalendarDays } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -128,6 +129,15 @@ function parseLocalDate(raw: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+// The reverse of parseLocalDate, for links back to /book.
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+}
+
+function durationLabel(mins: number): string {
+  return `${mins / 60}hr${mins > 60 ? "s" : ""}`
+}
+
 export default function BookingFlow({
   bays,
   advanceDays,
@@ -145,6 +155,8 @@ export default function BookingFlow({
   minBookableDate,
   prefillDate,
   prefillDurationMinutes,
+  prefillStart = null,
+  prefillSecondBay = false,
   heldBooking = null,
 }: {
   bays: Bay[]
@@ -163,6 +175,8 @@ export default function BookingFlow({
   minBookableDate?: string | null
   prefillDate?: string | null
   prefillDurationMinutes?: number | null
+  prefillStart?: string | null
+  prefillSecondBay?: boolean
   heldBooking?: { id: string; bayName: string; startsAt: string; total: number } | null
 }) {
   const router = useRouter()
@@ -171,9 +185,15 @@ export default function BookingFlow({
   // already said what they want, so the only thing left is to pick a time that
   // is genuinely open. The date is range-checked server-side before it reaches
   // here, so if it is set it is safe to jump past the calendar.
+  //
+  // With nothing prefilled the page opens on today's times too, not a
+  // calendar: most bookings are made the same day (68% under 3 hours before
+  // the start, Nov 2026), and the calendar step was where most visitors left.
+  // Today is the Eastern date so the server render and the browser agree.
   const prefilledDate = parseLocalDate(prefillDate)
-  const [step, setStep] = useState<Step>(prefilledDate ? "time" : "date")
-  const [selectedDate, setSelectedDate] = useState<Date | null>(prefilledDate)
+  const todayKey = easternDateKey(new Date())
+  const [step, setStep] = useState<Step>("time")
+  const [selectedDate, setSelectedDate] = useState<Date | null>(prefilledDate ?? parseLocalDate(todayKey))
 
   // Booking funnel (/admin/funnel): reaching the time grid means a date was
   // picked, reaching review means a time was. Repeats are ignored server-side.
@@ -194,7 +214,9 @@ export default function BookingFlow({
   const [useFreeHours, setUseFreeHours] = useState(true)
   const [wantSecondBay, setWantSecondBay] = useState(false)
   const [availability, setAvailability] = useState<BayAvailability[]>([])
-  const [loadingSlots, setLoadingSlots] = useState(false)
+  // Starts true because the page opens on the time grid, so the first render
+  // says "Loading" rather than "nothing left today".
+  const [loadingSlots, setLoadingSlots] = useState(true)
   const [calendarMonth, setCalendarMonth] = useState(prefilledDate ?? new Date())
   const [bookingError, setBookingError] = useState("")
   const [reservedBooking, setReservedBooking] = useState<ReservedBooking | null>(null)
@@ -236,10 +258,10 @@ export default function BookingFlow({
 
   const allDisclosuresAcknowledged = disclosures.length === 0 || disclosures.every((d) => acknowledgedDisclosures.has(d.id))
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const maxDate = new Date()
-  maxDate.setDate(maxDate.getDate() + advanceDays)
+  // Eastern, like todayKey, so the day strip renders the same on the server
+  // (UTC) as in the browser.
+  const today = parseLocalDate(todayKey) ?? new Date()
+  const maxDate = parseLocalDate(addDaysToDateKey(todayKey, advanceDays)) ?? new Date()
 
   // Floor on top of the today/maxDate range - mirrors create.ts's own
   // eligibility check (isEarlyAccessEligibleSession/isPublicBookingOpen) so
@@ -376,6 +398,30 @@ export default function BookingFlow({
     }
   }, [selectedDate, step, loadAvailability])
 
+  // Back from sign-in (see signInHref): once the day has loaded, put the guest
+  // straight back on the review step for the time they picked, or tell them it
+  // went and leave them on that day's grid. Runs once.
+  const restoreStartRef = useRef(prefillStart)
+  const [restoreNote, setRestoreNote] = useState("")
+  useEffect(() => {
+    const wanted = restoreStartRef.current
+    if (!wanted || loadingSlots || step !== "time" || availability.length === 0) return
+    restoreStartRef.current = null
+    const slot = getMergedSlots().find((s) => new Date(s.startsAt).getTime() === new Date(wanted).getTime())
+    if (
+      slot?.available &&
+      new Date(slot.startsAt).getTime() > Date.now() &&
+      canFitDurationOnAnyBay(slot.startsAt, selectedDuration)
+    ) {
+      setSelectedStart(slot)
+      setSelectedBay(findBayForSlot(slot.startsAt, selectedDuration))
+      setWantSecondBay(prefillSecondBay)
+      setStep("review")
+    } else {
+      setRestoreNote("The time you picked has been taken. These are the times still open that day.")
+    }
+  }, [availability, loadingSlots, step]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Countdown timer (only after slot is reserved)
   useEffect(() => {
     if (step !== "review" || !reservedBooking) return
@@ -441,10 +487,10 @@ export default function BookingFlow({
     if (!selectedBay || !selectedStart || reserving) return
     // Browsing is public, reserving is not. Send a guest to sign in rather than
     // firing a POST that /api/bookings would reject with a 401 and no
-    // explanation. `return` brings them straight back to the tee sheet.
+    // explanation. `return` brings them straight back to the time they picked.
     if (!isAuthenticated) {
       trackFunnel("login")
-      router.push(`/login?return=${encodeURIComponent("/book")}`)
+      router.push(signInHref())
       return
     }
     setReserving(true)
@@ -700,8 +746,46 @@ export default function BookingFlow({
     : []
   const urgentTimer = timeLeft <= 120
 
+  // Where a guest goes to sign in. Until Nov 2026 this was a bare
+  // /login?return=/book, so after signing in (or creating an account, which
+  // carries the same return) they landed on an empty page and had to pick
+  // everything again. page.tsx validates these and BookingFlow restores them.
+  function signInHref(): string {
+    const params = new URLSearchParams()
+    if (selectedDate) params.set("date", localDateKey(selectedDate))
+    params.set("duration", String(selectedDuration))
+    if (selectedStart) params.set("start", selectedStart.startsAt)
+    if (secondBayOn) params.set("bays", "2")
+    return `/login?return=${encodeURIComponent(`/book?${params.toString()}`)}`
+  }
+
+  // Day strip: today and the next few days one tap away, the full calendar
+  // behind "Other date".
+  const stripDays: { key: string; date: Date; top: string }[] = []
+  for (let i = 0; i <= Math.min(advanceDays, 5); i++) {
+    const key = addDaysToDateKey(todayKey, i)
+    const date = parseLocalDate(key)
+    if (!date || !isDateSelectable(date)) continue
+    stripDays.push({ key, date, top: i === 0 ? "Today" : i === 1 ? "Tomorrow" : DAYS[date.getDay()] })
+  }
+  const selectedKey = selectedDate ? localDateKey(selectedDate) : null
+  const selectedInStrip = stripDays.some((d) => d.key === selectedKey)
+
+  // Past times are never shown, and the grid starts at the first time that can
+  // actually be booked, so a 7pm visitor is not scrolling past a screen of dead
+  // buttons from this morning to find tonight.
+  const futureSlots = mergedSlots.filter((s) => new Date(s.startsAt).getTime() > Date.now())
+  const firstOpenIdx = futureSlots.findIndex((s) => s.available && canFitDurationOnAnyBay(s.startsAt, selectedDuration))
+  const visibleSlots = firstOpenIdx === -1 ? [] : futureSlots.slice(firstOpenIdx)
+  const showStickyBar = step === "time" && !!selectedStart && !!pricingPreview
+
+  function goToReview() {
+    setStep("review")
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   return (
-    <div className="mt-8 space-y-6">
+    <div className={["mt-8 space-y-6", showStickyBar ? "pb-24 sm:pb-0" : ""].join(" ")}>
       {/* Step indicators */}
       <div className="flex items-center gap-2 text-sm">
         {(["date", "time", "review"] as Step[]).map((s, i) => (
@@ -838,13 +922,50 @@ export default function BookingFlow({
 
       {/* ── Step 2: Time + duration ── */}
       {step === "time" && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <button onClick={() => setStep("date")} className="mb-4 flex items-center gap-1 text-sm text-neutral-400 hover:text-white">
-            <ChevronLeft size={14} /> Back
-          </button>
-          <h2 className="mb-1 text-lg font-semibold text-white">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6">
+          {/* Day strip */}
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {stripDays.map((d) => {
+              const isSelected = d.key === selectedKey
+              return (
+                <button
+                  key={d.key}
+                  onClick={() => { setRestoreNote(""); selectDate(d.date) }}
+                  className={[
+                    "flex min-h-[52px] min-w-[64px] shrink-0 flex-col items-center justify-center rounded-xl border px-3 text-sm transition",
+                    isSelected
+                      ? "border-brand bg-brand/20 text-brand font-semibold"
+                      : "border-white/10 text-white hover:border-white/30",
+                  ].join(" ")}
+                >
+                  <span className="text-xs">{d.top}</span>
+                  <span>{MONTHS[d.date.getMonth()].slice(0, 3)} {d.date.getDate()}</span>
+                </button>
+              )
+            })}
+            <button
+              onClick={() => { setRestoreNote(""); setStep("date") }}
+              className={[
+                "flex min-h-[52px] min-w-[64px] shrink-0 flex-col items-center justify-center rounded-xl border px-3 text-sm transition",
+                !selectedInStrip
+                  ? "border-brand bg-brand/20 text-brand font-semibold"
+                  : "border-white/10 text-neutral-300 hover:border-white/30",
+              ].join(" ")}
+            >
+              <CalendarDays size={16} />
+              <span className="text-xs">{selectedInStrip || !selectedDate ? "Other date" : `${MONTHS[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()}`}</span>
+            </button>
+          </div>
+
+          <h2 className="mt-4 text-lg font-semibold text-white">
             {selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h2>
+
+          {restoreNote && (
+            <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              {restoreNote}
+            </p>
+          )}
 
           <div className="mb-5 mt-4">
             <p className="mb-2 text-sm text-neutral-400">Session length</p>
@@ -860,47 +981,70 @@ export default function BookingFlow({
                       : "border-white/10 text-neutral-300 hover:border-white/30",
                   ].join(" ")}
                 >
-                  {mins < 60 ? `${mins}m` : `${mins / 60}hr${mins > 60 ? "s" : ""}`}
+                  {durationLabel(mins)}
                 </button>
               ))}
             </div>
           </div>
 
           {loadingSlots ? (
-            <p className="text-sm text-neutral-400">Loading slots…</p>
+            <p className="text-sm text-neutral-400">Loading times…</p>
+          ) : visibleSlots.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="text-sm text-white">
+                No {durationLabel(selectedDuration)} openings left on this day.
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">
+                Try a shorter session or another day above.
+              </p>
+              {nextAvailable && nextAvailable !== "loading" && (
+                <button
+                  onClick={() => quickBook(nextAvailable)}
+                  className="btn-primary mt-3 text-sm px-4 py-2"
+                >
+                  Next open: {formatNextAvailableDate(nextAvailable.date)} at {nextAvailable.slot.label}
+                </button>
+              )}
+            </div>
           ) : (
             <>
-              <p className="mb-3 text-sm text-neutral-400">Select start time</p>
+              <p className="mb-3 text-sm text-neutral-400">
+                Pick a start time. Prices are per hour{isAuthenticated ? ", before any discounts" : ""}.
+              </p>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                {mergedSlots.map((slot) => {
+                {visibleSlots.map((slot) => {
                   const canFit = canFitDurationOnAnyBay(slot.startsAt, selectedDuration)
+                  const open = slot.available && canFit
                   const isSelected = selectedStart?.startsAt === slot.startsAt
                   return (
                     <button
                       key={slot.startsAt}
-                      disabled={!slot.available || !canFit}
+                      disabled={!open}
                       onClick={() => {
                         const bay = findBayForSlot(slot.startsAt, selectedDuration)
                         setSelectedStart(slot)
                         setSelectedBay(bay)
                       }}
                       className={[
-                        "rounded-lg border py-2 text-xs transition",
-                        slot.available && canFit
+                        "flex min-h-[52px] flex-col items-center justify-center rounded-lg border py-1.5 text-xs transition",
+                        open
                           ? isSelected
                             ? "border-brand bg-brand/20 text-brand font-semibold"
                             : "border-white/10 text-white hover:border-white/30"
-                          : "cursor-not-allowed border-white/5 text-neutral-700",
+                          : "cursor-not-allowed border-white/5 text-neutral-500",
                       ].join(" ")}
                     >
-                      {slot.label}
+                      <span className={open ? "" : "line-through"}>{slot.label}</span>
+                      <span className={["mt-0.5 text-[11px]", open ? (isSelected ? "text-brand" : "text-neutral-400") : "text-neutral-600"].join(" ")}>
+                        {open ? `$${slot.pricePerHour}/hr` : "Taken"}
+                      </span>
                     </button>
                   )
                 })}
               </div>
 
               {selectedStart && pricingPreview && (
-                <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="mt-5 hidden rounded-xl border border-white/10 bg-black/20 p-4 sm:block">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-neutral-300">
                       <Clock size={14} /> {selectedDuration / 60}hr session starting {selectedStart.label}
@@ -918,10 +1062,11 @@ export default function BookingFlow({
                 </div>
               )}
 
-              <div className="mt-6 flex justify-end">
+              {/* On a phone the sticky bar below does this job. */}
+              <div className="mt-6 hidden justify-end sm:flex">
                 <button
                   disabled={!selectedStart}
-                  onClick={() => setStep("review")}
+                  onClick={goToReview}
                   className="btn-primary"
                 >
                   Review booking
@@ -929,6 +1074,27 @@ export default function BookingFlow({
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Phone: once a time is picked, the summary and the way forward stay on
+          screen instead of sitting below a long grid. */}
+      {showStickyBar && selectedStart && pricingPreview && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-neutral-950/95 px-4 pt-3 backdrop-blur sm:hidden"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">
+                {selectedDate?.toLocaleDateString("en-US", { weekday: "short" })} {selectedStart.label} · {durationLabel(selectedDuration)}
+              </p>
+              <p className="text-xs text-neutral-400">${pricingPreview.total.toFixed(2)}</p>
+            </div>
+            <button onClick={goToReview} className="btn-primary shrink-0 px-5 py-2.5 text-sm">
+              Review booking
+            </button>
+          </div>
         </div>
       )}
 
@@ -1157,7 +1323,7 @@ export default function BookingFlow({
               Member discounts apply at checkout.{" "}
               <button
                 type="button"
-                onClick={() => router.push(`/login?return=${encodeURIComponent("/book")}`)}
+                onClick={() => router.push(signInHref())}
                 className="text-brand underline underline-offset-2"
               >
                 Sign in
