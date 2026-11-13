@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendAccessCodeReminder } from "@/lib/telnyx/sms"
+import { sendAccessCodeReminder, sendHandoffHeadsUp } from "@/lib/telnyx/sms"
 import { sendAccessCodeEmail } from "@/lib/resend/email"
 import { grantBayAccess } from "@/lib/access-control"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { DOOR_OPENS_EARLY_MINUTES } from "@/lib/access-control/constants"
+import { nextGroupStartsAt, previousGroupEndsAt } from "@/lib/bookings/handoff"
 
 export const runtime = "nodejs"
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   const { data: bookings, error } = await supabase
     .from("bookings")
     .select(`
-      id, user_id, starts_at, ends_at,
+      id, user_id, bay_id, starts_at, ends_at,
       bays(name),
       profiles!user_id(first_name, last_name, phone, sms_consent)
     `)
@@ -123,6 +124,10 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", booking.id)
 
+      // Someone else has the bay until their start: say so, and that they can
+      // wait in the room (lib/bookings/handoff.ts).
+      const previousGroupUntil = await previousGroupEndsAt(supabase, booking.bay_id, booking.user_id, new Date(booking.starts_at))
+
       let deliveredTo: string | null = null
       if (smsEligible) {
         await sendAccessCodeReminder({
@@ -131,6 +136,7 @@ export async function GET(request: NextRequest) {
           bayName: [bay.name, ...(childNamesByParent.get(booking.id) ?? [])].join(" and "),
           accessCode: pinCode,
           startsAt: new Date(booking.starts_at),
+          previousGroupUntil,
         })
         deliveredTo = profile!.phone!
       } else {
@@ -143,6 +149,7 @@ export async function GET(request: NextRequest) {
             bayName: [bay.name, ...(childNamesByParent.get(booking.id) ?? [])].join(" and "),
             accessCode: pinCode,
             startsAt: new Date(booking.starts_at),
+            previousGroupUntil,
           })
           deliveredTo = email
         }
@@ -178,5 +185,68 @@ export async function GET(request: NextRequest) {
   await logEvent(supabase, failed > 0 ? "booking-reminders-cron-PARTIAL" : "booking-reminders-cron-ok",
     `processed=${results.length} sent=${results.length - failed} failed=${failed}`)
 
-  return NextResponse.json({ processed: results.length, results })
+  const headsUps = await sendHandoffHeadsUps(supabase, now)
+
+  return NextResponse.json({ processed: results.length, results, headsUps })
+}
+
+// Texts the current customer about ten minutes before the end when another
+// customer has the bay right after them (lib/bookings/handoff.ts). This cron
+// runs every 5 minutes, so a 7-minute window catches every booking at least
+// once; the admin_logs check keeps a second hit from texting twice. Kept out
+// of the access-code loop above so a failure here can never touch door codes.
+const HEADS_UP_LATEST_MINUTES = 12
+const HEADS_UP_EARLIEST_MINUTES = 5
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendHandoffHeadsUps(supabase: any, now: Date): Promise<number> {
+  try {
+    const { data: ending } = await supabase
+      .from("bookings")
+      .select("id, user_id, bay_id, ends_at, bays(name), profiles!user_id(first_name, phone, sms_consent)")
+      .eq("status", "confirmed")
+      // One text per group: the second bay of a two-bay booking is checked
+      // along with its first bay below, and private events run on their own.
+      .is("parent_booking_id", null)
+      .filter("event_id", "is", null)
+      .gt("ends_at", new Date(now.getTime() + HEADS_UP_EARLIEST_MINUTES * 60 * 1000).toISOString())
+      .lte("ends_at", new Date(now.getTime() + HEADS_UP_LATEST_MINUTES * 60 * 1000).toISOString())
+
+    let sent = 0
+    for (const booking of ending ?? []) {
+      const profile = booking.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
+      if (!profile?.phone || !profile.sms_consent) continue
+
+      const { data: already } = await supabase
+        .from("admin_logs")
+        .select("id")
+        .eq("event", "handoff-heads-up-sent")
+        .eq("detail", `booking=${booking.id}`)
+        .limit(1)
+      if (already?.length) continue
+
+      const { data: kids } = await supabase
+        .from("bookings")
+        .select("bay_id, bays(name)")
+        .eq("parent_booking_id", booking.id)
+        .eq("status", "confirmed")
+      const bays = [
+        { id: booking.bay_id as string, name: (booking.bays as { name: string } | null)?.name ?? "your bay" },
+        ...((kids ?? []) as { bay_id: string; bays: { name: string } | null }[]).map((k) => ({ id: k.bay_id, name: k.bays?.name ?? "your bay" })),
+      ]
+
+      for (const bay of bays) {
+        const nextGroupAt = await nextGroupStartsAt(supabase, bay.id, booking.user_id, new Date(booking.ends_at))
+        if (!nextGroupAt) continue
+        await sendHandoffHeadsUp({ to: profile.phone, firstName: profile.first_name, bayName: bay.name, nextGroupAt })
+        await logEvent(supabase, "handoff-heads-up-sent", `booking=${booking.id}`)
+        sent++
+        break
+      }
+    }
+    return sent
+  } catch (err) {
+    await logFailure(supabase, "handoff-heads-up-FAILED", `err=${String(err).slice(0, 200)}`)
+    return 0
+  }
 }

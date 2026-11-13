@@ -318,12 +318,15 @@ export async function sendAccessCodeReminder({
   bayName,
   accessCode,
   startsAt,
+  previousGroupUntil,
 }: {
   to: string
   firstName: string
   bayName: string
   accessCode: string
   startsAt: Date
+  // Another customer has the bay until this time (lib/bookings/handoff.ts).
+  previousGroupUntil?: Date | null
 }) {
   const fmt = (d: Date) => d.toLocaleString("en-US", {
     hour: "numeric",
@@ -336,6 +339,10 @@ export async function sendAccessCodeReminder({
   // sends a customer to a locked door at an unmanned facility with nobody to
   // ask. Derived from the same constant the door schedule uses.
   const activeFrom = fmt(doorOpensAt(startsAt))
+  const handoff = previousGroupUntil
+    ? "\n\nThe group before you has " + bayName + " until " + fmt(previousGroupUntil) +
+      ". Come on in and grab a seat, your time starts at " + timeStr + "."
+    : ""
 
   await sendSms(
     to,
@@ -345,11 +352,40 @@ export async function sendAccessCodeReminder({
       "\n\n1️⃣ Tap the keypad to wake it up" +
       "\n2️⃣ Enter your code" +
       "\n3️⃣ Press the checkmark" +
+      handoff +
       "\n\nReply STOP to opt out.",
     "access-code-reminder",
     `PIN ${accessCode}`
   )
 }
+// About ten minutes before a session ends when another customer has the bay
+// right after it (lib/bookings/handoff.ts). Only the time warning; nothing is
+// cut short, the session still runs to its booked end.
+export async function sendHandoffHeadsUp({
+  to,
+  firstName,
+  bayName,
+  nextGroupAt,
+}: {
+  to: string
+  firstName: string
+  bayName: string
+  nextGroupAt: Date
+}) {
+  const timeStr = nextGroupAt.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Indiana/Indianapolis",
+  })
+  await sendSms(
+    normalizePhone(to),
+    "Tee365: heads up, " + firstName + ", the next group has " + bayName + " at " + timeStr +
+      ". Your session ends then, so it is a good time to start wrapping up. Thanks for playing!" +
+      "\n\nReply STOP to opt out.",
+    "handoff-heads-up",
+  )
+}
+
 export async function sendInfoSms(to: string) {
   await sendSms(
     normalizePhone(to),
