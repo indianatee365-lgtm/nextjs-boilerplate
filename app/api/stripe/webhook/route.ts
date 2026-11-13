@@ -693,66 +693,28 @@ export async function POST(request: NextRequest) {
         `pi=${pi.id} to=${recipientEmail ?? "?"} from=${senderName ?? "?"} amount=$${amount} err=${errMsg}`,
         `ALERT Gift card purchase FAILED, ${senderName ?? "?"} tried $${amount} for ${recipientEmail ?? "?"}. Reason: ${errMsg}`)
     } else {
-      // Booking: cancel the held slot, then tell the customer their slot was
-      // released (not just log a trail - previously this branch notified
-      // no one, customer or owner, so a failed booking payment silently
-      // vanished the reservation).
-      const { data: cancelledBooking } = await supabase
+      // Booking: a declined card leaves the hold in place (2026-11-13). The
+      // customer is still on the payment form, which tells them the bay is
+      // held and to try another card. Until then this branch cancelled the
+      // booking within a second of the decline, while the form stayed open:
+      // a retry that worked charged for a released slot, and anyone declined
+      // had to start over from the time grid (one customer went round seven
+      // times over two days). If they never pay, the hold lapses at
+      // PENDING_HOLD_MINUTES and /api/cron/cancel-stale releases it and sends
+      // the "payment didn't go through" text and email, so nothing is sent
+      // to the customer here.
+      const { data: heldBooking } = await supabase
         .from("bookings")
-        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .select("id, user_id, profiles!user_id(first_name)")
         .eq("stripe_payment_intent_id", pi.id)
         .eq("status", "pending")
-        .select(`
-          id, user_id, starts_at, ends_at,
-          bays(name),
-          profiles!user_id(first_name, phone, sms_consent)
-        `)
         .maybeSingle()
 
-      const failedBookingProfile = cancelledBooking?.profiles as { first_name: string; phone: string | null; sms_consent: boolean } | null
-      const bookingCustName = failedBookingProfile?.first_name ?? (cancelledBooking ? `user=${cancelledBooking.user_id}` : "unknown customer")
+      const heldName = (heldBooking?.profiles as { first_name: string } | null)?.first_name
+        ?? (heldBooking ? `user=${heldBooking.user_id}` : "unknown customer")
       await logFailure(supabase, "booking-payment-FAILED",
-        `pi=${pi.id} booking=${cancelledBooking?.id ?? "?"} amount=$${amount} err=${errMsg}`,
-        `ALERT Booking payment FAILED, ${bookingCustName} $${amount}. Reason: ${errMsg}. Slot released automatically.`)
-
-      if (cancelledBooking) {
-        const bookingProfile = failedBookingProfile
-        const bay = cancelledBooking.bays as { name: string } | null
-        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(cancelledBooking.user_id)
-        const stillConfirmedBayNames = await getStillConfirmedBayNames(
-          supabase, cancelledBooking.user_id, cancelledBooking.starts_at, cancelledBooking.ends_at,
-        )
-
-        if (bay && bookingProfile?.phone && bookingProfile.sms_consent) {
-          try {
-            await sendBookingPaymentFailedSms({
-              to: bookingProfile.phone,
-              firstName: bookingProfile.first_name,
-              bayName: bay.name,
-              startsAt: new Date(cancelledBooking.starts_at),
-              stillConfirmedBayNames,
-            })
-          } catch (err) {
-            await logFailure(supabase, "booking-payment-failed-sms-FAILED",
-              `booking=${cancelledBooking.id} to=${bookingProfile.phone} err=${String(err).slice(0, 200)}`)
-          }
-        }
-
-        if (bay && authUser?.email && bookingProfile) {
-          try {
-            await sendBookingPaymentFailedEmail({
-              to: authUser.email,
-              firstName: bookingProfile.first_name,
-              bayName: bay.name,
-              startsAt: new Date(cancelledBooking.starts_at),
-              stillConfirmedBayNames,
-            })
-          } catch (err) {
-            await logFailure(supabase, "booking-payment-failed-email-FAILED",
-              `booking=${cancelledBooking.id} to=${authUser.email} err=${String(err).slice(0, 200)}`)
-          }
-        }
-      }
+        `pi=${pi.id} booking=${heldBooking?.id ?? "?"} amount=$${amount} err=${errMsg} hold=kept`,
+        `ALERT Booking payment FAILED, ${heldName} $${amount}. Reason: ${errMsg}. Their hold is kept so they can try another card; it releases on its own if they don't pay.`)
     }
   }
 

@@ -73,7 +73,14 @@ function PaymentForm({
         confirmParams: { return_url: returnUrl },
         redirect: "if_required",
       })
-      if (error) { onError(error.message ?? "Payment failed"); return }
+      if (error) {
+        // A declined card no longer releases the slot (see the Stripe
+        // webhook), so say the hold is still there and they can try again.
+        onError(error.type === "card_error"
+          ? `${error.message ?? "Your card was declined."} Your bay is still held. Try another card or payment method.`
+          : (error.message ?? "Payment failed"))
+        return
+      }
       clarityEvent("book_paid")
       paid = true
       window.location.assign(returnUrl)
