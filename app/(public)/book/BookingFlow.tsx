@@ -1,7 +1,7 @@
 "use client"
 
 import { clarityEvent } from "@/lib/clarity"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { Fragment, useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { trackFunnel } from "@/lib/funnel"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
@@ -12,7 +12,7 @@ import {
   minutesInGroundsCrewWindow,
 } from "@/lib/membership/grounds-crew"
 import { pickBestBay, slotGridGap, type BayUsage } from "@/lib/bookings/bay-selection"
-import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
+import { addDaysToDateKey, easternDateKey, easternTimeUtc } from "@/lib/time/eastern"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer, CalendarDays } from "lucide-react"
@@ -136,6 +136,11 @@ function localDateKey(date: Date): string {
 
 function durationLabel(mins: number): string {
   return `${mins / 60}hr${mins > 60 ? "s" : ""}`
+}
+
+// Weekday of a slot in the facility's timezone ("Sat" or "Saturday").
+function slotDayLabel(startsAt: string, weekday: "short" | "long"): string {
+  return new Date(startsAt).toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis", weekday })
 }
 
 export default function BookingFlow({
@@ -782,8 +787,22 @@ export default function BookingFlow({
   const gridDayKey = mergedSlots.length ? easternDateKey(new Date(mergedSlots[0].startsAt)) : null
   const futureSlots = mergedSlots.filter((s) =>
     new Date(s.startsAt).getTime() > Date.now() && easternDateKey(new Date(s.startsAt)) === gridDayKey)
-  const firstOpenIdx = futureSlots.findIndex((s) => s.available && canFitDurationOnAnyBay(s.startsAt, selectedDuration))
-  const visibleSlots = firstOpenIdx === -1 ? [] : futureSlots.slice(firstOpenIdx)
+  // Late at night, though, today's grid carries on into the small hours under
+  // a divider for the next day, so someone deciding at 11pm to play at 1am
+  // never has to switch days. Only starts whose whole session fits inside the
+  // loaded window are listed; the rest would read as booked when they are not.
+  const windowEnd = mergedSlots.length ? new Date(mergedSlots[mergedSlots.length - 1].endsAt).getTime() : 0
+  const lateNight = !!gridDayKey && gridDayKey === easternDateKey(new Date()) &&
+    Date.now() >= easternTimeUtc(gridDayKey, "21:00").getTime()
+  const overnightSlots = lateNight
+    ? mergedSlots.filter((s) =>
+      easternDateKey(new Date(s.startsAt)) !== gridDayKey &&
+      new Date(s.startsAt).getTime() + selectedDuration * 60_000 <= windowEnd)
+    : []
+  const firstOpenIdx = [...futureSlots, ...overnightSlots]
+    .findIndex((s) => s.available && canFitDurationOnAnyBay(s.startsAt, selectedDuration))
+  const visibleSlots = firstOpenIdx === -1 ? [] : [...futureSlots, ...overnightSlots].slice(firstOpenIdx)
+  const firstOvernightStart = overnightSlots[0]?.startsAt
   const showStickyBar = step === "time" && !!selectedStart && !!pricingPreview
 
   function goToReview() {
@@ -1024,8 +1043,13 @@ export default function BookingFlow({
                   const open = slot.available && canFit
                   const isSelected = selectedStart?.startsAt === slot.startsAt
                   return (
+                    <Fragment key={slot.startsAt}>
+                    {slot.startsAt === firstOvernightStart && (
+                      <p className="col-span-full mt-2 border-t border-white/10 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        After midnight, {slotDayLabel(slot.startsAt, "long")}
+                      </p>
+                    )}
                     <button
-                      key={slot.startsAt}
                       disabled={!open}
                       onClick={() => {
                         const bay = findBayForSlot(slot.startsAt, selectedDuration)
@@ -1046,6 +1070,7 @@ export default function BookingFlow({
                         {open ? `$${slot.pricePerHour}/hr` : "Booked"}
                       </span>
                     </button>
+                    </Fragment>
                   )
                 })}
               </div>
@@ -1054,7 +1079,7 @@ export default function BookingFlow({
                 <div className="mt-5 hidden rounded-xl border border-white/10 bg-black/20 p-4 sm:block">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-neutral-300">
-                      <Clock size={14} /> {selectedDuration / 60}hr session starting {selectedStart.label}
+                      <Clock size={14} /> {selectedDuration / 60}hr session starting {slotDayLabel(selectedStart.startsAt, "short")} {selectedStart.label}
                     </span>
                     <span className="flex items-center gap-1 font-semibold text-white">
                       <DollarSign size={14} />{pricingPreview.subtotal.toFixed(2)}
@@ -1094,7 +1119,7 @@ export default function BookingFlow({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">
-                {selectedDate?.toLocaleDateString("en-US", { weekday: "short" })} {selectedStart.label} · {durationLabel(selectedDuration)}
+                {slotDayLabel(selectedStart.startsAt, "short")} {selectedStart.label} · {durationLabel(selectedDuration)}
               </p>
               <p className="text-xs text-neutral-400">${pricingPreview.total.toFixed(2)}</p>
             </div>
@@ -1140,7 +1165,7 @@ export default function BookingFlow({
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-300">
               <span>Date</span>
-              <span>{selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
+              <span>{new Date(selectedStart.startsAt).toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis", weekday: "long", month: "short", day: "numeric" })}</span>
             </div>
             <div className="flex justify-between text-neutral-300">
               <span>Start time</span>
