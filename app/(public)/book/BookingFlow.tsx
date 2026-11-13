@@ -12,7 +12,7 @@ import {
   minutesInGroundsCrewWindow,
 } from "@/lib/membership/grounds-crew"
 import { pickBestBay, slotGridGap, type BayUsage } from "@/lib/bookings/bay-selection"
-import { addDaysToDateKey, easternDateKey, easternTimeUtc } from "@/lib/time/eastern"
+import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ChevronLeft, ChevronRight, Clock, DollarSign, ChevronDown, ChevronUp, Zap, Timer, CalendarDays } from "lucide-react"
@@ -787,18 +787,15 @@ export default function BookingFlow({
   const gridDayKey = mergedSlots.length ? easternDateKey(new Date(mergedSlots[0].startsAt)) : null
   const futureSlots = mergedSlots.filter((s) =>
     new Date(s.startsAt).getTime() > Date.now() && easternDateKey(new Date(s.startsAt)) === gridDayKey)
-  // Late at night, though, today's grid carries on into the small hours under
-  // a divider for the next day, so someone deciding at 11pm to play at 1am
-  // never has to switch days. Only starts whose whole session fits inside the
+  // They are listed again after the day's own times, though, under a divider
+  // naming the next day, so someone planning a late night sees 12am to 3am
+  // without switching days. Only starts whose whole session fits inside the
   // loaded window are listed; the rest would read as booked when they are not.
   const windowEnd = mergedSlots.length ? new Date(mergedSlots[mergedSlots.length - 1].endsAt).getTime() : 0
-  const lateNight = !!gridDayKey && gridDayKey === easternDateKey(new Date()) &&
-    Date.now() >= easternTimeUtc(gridDayKey, "21:00").getTime()
-  const overnightSlots = lateNight
-    ? mergedSlots.filter((s) =>
-      easternDateKey(new Date(s.startsAt)) !== gridDayKey &&
-      new Date(s.startsAt).getTime() + selectedDuration * 60_000 <= windowEnd)
-    : []
+  const overnightSlots = mergedSlots.filter((s) =>
+    easternDateKey(new Date(s.startsAt)) !== gridDayKey &&
+    new Date(s.startsAt).getTime() > Date.now() &&
+    new Date(s.startsAt).getTime() + selectedDuration * 60_000 <= windowEnd)
   const firstOpenIdx = [...futureSlots, ...overnightSlots]
     .findIndex((s) => s.available && canFitDurationOnAnyBay(s.startsAt, selectedDuration))
   const visibleSlots = firstOpenIdx === -1 ? [] : [...futureSlots, ...overnightSlots].slice(firstOpenIdx)
