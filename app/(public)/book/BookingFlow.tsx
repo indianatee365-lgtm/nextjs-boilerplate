@@ -814,7 +814,7 @@ export default function BookingFlow({
         {(["date", "time", "review"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span className="text-neutral-600">›</span>}
-            <span className={step === s ? "font-semibold text-brand" : "text-neutral-500 capitalize"}>
+            <span className={step === s ? "font-semibold text-brand capitalize" : "text-neutral-500 capitalize"}>
               {s}
             </span>
           </div>
