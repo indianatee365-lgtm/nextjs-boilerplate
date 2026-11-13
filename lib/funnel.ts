@@ -3,7 +3,7 @@
 // it never throws and never holds up the booking itself.
 import { clarityEvent } from "@/lib/clarity"
 
-export type FunnelStep = "view" | "date" | "time" | "login" | "reserved"
+export type FunnelStep = "view" | "date" | "time" | "login" | "returned" | "reserved"
 
 const KEY = "t365_funnel_session"
 let fallbackSessionId: string | null = null

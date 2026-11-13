@@ -407,6 +407,7 @@ export default function BookingFlow({
     const wanted = restoreStartRef.current
     if (!wanted || loadingSlots || step !== "time" || availability.length === 0) return
     restoreStartRef.current = null
+    trackFunnel("returned")
     const slot = getMergedSlots().find((s) => new Date(s.startsAt).getTime() === new Date(wanted).getTime())
     if (
       slot?.available &&
@@ -418,7 +419,7 @@ export default function BookingFlow({
       setWantSecondBay(prefillSecondBay)
       setStep("review")
     } else {
-      setRestoreNote("The time you picked has been taken. These are the times still open that day.")
+      setRestoreNote("The time you picked was just booked. These are the times still open that day.")
     }
   }, [availability, loadingSlots, step]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -774,7 +775,13 @@ export default function BookingFlow({
   // Past times are never shown, and the grid starts at the first time that can
   // actually be booked, so a 7pm visitor is not scrolling past a screen of dead
   // buttons from this morning to find tonight.
-  const futureSlots = mergedSlots.filter((s) => new Date(s.startsAt).getTime() > Date.now())
+  // Availability runs 4 hours past midnight so a late session can be checked
+  // for room to finish, but those early-morning times belong to the next day's
+  // grid. Showing them here put tomorrow's 1am under today with no date, and
+  // the very last one always read as booked because nothing after it is loaded.
+  const gridDayKey = mergedSlots.length ? easternDateKey(new Date(mergedSlots[0].startsAt)) : null
+  const futureSlots = mergedSlots.filter((s) =>
+    new Date(s.startsAt).getTime() > Date.now() && easternDateKey(new Date(s.startsAt)) === gridDayKey)
   const firstOpenIdx = futureSlots.findIndex((s) => s.available && canFitDurationOnAnyBay(s.startsAt, selectedDuration))
   const visibleSlots = firstOpenIdx === -1 ? [] : futureSlots.slice(firstOpenIdx)
   const showStickyBar = step === "time" && !!selectedStart && !!pricingPreview
@@ -1036,7 +1043,7 @@ export default function BookingFlow({
                     >
                       <span className={open ? "" : "line-through"}>{slot.label}</span>
                       <span className={["mt-0.5 text-[11px]", open ? (isSelected ? "text-brand" : "text-neutral-400") : "text-neutral-600"].join(" ")}>
-                        {open ? `$${slot.pricePerHour}/hr` : "Taken"}
+                        {open ? `$${slot.pricePerHour}/hr` : "Booked"}
                       </span>
                     </button>
                   )

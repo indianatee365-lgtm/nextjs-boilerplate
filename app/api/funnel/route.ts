@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { funnelRatelimit } from "@/lib/ratelimit"
 
-const STEPS = new Set(["view", "date", "time", "login", "reserved"])
+const STEPS = new Set(["view", "date", "time", "login", "returned", "reserved"])
 const UUID = /^[0-9a-f-]{36}$/i
 
 // Records one booking-funnel step (see lib/funnel.ts). Always answers 204 so a

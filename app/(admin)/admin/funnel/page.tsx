@@ -53,13 +53,28 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
 
   const furthest = new Map<string, number>()
   const sentToLogin = new Set<string>()
+  const backFromLogin = new Set<string>()
+  // Signed in or not when they opened /book. A guest who signs in partway
+  // still counts as a guest, which is the point: it shows what the sign-in
+  // step costs.
+  const arrivedSignedIn = new Set(customerEvents.filter(e => e.step === "view" && e.user_id).map(e => e.session_id))
   for (const e of customerEvents) {
     if (e.step === "login") { sentToLogin.add(e.session_id); continue }
+    if (e.step === "returned") { backFromLogin.add(e.session_id); continue }
     let stage = STAGES.findIndex(s => s.key === e.step)
     if (e.step === "reserved" && e.booking_id && paidIds.has(e.booking_id)) stage = STAGES.length - 1
     if (stage > (furthest.get(e.session_id) ?? -1)) furthest.set(e.session_id, stage)
   }
   const counts = STAGES.map((_, i) => [...furthest.values()].filter(v => v >= i).length)
+  const segment = (signedIn: boolean) => {
+    const reached = [...furthest].filter(([sid]) => arrivedSignedIn.has(sid) === signedIn).map(([, v]) => v)
+    return STAGES.map((_, i) => reached.filter(v => v >= i).length)
+  }
+  const segments = [
+    { label: "Guests", counts: segment(false) },
+    { label: "Signed in", counts: segment(true) },
+  ]
+  const paidAfterLogin = [...backFromLogin].filter(sid => furthest.get(sid) === STAGES.length - 1).length
   const top = counts[0] || 1
 
   return (
@@ -109,8 +124,49 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
         })}
       </div>
 
-      <p className="mt-6 text-sm text-neutral-400">
-        Sent to sign in or create an account before reserving: <span className="text-white">{sentToLogin.size}</span>
+      <h2 className="mt-8 text-lg font-semibold text-white">Guests vs signed in</h2>
+      <p className="mt-1 text-sm text-neutral-500">Split by whether they were signed in when they opened /book.</p>
+      <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-neutral-400">
+              <th className="px-3 py-2 font-normal"></th>
+              {STAGES.map(s => <th key={s.key} className="px-3 py-2 font-normal">{s.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {segments.map(seg => (
+              <tr key={seg.label} className="border-b border-white/5 last:border-0">
+                <td className="px-3 py-2 text-neutral-300">{seg.label}</td>
+                {seg.counts.map((c, i) => (
+                  <td key={STAGES[i].key} className="px-3 py-2 text-white">
+                    {c}
+                    {i > 0 && seg.counts[0] > 0 && (
+                      <span className="ml-1 text-xs text-neutral-500">{Math.round((c / seg.counts[0]) * 100)}%</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-8 text-lg font-semibold text-white">The sign-in step</h2>
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        {[
+          { label: "Sent to sign in", value: sentToLogin.size },
+          { label: "Came back to /book", value: backFromLogin.size },
+          { label: "Then paid", value: paidAfterLogin },
+        ].map(t => (
+          <div key={t.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs text-neutral-400">{t.label}</p>
+            <p className="mt-1 text-lg font-semibold text-white">{t.value}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-neutral-500">
+        &quot;Came back&quot; is counted from {BOOK_OPENS_ON_TODAY_SINCE}, when sign-in started returning guests to the time they picked.
       </p>
     </main>
   )
