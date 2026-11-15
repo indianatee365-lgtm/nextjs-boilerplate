@@ -282,7 +282,7 @@ const GUIDE_BODY = `<div class="page">
 
   <section>
     <h2>What's "Who's Up?"</h2>
-    <p><strong style="color: var(--accent); font-size: 1.05em;">That's ours, not GSPro's</strong> — it tracks <strong>range sessions</strong> under your tee365.org account. Enter your account email at the start and every swing during your range session gets logged to your account automatically, so your stats are there next time you check. <strong>It has no effect on gameplay at all</strong> — skip it entirely and your session works exactly the same.</p>
+    <p><strong style="color: var(--accent); font-size: 1.05em;">That's ours, not GSPro's</strong> — it tracks <strong>range sessions</strong> under your tee365.org account. Want each player&apos;s shots saved separately? Scan the small QR code in the corner of the bay screen, add names, then tap whoever is hitting next. Skip it and every shot saves to the person who booked. <strong>It has no effect on gameplay at all</strong> — skip it entirely and your session works exactly the same.</p>
   </section>
 
   <section>

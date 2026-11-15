@@ -33,6 +33,45 @@ const EYEXR_MISSING_ALERT_MINUTES = 4
 // wide during pre-warm, same bound as PRE_WARM_MINUTES below.
 const WHO_IS_UP_WINDOW_MINUTES = 5
 
+// Welcome pop-up, 2026-11-15 (Jerrod's call after the 30-day look at
+// who's-up use: 47 of 90 sessions skipped names, 26 typed names but never
+// switched hitters, and 3 bays were reset 1 to 6 minutes after names went in
+// with the game running fine). A bay agent that reports the
+// "welcomePrompt" capability gets this instead of the old full-size
+// "who's playing?" QR pop-up: a short welcome with the booker's name so the
+// customer knows the bay is theirs, an arrow toward the projector (that's
+// where GSPro is driven, see /guide), and the who's-up QR moved to a small
+// corner tab that never blocks the screen. Older agents that don't report
+// the capability keep getting showWhoIsUpPrompt exactly as before, so this
+// deploys safely ahead of the companion.py update. All wording lives here
+// so it can change without touching the bay PCs.
+const WELCOME_PROMPT_CAPABILITY = "welcomePrompt"
+const WELCOME_PROMPT_SECONDS = 20
+const WHO_IS_UP_TAB_LABEL = "Playing with friends? Scan to track each player's shots"
+
+// Which way the projector sits from the bay PC's monitor, by bay number.
+// Jerrod, 2026-11-15: arrow points left on Bays 1 and 3, right on Bays 2
+// and 4. Anything not listed falls back to odd = left, even = right.
+const PROJECTOR_ARROW_BY_BAY_NUMBER: Record<number, "left" | "right"> = {
+  1: "left",
+  2: "right",
+  3: "left",
+  4: "right",
+}
+
+function projectorArrow(bayNumber: number | null | undefined): "left" | "right" {
+  if (bayNumber && PROJECTOR_ARROW_BY_BAY_NUMBER[bayNumber]) return PROJECTOR_ARROW_BY_BAY_NUMBER[bayNumber]
+  return (bayNumber ?? 1) % 2 === 0 ? "right" : "left"
+}
+
+function easternClockTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso))
+}
+
 // If the bay is cold (no booking currently running) and the next confirmed
 // booking starts within this many minutes, treat it as "occupied" early so
 // the sim chain is already launched and warmed up (UneekorLauncher connect +
@@ -86,6 +125,9 @@ interface SyncRequestBody {
   token?: string
   status?: {
     agentVersion?: string
+    // Features this companion.py build can render, e.g. ["welcomePrompt"].
+    // Absent on older builds, which keep the old behavior.
+    capabilities?: string[]
     enforcementMode?: "shadow" | "live"
     sessionState?: "occupied" | "available"
     simRunning?: boolean
@@ -125,7 +167,7 @@ export async function POST(request: NextRequest) {
 
   const { data: bay, error: bayError } = await serviceClient
     .from("bays")
-    .select("id, name, active, agent_token")
+    .select("id, name, number, active, agent_token")
     .eq("id", bayId)
     .single()
 
@@ -458,6 +500,14 @@ export async function POST(request: NextRequest) {
               current_hitter: currentHitter,
             })
             .eq("id", status.addPlayerBookingId)
+          // Logged since 2026-11-15: 32 of the 43 rosters in the 30 days
+          // before came through this kiosk path and left no trace in
+          // admin_logs, unlike the phone's booking-roster-confirmed.
+          await logEvent(
+            serviceClient,
+            "booking-roster-kiosk-add",
+            `bay=${bay.name} booking=${status.addPlayerBookingId} players=${existingNames.length + 1} linked=${cleanName in rosterLinks}`,
+          )
         }
       }
     }
@@ -582,6 +632,15 @@ export async function POST(request: NextRequest) {
     minutesRemaining?: number
     showWhoIsUpPrompt?: boolean
     whoIsUpUrl?: string
+    welcomePrompt?: {
+      title: string
+      line: string
+      controlText: string
+      controlHint: string
+      arrow: "left" | "right"
+      seconds: number
+    }
+    whoIsUpTab?: { label: string; url: string }
     rosterNames?: string[] | null
     currentHitter?: string | null
     restartRequestedAt?: string | null
@@ -611,7 +670,25 @@ export async function POST(request: NextRequest) {
   // independent of the opening-window gate.
   response.rosterNames = booking.roster_names ?? null
   response.currentHitter = booking.current_hitter ?? null
-  if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
+  const supportsWelcomePrompt = Boolean(status?.capabilities?.includes(WELCOME_PROMPT_CAPABILITY))
+  if (supportsWelcomePrompt) {
+    // The corner tab is always there for the whole session; it is the only
+    // way into names now, and it never opens itself.
+    response.whoIsUpTab = { label: WHO_IS_UP_TAB_LABEL, url: response.whoIsUpUrl }
+    // Sent through the opening window; companion.py shows it once per
+    // booking id and closes it after `seconds` or on a tap.
+    if (minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
+      const firstName = profile?.first_name?.trim()
+      response.welcomePrompt = {
+        title: firstName ? `Welcome to Tee365, ${firstName}!` : "Welcome to Tee365!",
+        line: `This bay is yours until ${easternClockTime(booking.ends_at)}.`,
+        controlText: "Control your session",
+        controlHint: "Tap the big screen to pick the range or a course.",
+        arrow: projectorArrow(bay.number as number | null),
+        seconds: WELCOME_PROMPT_SECONDS,
+      }
+    }
+  } else if (!booking.roster_confirmed_at && minutesSinceStart <= WHO_IS_UP_WINDOW_MINUTES) {
     response.showWhoIsUpPrompt = true
   }
 

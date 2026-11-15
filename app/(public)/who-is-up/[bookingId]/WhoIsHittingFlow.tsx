@@ -28,7 +28,7 @@ export default function WhoIsHittingFlow({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-neutral-400">Tap whoever&apos;s up next - switch anytime.</p>
+      <p className="text-sm text-neutral-400">Tap whoever is hitting next. Shots go to that person until you tap someone else.</p>
       <div className="grid grid-cols-2 gap-2">
         {names.map((name) => (
           <button

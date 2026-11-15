@@ -50,7 +50,7 @@ export default function WhoIsUpFlow({
       <h1 className="text-2xl font-semibold text-white">Welcome to Tee365, {bookerName}!</h1>
       <p className="text-sm text-neutral-400">
         {bayName}
-        {bayName ? " · " : ""}Are you playing with anyone else?
+        {bayName ? " · " : ""}Add names to see each player&apos;s shots. Skip it and every shot saves to you.
       </p>
 
       <div className="space-y-3">
@@ -106,7 +106,7 @@ export default function WhoIsUpFlow({
           onClick={() => submit(players)}
           className="flex-1 rounded-md bg-white px-4 py-2 font-semibold text-black disabled:opacity-50"
         >
-          Save group
+          Save players
         </button>
         <button
           type="button"
@@ -114,7 +114,7 @@ export default function WhoIsUpFlow({
           onClick={() => submit([{ name: bookerName, email: "" }])}
           className="flex-1 rounded-md border border-white/10 px-4 py-2 text-neutral-300 disabled:opacity-50"
         >
-          Just me
+          Skip, just me
         </button>
       </div>
     </div>
