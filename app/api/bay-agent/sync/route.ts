@@ -617,6 +617,19 @@ export async function POST(request: NextRequest) {
   // showWhoIsUpPrompt stays gated to the opening window - that flag only
   // controls the one-time auto-popup, not whether the link itself works.
   response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
+  // First-ever visit (no earlier confirmed booking): the kiosk draws "click
+  // here to play a round / go to the range" hints over GSPro's main menu
+  // (2026-11-15). Carried on whoIsUpUrl because service.py already forwards
+  // it to the companion; the who's-up page ignores the extra parameter. Sent
+  // for the whole booking so the URL (and the QR built from it) never changes
+  // mid-session.
+  const { count: earlierVisits } = await serviceClient
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", booking.user_id)
+    .eq("status", "confirmed")
+    .lt("starts_at", booking.starts_at)
+  if (earlierVisits === 0) response.whoIsUpUrl += "&first=1"
   // Always sent too, same reasoning - the kiosk-side selector (once a roster
   // exists) needs to stay in sync with whatever the phone side last set,
   // independent of the opening-window gate.
