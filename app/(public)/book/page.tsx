@@ -12,6 +12,7 @@ import { addDaysToDateKey, easternDateKey } from "@/lib/time/eastern"
 
 export const metadata = {
   title: "Book a Bay | Tee365",
+  alternates: { canonical: "https://tee365.org/book" },
 }
 
 export default async function BookPage({

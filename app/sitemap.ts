@@ -26,6 +26,11 @@ const EXCLUDED = new Set([
   // While no league is open /league is a "Coming soon" page (it 404'd until
   // 2026-11-10). Remove this line the same day you publish a league.
   "/league",
+  // These redirect to /league while no league is open; remove with "/league".
+  "/league/rules",
+  "/league/standings",
+  // Login-gated score entry, noindex. Never belongs in the sitemap.
+  "/league/play",
 ])
 
 // Editorial ranking, which is the one thing the filesystem can't tell us.

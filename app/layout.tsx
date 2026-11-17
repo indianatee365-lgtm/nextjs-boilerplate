@@ -50,9 +50,6 @@ export const metadata: Metadata = {
   title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",
   description:
     "Book a private 24/7 indoor golf simulator bay in Mishawaka, IN, minutes from Notre Dame. Practice year-round, play full courses, and compete.",
-  alternates: {
-    canonical: "https://tee365.org",
-  },
   openGraph: {
     type: "website",
     title: "Indoor Golf Simulator in Mishawaka Near Notre Dame | Tee365",

@@ -7,9 +7,17 @@ import LeagueBand from "@/app/components/sections/LeagueBand"
 import LocalSEO from "@/app/components/sections/LocalSEO"
 import Reviews from "@/app/components/sections/Reviews"
 import PageContainer from "@/app/components/PageContainer"
+import type { Metadata } from "next"
 
 // The league band reads the leagues row; refresh every 5 minutes.
 export const revalidate = 300
+
+// The canonical lives here, not in the root layout. In the layout every page
+// without its own canonical inherited the homepage one, which told Google that
+// /book, /events/<slug> and /parties/<slug> were duplicates of the homepage.
+export const metadata: Metadata = {
+  alternates: { canonical: "https://tee365.org" },
+}
 
 export default function HomePage() {
   return (
