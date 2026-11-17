@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { logEvent, logFailure, getAdminSetting } from "@/lib/observability/notify"
+import { nextGroupStartsAt } from "@/lib/bookings/handoff"
 
 export const runtime = "nodejs"
 
@@ -550,7 +551,7 @@ export async function POST(request: NextRequest) {
 
   const { data: activeBooking, error: activeBookingError } = await serviceClient
     .from("bookings")
-    .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
+    .select("id, user_id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
     .eq("bay_id", bayId)
     .eq("status", "confirmed")
     .lte("starts_at", now.toISOString())
@@ -574,7 +575,7 @@ export async function POST(request: NextRequest) {
     const preWarmCutoff = new Date(now.getTime() + PRE_WARM_MINUTES * 60000)
     const { data: upcomingBooking, error: upcomingBookingError } = await serviceClient
       .from("bookings")
-      .select("id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
+      .select("id, user_id, starts_at, ends_at, extend_token, bay_powered_on_at, roster_confirmed_at, roster_names, current_hitter, profiles!user_id(first_name)")
       .eq("bay_id", bayId)
       .eq("status", "confirmed")
       .gt("starts_at", now.toISOString())
@@ -653,7 +654,17 @@ export async function POST(request: NextRequest) {
 
   if (minutesRemaining <= EXTEND_PROMPT_WINDOW_MINUTES) {
     response.showExtendPrompt = true
-    response.extendUrl = `https://tee365.org/extend/${booking.id}?token=${booking.extend_token}`
+    const extendUrl = new URL(`https://tee365.org/extend/${booking.id}`)
+    extendUrl.searchParams.set("token", String(booking.extend_token))
+    // Another customer has the bay right after this one: the kiosk swaps its
+    // "scan to extend" QR for a "next group is booked at 5:00, start wrapping
+    // up" notice (see lib/bookings/handoff.ts). Carried on extendUrl instead of
+    // its own field because service.py forwards a fixed set of fields to the
+    // companion, and a new field would mean redeploying the SYSTEM service on
+    // every bay. The extend page ignores the extra parameter.
+    const nextGroup = await nextGroupStartsAt(serviceClient, bayId, booking.user_id, endsAt)
+    if (nextGroup) extendUrl.searchParams.set("handoff", nextGroup.toISOString())
+    response.extendUrl = extendUrl.toString()
     response.minutesRemaining = Math.max(0, Math.round(minutesRemaining))
   }
 
@@ -665,6 +676,19 @@ export async function POST(request: NextRequest) {
   // showWhoIsUpPrompt stays gated to the opening window - that flag only
   // controls the one-time auto-popup, not whether the link itself works.
   response.whoIsUpUrl = `https://tee365.org/who-is-up/${booking.id}?token=${booking.extend_token}`
+  // First-ever visit (no earlier confirmed booking): the kiosk draws "click
+  // here to play a round / go to the range" hints over GSPro's main menu
+  // (2026-11-15). Carried on whoIsUpUrl because service.py already forwards
+  // it to the companion; the who's-up page ignores the extra parameter. Sent
+  // for the whole booking so the URL (and the QR built from it) never changes
+  // mid-session.
+  const { count: earlierVisits } = await serviceClient
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", booking.user_id)
+    .eq("status", "confirmed")
+    .lt("starts_at", booking.starts_at)
+  if (earlierVisits === 0) response.whoIsUpUrl += "&first=1"
   // Always sent too, same reasoning - the kiosk-side selector (once a roster
   // exists) needs to stay in sync with whatever the phone side last set,
   // independent of the opening-window gate.

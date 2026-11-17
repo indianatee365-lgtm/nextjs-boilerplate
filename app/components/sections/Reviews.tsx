@@ -3,14 +3,14 @@ import Section from "../ui/Section";
 // Real Google reviews, quoted word for word (trims marked with an ellipsis,
 // meaning never changed). Plain text on purpose: no review/rating schema,
 // Google ignores self-served stars for local businesses. The rating line is
-// updated by hand (4.8 from 23 reviews as of 2026-10-27).
+// updated by hand (4.8 from 27 reviews as of 2026-11-15).
 const GOOGLE_REVIEWS_URL = "https://www.google.com/search?kgmid=/g/11yfybc3fk";
 
 const reviews = [
-  { quote: "Best Sim in the area! I love coming here.", name: "Rick S." },
-  { quote: "Awesome spot. Good sims. Dead simple to use. Super reasonably priced.", name: "Rob C." },
-  { quote: "Awesome experience! Love that I can book a time anytime of day.", name: "Tyler T." },
-  { quote: "Had a great time! … the owner gave me a call while we were there and we got it sorted out immediately!", name: "Nathan C." },
+  { quote: "Clean facility, no issues getting started. Received my door code 15mins prior. … In the past at other indoor simulators I’ve experienced up to 30min delays with software issues that took away time. Not the case at Tee365.", name: "C. B." },
+  { quote: "Was looking for a golf simulator facility with top of the line equipment, accessible with 24 hour access, and doesn't cost a fortune to book a session. Tee365 checks all of the boxes.", name: "Zach K." },
+  { quote: "All 4 times that I have been there have been amazing. The owner is super friendly and goes the extra mile to make sure everything is running smoothly.", name: "Austin Q." },
+  { quote: "What really impressed me was how easy everything was to set up. The instructions were clear, the process was simple, and we were up and playing in no time.", name: "Keith C." },
 ];
 
 export default function Reviews() {
