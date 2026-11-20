@@ -728,8 +728,9 @@ export default function BookingFlow({
   const mergedSlots = getMergedSlots()
 
   // Two-bay booking. The second bay is quoted at the member, veteran and sale
-  // rate the server charges (coupons, gift cards, hour credits and Grounds
-  // Crew time stay with the first bay), and is only offered when a second
+  // rate the server charges, plus a percent coupon (lib/bookings/create.ts;
+  // fixed coupons, gift cards, hour credits and Grounds Crew time stay with
+  // the first bay), and is only offered when a second
   // bay really fits the whole booking. When it doesn't, the nearest times on
   // the same day that do are offered instead.
   const secondBayAvailable = twoBayEnabled && !!selectedStart && countBaysFitting(selectedStart.startsAt, selectedDuration) >= 2
@@ -740,6 +741,9 @@ export default function BookingFlow({
         durationMinutes: selectedDuration,
         membershipDiscountPercent,
         veteranDiscountPercent,
+        ...(couponApplied?.discountType === "percent"
+          ? { couponDiscountType: couponApplied.discountType, couponDiscountValue: couponApplied.discountValue ?? 0 }
+          : {}),
         context: getPricingContext(new Date(selectedStart.startsAt)),
       })
     : null
