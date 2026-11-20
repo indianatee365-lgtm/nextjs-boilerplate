@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { sendFounderMessage } from "@/lib/resend/email"
 import { sendReviewRequestSms } from "@/lib/telnyx/sms"
 import { logEvent, logFailure } from "@/lib/observability/notify"
+import { sendRangeShotTexts } from "@/lib/shots/range-sms"
 
 export const runtime = "nodejs"
 
@@ -29,6 +30,16 @@ export async function GET(request: NextRequest) {
   }
 
   const serviceClient = await createServiceClient()
+
+  // Range-shots text runs first and on its own: a failure there must never
+  // stop the feedback email / review text below.
+  let rangeShots: unknown = null
+  try {
+    rangeShots = await sendRangeShotTexts(serviceClient)
+  } catch (e) {
+    rangeShots = { error: String(e).slice(0, 200) }
+    await logFailure(serviceClient, "range-shots-sms-cron-FAILED", String(e).slice(0, 300))
+  }
 
   const now = new Date()
   const windowEnd = new Date(now.getTime() - DELAY_MINUTES * 60 * 1000)
@@ -116,5 +127,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ processed: results.length, results })
+  return NextResponse.json({ processed: results.length, results, rangeShots })
 }

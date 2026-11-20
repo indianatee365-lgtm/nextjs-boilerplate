@@ -538,6 +538,17 @@ export async function sendBookingPaymentFailedSms({
 
 // Sent once per customer ever, after a session, unless they are already
 // known to have left a Google review (see post-session-feedback cron).
+export async function sendRangeShotsSms({ to, firstName, rangeShots, longest }: {
+  to: string; firstName: string; rangeShots: number; longest: { yds: number; club: string } | null
+}) {
+  const best = longest ? ` Longest: ${longest.yds} yds with your ${longest.club}.` : ""
+  await sendSms(
+    to,
+    `Tee365: Nice session, ${firstName}! You hit ${rangeShots} balls on the range today.${best} Every shot is saved in your account: tee365.org/account/shots\nReply STOP to opt out.`,
+    "range-shots"
+  )
+}
+
 export async function sendReviewRequestSms({ to, firstName, reviewUrl }: { to: string; firstName: string; reviewUrl: string }) {
   await sendSms(
     to,
