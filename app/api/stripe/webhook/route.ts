@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { applyGroupReschedule } from "@/lib/bookings/group-changes"
+import { getBookingGroup } from "@/lib/bookings/group"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms, sendSubscriptionCancelledSms } from "@/lib/telnyx/sms"
@@ -75,6 +77,20 @@ export async function POST(request: NextRequest) {
       // A PAID reschedule is applied here rather than in the reschedule route,
       // so the door credential has to be moved onto the new window from here too.
       await reissueBookingAccessForNewWindow(supabase, originalBookingId)
+      return NextResponse.json({ received: true })
+    }
+
+    if (_pi.metadata?.type === "group-reschedule") {
+      // Backstop for finalizeReschedule (the customer may close the tab after
+      // paying). applyGroupReschedule claims the charge, so only one applies.
+      const { parentBookingId, userId, newStartsAt } = _pi.metadata
+      try {
+        const group = await getBookingGroup(supabase, parentBookingId)
+        const chargeId = typeof _pi.latest_charge === "string" ? _pi.latest_charge : _pi.latest_charge?.id ?? null
+        await applyGroupReschedule(supabase, userId, group, newStartsAt, { chargeId })
+      } catch (e) {
+        await logFailure(supabase, "group-reschedule-webhook-FAILED", `pi=${_pi.id} parent=${parentBookingId} err=${String(e).slice(0, 200)}`)
+      }
       return NextResponse.json({ received: true })
     }
 

@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import RescheduleFlow from "./RescheduleFlow"
+import { bayLabel, getBookingGroup } from "@/lib/bookings/group"
 
 export const metadata = { title: "Reschedule Booking | Tee365" }
 
@@ -24,6 +25,11 @@ export default async function ReschedulePage({ params }: { params: Promise<{ id:
   if (!booking) notFound()
 
   if (booking.status === "cancelled") redirect("/account/bookings")
+
+  // Two-bay booking: both bays move together, priced together.
+  const liveGroup = (await getBookingGroup(serviceClient, booking.id)).filter((g) => g.status !== "cancelled")
+  const isGroup = liveGroup.length > 1
+  const groupTotal = isGroup ? liveGroup.reduce((s, g) => s + Number(g.total ?? 0), 0) : Number(booking.total)
 
   const hoursUntil = (new Date(booking.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   const tooClose = hoursUntil <= 4
@@ -48,7 +54,8 @@ export default async function ReschedulePage({ params }: { params: Promise<{ id:
 
       <div className="mb-6 rounded-xl border border-white/10 bg-white/5 px-4 py-4">
         <p className="text-sm text-neutral-400">Current booking</p>
-        <p className="font-semibold text-white mt-1">{bay?.name}</p>
+        <p className="font-semibold text-white mt-1">{isGroup ? bayLabel(liveGroup.map((g) => g.bays?.name ?? "")) : bay?.name}</p>
+        {isGroup && <p className="text-xs text-neutral-500 mt-0.5">Both bays move together to two side-by-side bays.</p>}
         <p className="text-sm text-neutral-400">
           {new Date(booking.starts_at).toLocaleDateString("en-US", {
             weekday: "long", month: "long", day: "numeric",
@@ -77,7 +84,7 @@ export default async function ReschedulePage({ params }: { params: Promise<{ id:
       ) : (
         <RescheduleFlow
           bookingId={booking.id}
-          originalTotal={Number(booking.total)}
+          originalTotal={groupTotal}
           durationMinutes={booking.duration_minutes}
           advanceDays={advanceDays}
         />

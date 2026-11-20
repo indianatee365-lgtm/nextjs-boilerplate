@@ -28,6 +28,30 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { httpClient: Stripe.createFetchHttpClient() })
 }
 
+/** The booking payment plus any reschedule payments, oldest first. */
+export function groupChargeIds(parent: { stripe_charge_id: string | null; extra_charge_ids?: string[] | null }): string[] {
+  return [parent.stripe_charge_id, ...(parent.extra_charge_ids ?? [])].filter((c): c is string => Boolean(c))
+}
+
+/**
+ * Refund up to `cents` across the charges, oldest first, never more than is
+ * left on each. Returns the cents actually refunded.
+ */
+export async function refundAcrossCharges(chargeIds: string[], cents: number): Promise<number> {
+  let left = Math.round(cents)
+  let done = 0
+  for (const id of chargeIds) {
+    if (left <= 0) break
+    const charge = await getStripe().charges.retrieve(id)
+    const amount = Math.min(charge.amount - charge.amount_refunded, left)
+    if (amount <= 0) continue
+    await getStripe().refunds.create({ charge: id, amount })
+    left -= amount
+    done += amount
+  }
+  return done
+}
+
 /** True only when the switch on /admin/settings is explicitly on. */
 export async function isTwoBayBookingOn(db: SupabaseClient): Promise<boolean> {
   try {
@@ -48,11 +72,12 @@ export interface GroupRow {
   total: number
   stripe_payment_intent_id: string | null
   stripe_charge_id: string | null
+  extra_charge_ids?: string[] | null
   bays: { name: string } | null
 }
 
 const GROUP_COLUMNS =
-  "id, parent_booking_id, user_id, status, starts_at, ends_at, total, stripe_payment_intent_id, stripe_charge_id, bays(name)"
+  "id, parent_booking_id, user_id, status, starts_at, ends_at, total, stripe_payment_intent_id, stripe_charge_id, extra_charge_ids, bays(name)"
 
 /**
  * Every row of the group this booking belongs to, parent first. A booking
@@ -80,11 +105,12 @@ export async function isGroupedBooking(
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .eq("parent_booking_id", booking.id)
+    .neq("status", "cancelled")
   return (count ?? 0) > 0
 }
 
 export const GROUP_RESCHEDULE_MESSAGE =
-  "Two-bay bookings can't be moved online yet. Cancel and rebook, or text us and we'll move both bays for you."
+  "Both bays of a two-bay booking move together. To change just one, cancel that bay and book it on its own."
 
 export function bayLabel(names: string[]): string {
   return names.filter(Boolean).join(" and ")
@@ -112,9 +138,11 @@ export async function cancelBookingGroup(
       await getStripe().paymentIntents.cancel(parent.stripe_payment_intent_id)
     } catch { /* already cancelled or captured */ }
   } else if (refundEligible && parent.stripe_charge_id && combinedTotal > 0) {
-    // One refund of the whole charge, which covers every bay in the group.
-    await getStripe().refunds.create({ charge: parent.stripe_charge_id })
-    refundIssued = true
+    // The live bays' totals, drawn from the booking payment and any
+    // reschedule payments. Never "the whole charge": a bay cancelled earlier
+    // already had its share refunded, and a reschedule fee is not refunded.
+    const cents = await refundAcrossCharges(groupChargeIds(parent), Math.round(combinedTotal * 100))
+    refundIssued = cents > 0
   }
 
   const now = new Date().toISOString()

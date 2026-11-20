@@ -532,8 +532,10 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   // Guard against zero/sub-minimum amounts
   // The second bay is priced like the first at its member, veteran and
-  // site-sale rates. Coupons, gift cards, hour credits and Grounds Crew time
-  // apply to the first bay only.
+  // site-sale rates. A percent coupon covers it too (Jerrod 2026-11-20: a
+  // "50% off" code that only halved one bay would feel like a bait and
+  // switch); fixed-amount coupons, gift cards, hour credits and Grounds Crew
+  // time apply to the first bay only.
   const secondBayPricing = secondBayRow
     ? calculateBookingPrice({
         pricePerHour,
@@ -541,6 +543,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         membershipDiscountPercent,
         veteranDiscountPercent,
         promoDiscountPercent,
+        ...(couponDiscountType === "percent" ? { couponDiscountType, couponDiscountValue } : {}),
         context,
       })
     : null
@@ -825,7 +828,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         promo_discount: secondBayPricing.promoDiscount,
         membership_discount: secondBayPricing.membershipDiscount,
         veteran_discount: secondBayPricing.veteranDiscount,
-        coupon_discount: 0,
+        coupon_discount: secondBayPricing.couponDiscount,
         tax: secondBayPricing.tax,
         gift_card_applied: 0,
         credit_hours_applied: 0,

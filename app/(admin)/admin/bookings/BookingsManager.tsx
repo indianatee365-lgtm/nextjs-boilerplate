@@ -30,6 +30,7 @@ interface Booking {
   admin_extension_minutes?: number | null
   access_code: string | null
   notes: string | null
+  parent_booking_id?: string | null
   cancelled_at: string | null
   refund_amount: number | null
   created_at?: string
@@ -242,10 +243,31 @@ export default function BookingsManager({
     })
   }
 
+  // The other live bay of a two-bay booking, if this booking is half of one.
+  function groupPartner(bookingId: string): Booking | undefined {
+    const me = bookings.find((x) => x.id === bookingId)
+    if (!me) return undefined
+    return bookings.find((x) => x.id !== me.id && x.status !== "cancelled" &&
+      (x.id === me.parent_booking_id || x.parent_booking_id === me.id))
+  }
+
   function handleCancel(bookingId: string) {
-    if (!confirm("Cancel this booking? A refund will be issued to the customer.")) return
+    const partner = groupPartner(bookingId)
+    let onlyThisBay = false
+    if (partner) {
+      const me = bookings.find((x) => x.id === bookingId)
+      const both = confirm(`This is a two-bay booking (${me?.bays?.name ?? "this bay"} and ${partner.bays?.name ?? "another bay"}).\n\nOK = cancel BOTH bays and refund everything.\nCancel = choose to cancel just one bay.`)
+      if (!both) {
+        if (!confirm(`Cancel ONLY ${me?.bays?.name ?? "this bay"} and refund its share? ${partner.bays?.name ?? "The other bay"} stays booked.`)) return
+        onlyThisBay = true
+      }
+    } else if (!confirm("Cancel this booking? A refund will be issued to the customer.")) return
     startTransition(async () => {
-      await cancelBooking(bookingId)
+      try {
+        await cancelBooking(bookingId, { onlyThisBay })
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Could not cancel that booking.")
+      }
       router.refresh()
     })
   }
@@ -293,7 +315,11 @@ export default function BookingsManager({
     const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
 
     if (type === "booking") {
-      if (!confirm(`Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+      const partner = groupPartner(id)
+      const msg = partner
+        ? `This is a two-bay booking, so both bays move. This one goes to ${bay.name} at ${slotLabel(slot)} and the other lands in the bay next to it. Price stays the same and the customer will be texted/emailed. Move both?`
+        : `Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`
+      if (!confirm(msg)) return
       startTransition(async () => {
         try {
           await rescheduleBooking(id, bay.id, startsAt.toISOString())

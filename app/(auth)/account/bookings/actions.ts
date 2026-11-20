@@ -10,7 +10,8 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { restoreHourCredits, moveHourCreditUses } from "@/lib/hour-credits"
 import { revokeBookingAccess } from "@/lib/access-control/booking-access"
-import { GROUP_RESCHEDULE_MESSAGE, cancelBookingGroup, getBookingGroup, isGroupedBooking } from "@/lib/bookings/group"
+import { cancelBookingGroup, getBookingGroup } from "@/lib/bookings/group"
+import { applyGroupReschedule, cancelOneBayOfGroup, quoteGroupReschedule } from "@/lib/bookings/group-changes"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -18,7 +19,10 @@ function getStripe() {
   })
 }
 
-export async function cancelBookingByCustomer(bookingId: string): Promise<{ refunded: boolean }> {
+export async function cancelBookingByCustomer(
+  bookingId: string,
+  { onlyThisBay = false }: { onlyThisBay?: boolean } = {},
+): Promise<{ refunded: boolean }> {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
@@ -51,6 +55,10 @@ export async function cancelBookingByCustomer(bookingId: string): Promise<{ refu
   // the single payment that covered them. See lib/bookings/group.ts.
   const group = await getBookingGroup(serviceClient, bookingId)
   if (group.length > 1) {
+    // Just one bay: its share comes back, the other bay stays booked.
+    if (onlyThisBay && await cancelOneBayOfGroup(serviceClient, group, bookingId, { actorId: user.id, refundEligible })) {
+      return { refunded: refundEligible }
+    }
     await cancelBookingGroup(serviceClient, group, { actorId: user.id, refundEligible })
     return { refunded: refundEligible }
   }
@@ -174,8 +182,26 @@ export async function finalizeReschedule({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: evLink } = await (serviceClient as any).from("bookings").select("event_id").eq("id", originalBookingId).single()
   if ((evLink as { event_id: string | null } | null)?.event_id) throw new Error("This is part of a private event. Call us at (574) 444-9365 to make changes.")
-  if (await isGroupedBooking(serviceClient, original as { id: string; parent_booking_id: string | null })) {
-    throw new Error(GROUP_RESCHEDULE_MESSAGE)
+  // Two-bay booking: both bays move together (lib/bookings/group-changes.ts).
+  const group = await getBookingGroup(serviceClient, originalBookingId)
+  if (group.filter((g) => g.status !== "cancelled").length > 1) {
+    let chargeId: string | null = null
+    let startsAt = newStartsAt
+    if (paymentIntentId) {
+      const pi = await getStripe().paymentIntents.retrieve(paymentIntentId)
+      if (pi.status !== "succeeded") throw new Error("Payment not completed")
+      if (pi.metadata?.type !== "group-reschedule" || pi.metadata.parentBookingId !== group[0].id) {
+        throw new Error("That payment doesn't match this booking. Contact us at info@tee365.org.")
+      }
+      chargeId = pi.latest_charge as string | null
+      startsAt = pi.metadata.newStartsAt
+    } else {
+      const q = await quoteGroupReschedule(serviceClient, user.id, group, newStartsAt)
+      if (!q.ok) throw new Error(q.error)
+      if (Math.round(q.quote.netCharge * 100) >= 50) throw new Error("This change needs a payment. Go back and pick the time again.")
+    }
+    await applyGroupReschedule(serviceClient, user.id, group, startsAt, { chargeId })
+    return { newBookingId: group[0].id }
   }
   if (Number((original as { grounds_crew_minutes?: number }).grounds_crew_minutes ?? 0) > 0) {
     throw new Error("Grounds Crew bookings can't be moved. Cancel this one and book the new time, it's still free.")

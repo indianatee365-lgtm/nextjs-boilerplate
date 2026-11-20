@@ -66,14 +66,10 @@ export default async function BookingsPage({
         )}
         {isUpcoming && !isCancelled && (
           <div className="mt-3 flex items-center justify-between">
-            {b.isGroup ? (
-              <p className="text-xs text-neutral-500">Two-bay bookings can&apos;t be moved online</p>
-            ) : (
-              <Link href={`/account/bookings/${b.id}/reschedule`} className="text-xs text-neutral-500 hover:text-white underline transition-colors">
-                Reschedule
-              </Link>
-            )}
-            <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={b.groupTotal} />
+            <Link href={`/account/bookings/${b.id}/reschedule`} className="text-xs text-neutral-500 hover:text-white underline transition-colors">
+              {b.isGroup ? "Reschedule both bays" : "Reschedule"}
+            </Link>
+            <CancelBookingButton bookingId={b.id} startsAt={b.starts_at} total={b.groupTotal} bays={b.isGroup ? b.groupBays : undefined} />
           </div>
         )}
       </div>

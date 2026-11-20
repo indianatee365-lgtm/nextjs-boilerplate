@@ -7,7 +7,8 @@ import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 import { createBooking } from "@/lib/bookings/create"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
-import { cancelBookingGroup, getBookingGroup, isGroupedBooking } from "@/lib/bookings/group"
+import { bayLabel, cancelBookingGroup, getBookingGroup } from "@/lib/bookings/group"
+import { cancelOneBayOfGroup, moveGroupByAdmin } from "@/lib/bookings/group-changes"
 import { revokeBookingAccess, reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 
 function getStripe() {
@@ -238,7 +239,7 @@ export async function createManualBooking(input: {
   return { ok: true, bookingId: result.bookingId, bayName }
 }
 
-export async function cancelBooking(bookingId: string) {
+export async function cancelBooking(bookingId: string, { onlyThisBay = false }: { onlyThisBay?: boolean } = {}) {
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
 
@@ -278,6 +279,10 @@ export async function cancelBooking(bookingId: string) {
   // the payment that covered them. Admin cancels always refund, as below.
   const group = await getBookingGroup(serviceClient, bookingId)
   if (group.length > 1) {
+    // One bay only: refund that bay's share, the other stays booked.
+    if (onlyThisBay && await cancelOneBayOfGroup(serviceClient, group, bookingId, { actorId: user.id, refundEligible: true })) {
+      return
+    }
     await cancelBookingGroup(serviceClient, group, { actorId: user.id, refundEligible: true })
     return
   }
@@ -404,11 +409,34 @@ export async function rescheduleBooking(bookingId: string, newBayId: string, new
     throw new Error("This bay is part of a private event. You can swap it to another bay at the same time, but to change the time, cancel and recreate the event.")
   }
 
-  // Either bay of a two-bay booking can be swapped to another bay at the same
-  // time, but not moved to a different time: that would split the group, and
-  // only the first bay gets a door code.
-  if (new Date(newStartsAt).getTime() !== new Date(b.starts_at).getTime() && await isGroupedBooking(serviceClient, b)) {
-    throw new Error("This is part of a two-bay booking. You can move it to another bay at the same time, but not to a different time.")
+  // Two-bay booking: dragging either bay moves the pair. The dragged bay goes
+  // where it was dropped and the other lands next to it (2026-11-20).
+  const group = await getBookingGroup(serviceClient, bookingId)
+  if (group.filter((g) => g.status !== "cancelled").length > 1) {
+    const moved = await moveGroupByAdmin(serviceClient, group, bookingId, newBayId, newStartsAt)
+    const names = bayLabel(moved.bayNames)
+    const groupTotal = group.filter((g) => g.status !== "cancelled").reduce((s, g) => s + Number(g.total ?? 0), 0)
+    if (b.profiles?.phone && b.profiles.sms_consent) {
+      try {
+        await sendBookingRescheduledSms({ to: b.profiles.phone, firstName: b.profiles.first_name, bayName: names, startsAt: moved.start, endsAt: moved.end })
+      } catch (smsError) {
+        console.error("Reschedule SMS failed", smsError)
+      }
+    }
+    const { data: { user: groupUser } } = await serviceClient.auth.admin.getUserById(b.user_id)
+    if (groupUser?.email && b.profiles) {
+      try {
+        await sendBookingRescheduledEmail({
+          to: groupUser.email, firstName: b.profiles.first_name, bayName: names,
+          startsAt: moved.start, endsAt: moved.end,
+          subtotal: groupTotal, membershipDiscount: 0, couponDiscount: 0, tax: 0, giftCardApplied: 0,
+          hourCreditDiscount: 0, total: groupTotal,
+        })
+      } catch (emailError) {
+        console.error("Reschedule email failed", emailError)
+      }
+    }
+    return
   }
 
   // Keep the booking's CURRENT length, not duration_minutes. duration_minutes

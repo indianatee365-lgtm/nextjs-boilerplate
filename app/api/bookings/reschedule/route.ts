@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { calculateBookingPrice, getPricingContext } from "@/lib/pricing/engine"
 import { getVeteranDiscountPercent } from "@/lib/pricing/veteran"
-import { GROUP_RESCHEDULE_MESSAGE, isGroupedBooking } from "@/lib/bookings/group"
+import { bayLabel, getBookingGroup } from "@/lib/bookings/group"
+import { GROUP_RESCHEDULE_FEE, quoteGroupReschedule } from "@/lib/bookings/group-changes"
 import Stripe from "stripe"
 import { isInFirstYear } from "@/lib/membership/first-year"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
@@ -42,8 +43,38 @@ export async function POST(request: NextRequest) {
     if ((evLink as { event_id: string | null } | null)?.event_id) {
       return NextResponse.json({ error: "This is part of a private event. Call us at (574) 444-9365 to make changes." }, { status: 400 })
     }
-    if (await isGroupedBooking(serviceClient, booking as { id: string; parent_booking_id: string | null })) {
-      return NextResponse.json({ error: GROUP_RESCHEDULE_MESSAGE }, { status: 400 })
+    // Two-bay booking: quote moving both bays together. Never applied here;
+    // finalizeReschedule (or the Stripe webhook, for a paid move) applies it.
+    const group = await getBookingGroup(serviceClient, bookingId)
+    if (group.filter((g) => g.status !== "cancelled").length > 1) {
+      const q = await quoteGroupReschedule(serviceClient, user.id, group, newStartsAt)
+      if (!q.ok) return NextResponse.json({ error: q.error }, { status: q.status })
+      const { quote } = q
+      const all = [...quote.pricing.values()]
+      const sum = (f: (x: (typeof all)[number]) => number) => parseFloat(all.reduce((s, x) => s + f(x), 0).toFixed(2))
+      let clientSecret: string | undefined
+      if (Math.round(quote.netCharge * 100) >= 50) {
+        const pi = await getStripe().paymentIntents.create({
+          amount: Math.round(quote.netCharge * 100),
+          currency: "usd",
+          metadata: {
+            type: "group-reschedule",
+            parentBookingId: group[0].id,
+            userId: user.id,
+            newStartsAt: quote.newStart.toISOString(),
+          },
+        })
+        clientSecret = pi.client_secret ?? undefined
+      }
+      return NextResponse.json({
+        newPricing: { subtotal: sum((x) => x.subtotal), membershipDiscount: sum((x) => x.membershipDiscount), tax: sum((x) => x.tax), total: quote.newTotal },
+        originalTotal: quote.originalTotal, delta: quote.delta,
+        rescheduleFee: GROUP_RESCHEDULE_FEE,
+        netCharge: quote.netCharge, clientSecret, rescheduled: false,
+        newBayId: quote.pair[0].id, newBayName: bayLabel(quote.pair.map((b) => b.name)),
+        newStartsAt: quote.newStart.toISOString(), newEndsAt: quote.newEnd.toISOString(),
+        pricePerHour: quote.pricePerHour,
+      })
     }
     // The free part was priced against the original morning's allowance and the
     // 2-bay limit at that time; repricing a move would have to redo both.
