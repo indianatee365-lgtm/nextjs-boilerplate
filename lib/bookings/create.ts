@@ -443,6 +443,27 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       return { ok: false, status: 400, error: "Gift card has no remaining balance" }
     }
 
+    // Bonus cards (lib/promos/holiday-bonus-rules.ts) only cover sessions in a
+    // date range and on some weekdays. Plain gift cards have neither set.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gcRules } = await (serviceClient as any).from("gift_cards")
+      .select("valid_from, expires_at, days_allowed").eq("id", giftCard.id).single()
+    const rules = gcRules as { valid_from: string | null; expires_at: string | null; days_allowed: number[] | null } | null
+    const dayLabel = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
+    if (rules?.valid_from && startDate < new Date(rules.valid_from)) {
+      return { ok: false, status: 400, error: `This gift card is good for sessions starting ${dayLabel(new Date(rules.valid_from))}.` }
+    }
+    if (rules?.expires_at && startDate >= new Date(rules.expires_at)) {
+      return { ok: false, status: 400, error: `This gift card is good for sessions through ${dayLabel(new Date(new Date(rules.expires_at).getTime() - 1))}.` }
+    }
+    if (rules?.days_allowed?.length) {
+      const dow = new Date(`${easternDateKey(startDate)}T12:00:00Z`).getUTCDay()
+      if (!rules.days_allowed.includes(dow)) {
+        const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        return { ok: false, status: 400, error: `This gift card works on ${rules.days_allowed.map((d) => names[d]).join(", ")} sessions only.` }
+      }
+    }
+
     giftCardId = giftCard.id
     giftCardBalance = Number(giftCard.balance)
   }

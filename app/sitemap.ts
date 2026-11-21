@@ -45,6 +45,7 @@ const RANKING: Record<string, { priority: number; changeFrequency: MetadataRoute
   "/technology": { priority: 0.8, changeFrequency: "monthly" },
   "/league": { priority: 0.8, changeFrequency: "weekly" },
   "/gift-cards": { priority: 0.7, changeFrequency: "monthly" },
+  "/hour-packs": { priority: 0.7, changeFrequency: "monthly" },
   "/faq": { priority: 0.6, changeFrequency: "monthly" },
   "/about": { priority: 0.5, changeFrequency: "monthly" },
   "/contact": { priority: 0.5, changeFrequency: "yearly" },

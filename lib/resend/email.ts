@@ -57,12 +57,15 @@ export async function sendGiftCardEmail({
   senderName,
   code,
   amount,
+  note,
 }: {
   recipientEmail: string
   recipientName: string
   senderName: string
   code: string
   amount: number
+  /** Extra line under the instructions, e.g. a bonus card's date rules. */
+  note?: string
 }) {
   const html = `<!DOCTYPE html>
 <html>
@@ -92,9 +95,10 @@ export async function sendGiftCardEmail({
               <p style="margin:0 0 6px;color:#555;font-size:14px;line-height:1.6;">
                 Hi ${recipientName}! Use this code at checkout on tee365.org when booking your simulator session.
                 The full ${fmt(amount)} will be applied to your booking automatically.
-              </p>
+              </p>${note ? `
+              <p style="margin:12px 0 0;color:#111;font-size:14px;line-height:1.6;font-weight:700;">${note}</p>` : ""}
               <p style="margin:12px 0 0;color:#999;font-size:12px;">
-                Gift cards never expire &middot; Check your balance at
+                ${note ? "" : "Gift cards never expire &middot; "}Check your balance at
                 <a href="https://tee365.org/gift-cards" style="color:#4ade80;text-decoration:none;">tee365.org/gift-cards</a>
               </p>
             </td>

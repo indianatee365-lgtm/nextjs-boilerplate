@@ -11,11 +11,13 @@ export async function GET(request: NextRequest) {
   if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 })
 
   const supabase = await createServiceClient()
-  const { data: card } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cardRow } = await (supabase as any)
     .from("gift_cards")
-    .select("balance, original_amount, active, expires_at")
+    .select("balance, original_amount, active, expires_at, valid_from, days_allowed")
     .eq("code", code)
     .single()
+  const card = cardRow as { balance: number; original_amount: number; active: boolean; expires_at: string | null; valid_from: string | null; days_allowed: number[] | null } | null
 
   if (!card) return NextResponse.json({ error: "Gift card not found" }, { status: 404 })
 
@@ -26,5 +28,7 @@ export async function GET(request: NextRequest) {
     originalAmount: Number(card.original_amount),
     active: card.active && !expired,
     expiresAt: card.expires_at,
+    validFrom: card.valid_from,
+    daysAllowed: card.days_allowed,
   })
 }

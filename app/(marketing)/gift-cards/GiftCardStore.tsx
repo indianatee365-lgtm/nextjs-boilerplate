@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ArrowLeft } from "lucide-react"
+import { bonusFor, BONUS_RULES_TEXT } from "@/lib/promos/holiday-bonus-rules"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 const PRESETS = [25, 50, 100]
@@ -18,7 +19,7 @@ interface GiftCardDetails {
   senderName: string
 }
 
-function PaymentStep({ details, onBack, discountPercent }: { details: GiftCardDetails; onBack: () => void; discountPercent: number }) {
+function PaymentStep({ details, onBack, discountPercent, bonusLive }: { details: GiftCardDetails; onBack: () => void; discountPercent: number; bonusLive: boolean }) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
@@ -69,6 +70,12 @@ function PaymentStep({ details, onBack, discountPercent }: { details: GiftCardDe
             <span className="font-semibold" style={{ color: "var(--brand)" }}>{fmt(youPay)}</span>
           </div>
         )}
+        {bonusLive && bonusFor(amount) > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-neutral-400">Black Friday bonus card</span>
+            <span className="text-right font-semibold" style={{ color: "var(--brand)" }}>+{fmt(bonusFor(amount))}<span className="block text-xs font-normal text-neutral-400">{BONUS_RULES_TEXT}</span></span>
+          </div>
+        )}
         <div className="flex justify-between"><span className="text-neutral-400">To</span><span className="text-white">{details.recipientName}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">Delivered to</span><span className="text-white">{details.recipientEmail}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">From</span><span className="text-white">{details.senderName}</span></div>
@@ -89,7 +96,7 @@ function PaymentStep({ details, onBack, discountPercent }: { details: GiftCardDe
   )
 }
 
-export function PurchaseForm({ discountPercent = 0 }: { discountPercent?: number }) {
+export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { discountPercent?: number; bonusLive?: boolean }) {
   const [step, setStep] = useState<"form" | "payment">("form")
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [details, setDetails] = useState<GiftCardDetails | null>(null)
@@ -136,7 +143,7 @@ export function PurchaseForm({ discountPercent = 0 }: { discountPercent?: number
   if (step === "payment" && clientSecret && details) {
     return (
       <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-        <PaymentStep details={details} onBack={() => setStep("form")} discountPercent={discountPercent} />
+        <PaymentStep details={details} onBack={() => setStep("form")} discountPercent={discountPercent} bonusLive={bonusLive} />
       </Elements>
     )
   }
@@ -215,7 +222,7 @@ export function PurchaseForm({ discountPercent = 0 }: { discountPercent?: number
 
 export function BalanceChecker() {
   const [code, setCode] = useState("")
-  const [result, setResult] = useState<{ balance: number; originalAmount: number; active: boolean; expiresAt: string | null } | null>(null)
+  const [result, setResult] = useState<{ balance: number; originalAmount: number; active: boolean; expiresAt: string | null; validFrom?: string | null; daysAllowed?: number[] | null } | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -251,6 +258,9 @@ export function BalanceChecker() {
               <p className="mt-0.5 text-xs text-neutral-400">Original value: ${result.originalAmount.toFixed(2)}
                 {result.balance < result.originalAmount && ` - $${(result.originalAmount - result.balance).toFixed(2)} used`}
               </p>
+              {(result.validFrom || (result.daysAllowed && result.daysAllowed.length > 0)) && (
+                <p className="mt-1 text-xs text-neutral-300">{BONUS_RULES_TEXT}</p>
+              )}
             </>
           ) : (
             <>
