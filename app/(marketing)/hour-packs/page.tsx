@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { HourPackStore } from "./HourPackStore"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { HOUR_PACK_VALID_MONTHS } from "@/lib/hour-packs/packs"
+import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS, REGULAR_RATE_HIGH, REGULAR_RATE_LOW, maxSavings } from "@/lib/hour-packs/packs"
 
 const TITLE = "Golf Simulator Hour Packs | Tee365 Indoor Golf Mishawaka"
 const DESCRIPTION = "Prepay for simulator time at Tee365 and save. 5 and 10 hour packs, for you or as a gift, good any day and any time."
@@ -33,9 +33,13 @@ export default async function HourPacksPage() {
     <main className="mx-auto max-w-2xl px-4 py-16">
       <div className="text-center mb-10">
         <p className="text-sm font-semibold tracking-widest uppercase text-brand mb-2">Hour Packs</p>
-        <h1 className="text-3xl font-bold text-white mb-3">Prepay and play for less</h1>
-        <p className="text-neutral-400 text-base max-w-md mx-auto">
-          Buy simulator hours up front, for yourself or as a gift. Use them any day, any time, for {HOUR_PACK_VALID_MONTHS} months.
+        <h1 className="text-3xl font-bold text-white mb-3">Golf for as little as $28 an hour</h1>
+        <p className="text-neutral-300 text-base max-w-md mx-auto">
+          Our regular winter rates run ${REGULAR_RATE_LOW} to ${REGULAR_RATE_HIGH} an hour. Prepay and save up to
+          <strong className="text-white"> ${Math.max(...HOUR_PACKS.map(maxSavings))}</strong>.
+        </p>
+        <p className="text-neutral-400 text-sm max-w-md mx-auto mt-2">
+          Use your hours any day, any time, for {HOUR_PACK_VALID_MONTHS} months, even prime weekend nights. For yourself or as a gift.
           They come off your booking automatically.
         </p>
       </div>

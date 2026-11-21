@@ -68,7 +68,8 @@ export default async function GiftCardsPage() {
 
       <Link href="/hour-packs" className="mb-10 block rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8 transition hover:border-white/30">
         <p className="text-sm font-semibold tracking-widest uppercase text-brand mb-1">New: Hour packs</p>
-        <p className="text-lg font-semibold text-white">Give hours instead: 5 hours for $150, 10 hours for $280</p>
+        <p className="text-lg font-semibold text-white">Golf for as little as $28 an hour. Save up to $220.</p>
+        <p className="mt-1 text-sm text-neutral-300">5 hours for $150 or 10 hours for $280, against regular winter rates of $35 to $50 an hour.</p>
         <p className="mt-1 text-sm text-neutral-400">Good any day, any time, for 6 months. For you or as a gift.</p>
       </Link>
 

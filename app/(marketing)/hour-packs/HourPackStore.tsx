@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ArrowLeft } from "lucide-react"
-import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS } from "@/lib/hour-packs/packs"
+import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS, REGULAR_RATE_HIGH, REGULAR_RATE_LOW, maxSavings } from "@/lib/hour-packs/packs"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 const fmt = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
@@ -152,9 +152,16 @@ export function HourPackStore({ signedInName, signedInEmail }: { signedInName: s
             <button key={p.id} type="button" onClick={() => setPackId(p.id)}
               className={["rounded-xl border px-5 py-4 text-left transition",
                 packId === p.id ? "border-brand bg-brand/20" : "border-white/10 hover:border-white/30"].join(" ")}>
+              <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-black" style={{ backgroundColor: "var(--brand)" }}>
+                Save up to ${maxSavings(p)}
+              </span>
               <span className={["block text-lg font-bold", packId === p.id ? "text-brand" : "text-white"].join(" ")}>{p.hours} hours</span>
               <span className="block text-2xl font-bold text-white mt-1">{fmt(p.priceCents)}</span>
-              <span className="block text-xs text-neutral-400 mt-1">{fmt(Math.round(p.priceCents / p.hours))} an hour, any day, any time</span>
+              <span className="block text-sm font-semibold text-white mt-1">Just {fmt(Math.round(p.priceCents / p.hours))} an hour</span>
+              <span className="block text-xs text-neutral-400 mt-0.5">
+                Regular winter rates: <span className="line-through">${REGULAR_RATE_LOW} to ${REGULAR_RATE_HIGH} an hour</span>
+              </span>
+              <span className="block text-xs text-neutral-400 mt-0.5">Any day, any time</span>
             </button>
           ))}
         </div>

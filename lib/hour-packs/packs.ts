@@ -9,6 +9,16 @@ export const HOUR_PACKS = [
 export type HourPackId = (typeof HOUR_PACKS)[number]["id"]
 export const HOUR_PACK_VALID_MONTHS = 6
 
+// Regular winter (on-season) hourly rates from pricing_rules, Nov 2026:
+// $35 weekday daytime up to $50 weekend nights. Used to show the savings.
+export const REGULAR_RATE_LOW = 35
+export const REGULAR_RATE_HIGH = 50
+
+/** Most a pack saves, against the $50 weekend-night rate, in whole dollars. */
+export function maxSavings(pack: { hours: number; priceCents: number }): number {
+  return Math.round(pack.hours * REGULAR_RATE_HIGH - pack.priceCents / 100)
+}
+
 export function findPack(id: string) {
   return HOUR_PACKS.find((p) => p.id === id) ?? null
 }

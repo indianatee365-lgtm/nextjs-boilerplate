@@ -24,7 +24,7 @@ export default async function AnnouncementBar() {
       <Bar href="/gift-cards">
         <span className="font-extrabold tracking-wide">BLACK FRIDAY SALE</span>
         <span>· ${BONUS_PER_HUNDRED} bonus card with every $100 in gift cards</span>
-        <span className="hidden sm:inline">· New hour packs · Ends Cyber Monday</span>
+        <span className="hidden sm:inline">· Hour packs from $28/hr · Ends Cyber Monday</span>
         <span aria-hidden="true">→</span>
       </Bar>
     )
