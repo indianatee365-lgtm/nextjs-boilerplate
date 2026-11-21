@@ -57,6 +57,7 @@ export default async function GiftCardsPage() {
           <div className="mt-5 rounded-xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm">
             <p className="font-bold text-white">Black Friday sale: get a ${BONUS_PER_HUNDRED} bonus card for every $100</p>
             <p className="mt-1 text-neutral-300">Buy a $100 gift card and get a $20 bonus card. Keep it for yourself or add it to the gift. {BONUS_RULES_TEXT} Ends Cyber Monday, Nov 30.</p>
+            <p className="mt-2 text-neutral-300">Also on sale: <Link href="/hour-packs" className="font-semibold text-brand hover:underline">hour packs from $28 an hour</Link>.</p>
           </div>
         )}
       </div>
@@ -68,8 +69,10 @@ export default async function GiftCardsPage() {
 
       <Link href="/hour-packs" className="mb-10 block rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8 transition hover:border-white/30">
         <p className="text-sm font-semibold tracking-widest uppercase text-brand mb-1">New: Hour packs</p>
-        <p className="text-lg font-semibold text-white">Golf for as little as $28 an hour. Save up to $220.</p>
-        <p className="mt-1 text-sm text-neutral-300">5 hours for $150 or 10 hours for $280, against regular winter rates of $35 to $50 an hour.</p>
+        <p className="text-lg font-semibold text-white">{bonusLive ? "Black Friday: golf for as little as $28 an hour. Save up to $220." : "Golf for as little as $32.50 an hour. Save up to $175."}</p>
+        <p className="mt-1 text-sm text-neutral-300">{bonusLive
+          ? "5 hours for $150 or 10 hours for $280 through Cyber Monday (then $175 and $325). Regular winter rates are $35 to $50 an hour."
+          : "5 hours for $175 or 10 hours for $325, against regular winter rates of $35 to $50 an hour."}</p>
         <p className="mt-1 text-sm text-neutral-400">Good any day, any time, for 6 months. For you or as a gift.</p>
       </Link>
 

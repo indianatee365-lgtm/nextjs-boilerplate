@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ArrowLeft } from "lucide-react"
-import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS, REGULAR_RATE_HIGH, REGULAR_RATE_LOW, maxSavings } from "@/lib/hour-packs/packs"
+import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS, REGULAR_RATE_HIGH, REGULAR_RATE_LOW, maxSavings, packPriceCents } from "@/lib/hour-packs/packs"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 const fmt = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
@@ -21,13 +21,14 @@ interface Order {
   credited: boolean
 }
 
-function PaymentStep({ order, onBack }: { order: Order; onBack: () => void }) {
+function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => void; saleLive: boolean }) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const pack = HOUR_PACKS.find((p) => p.id === order.packId)!
+  const price = packPriceCents(pack, saleLive)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -59,7 +60,13 @@ function PaymentStep({ order, onBack }: { order: Order; onBack: () => void }) {
       </button>
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2 text-sm">
         <div className="flex justify-between"><span className="text-neutral-400">Pack</span><span className="text-white font-semibold">{pack.hours} hours</span></div>
-        <div className="flex justify-between"><span className="text-neutral-400">Price</span><span className="text-white font-semibold">{fmt(pack.priceCents)}</span></div>
+        <div className="flex justify-between">
+          <span className="text-neutral-400">{saleLive ? "Black Friday price" : "Price"}</span>
+          <span className="text-white font-semibold">
+            {saleLive && <span className="mr-2 font-normal text-neutral-500 line-through">{fmt(pack.priceCents)}</span>}
+            {fmt(price)}
+          </span>
+        </div>
         {order.mode === "gift" ? (
           <>
             <div className="flex justify-between"><span className="text-neutral-400">To</span><span className="text-white">{order.recipientName}</span></div>
@@ -81,14 +88,14 @@ function PaymentStep({ order, onBack }: { order: Order; onBack: () => void }) {
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={!stripe || submitting} className="btn-primary w-full py-3 text-base">
-        {submitting ? "Processing..." : `Pay ${fmt(pack.priceCents)} for ${pack.hours} hours`}
+        {submitting ? "Processing..." : `Pay ${fmt(price)} for ${pack.hours} hours`}
       </button>
       <p className="text-center text-xs text-neutral-500">Payment processed securely by Stripe. Hours are good for {HOUR_PACK_VALID_MONTHS} months.</p>
     </form>
   )
 }
 
-export function HourPackStore({ signedInName, signedInEmail }: { signedInName: string | null; signedInEmail: string | null }) {
+export function HourPackStore({ signedInName, signedInEmail, saleLive }: { signedInName: string | null; signedInEmail: string | null; saleLive: boolean }) {
   const [packId, setPackId] = useState<string>(HOUR_PACKS[HOUR_PACKS.length - 1].id)
   const [mode, setMode] = useState<Mode>("gift")
   const [recipientName, setRecipientName] = useState("")
@@ -138,7 +145,7 @@ export function HourPackStore({ signedInName, signedInEmail }: { signedInName: s
   if (clientSecret && order) {
     return (
       <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-        <PaymentStep order={order} onBack={() => { setClientSecret(null); setOrder(null) }} />
+        <PaymentStep order={order} saleLive={saleLive} onBack={() => { setClientSecret(null); setOrder(null) }} />
       </Elements>
     )
   }
@@ -148,22 +155,29 @@ export function HourPackStore({ signedInName, signedInEmail }: { signedInName: s
       <div>
         <p className="label mb-2">Pick a pack</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {HOUR_PACKS.map((p) => (
-            <button key={p.id} type="button" onClick={() => setPackId(p.id)}
-              className={["rounded-xl border px-5 py-4 text-left transition",
-                packId === p.id ? "border-brand bg-brand/20" : "border-white/10 hover:border-white/30"].join(" ")}>
-              <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-black" style={{ backgroundColor: "var(--brand)" }}>
-                Save up to ${maxSavings(p)}
-              </span>
-              <span className={["block text-lg font-bold", packId === p.id ? "text-brand" : "text-white"].join(" ")}>{p.hours} hours</span>
-              <span className="block text-2xl font-bold text-white mt-1">{fmt(p.priceCents)}</span>
-              <span className="block text-sm font-semibold text-white mt-1">Just {fmt(Math.round(p.priceCents / p.hours))} an hour</span>
-              <span className="block text-xs text-neutral-400 mt-0.5">
-                Regular winter rates: <span className="line-through">${REGULAR_RATE_LOW} to ${REGULAR_RATE_HIGH} an hour</span>
-              </span>
-              <span className="block text-xs text-neutral-400 mt-0.5">Any day, any time</span>
-            </button>
-          ))}
+          {HOUR_PACKS.map((p) => {
+            const price = packPriceCents(p, saleLive)
+            return (
+              <button key={p.id} type="button" onClick={() => setPackId(p.id)}
+                className={["rounded-xl border px-5 py-4 text-left transition",
+                  packId === p.id ? "border-brand bg-brand/20" : "border-white/10 hover:border-white/30"].join(" ")}>
+                <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-black" style={{ backgroundColor: "var(--brand)" }}>
+                  Save up to ${maxSavings(p, saleLive)}
+                </span>
+                <span className={["block text-lg font-bold", packId === p.id ? "text-brand" : "text-white"].join(" ")}>{p.hours} hours</span>
+                <span className="block text-2xl font-bold text-white mt-1">
+                  {fmt(price)}
+                  {saleLive && <span className="ml-2 text-base font-normal text-neutral-500 line-through">{fmt(p.priceCents)}</span>}
+                </span>
+                {saleLive && <span className="block text-xs font-bold uppercase tracking-wide text-brand mt-1">Black Friday price</span>}
+                <span className="block text-sm font-semibold text-white mt-1">Just {fmt(Math.round(price / p.hours))} an hour</span>
+                <span className="block text-xs text-neutral-400 mt-0.5">
+                  Regular winter rates: <span className="line-through">${REGULAR_RATE_LOW} to ${REGULAR_RATE_HIGH} an hour</span>
+                </span>
+                <span className="block text-xs text-neutral-400 mt-0.5">Any day, any time</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 

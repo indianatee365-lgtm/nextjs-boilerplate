@@ -4,6 +4,7 @@ import TechBand from "@/app/components/sections/TechBand"
 import FeatureBand from "@/app/components/sections/FeatureBand"
 import Info from "@/app/components/sections/Info"
 import LeagueBand from "@/app/components/sections/LeagueBand"
+import BlackFridayBand from "@/app/components/sections/BlackFridayBand"
 import LocalSEO from "@/app/components/sections/LocalSEO"
 import Reviews from "@/app/components/sections/Reviews"
 import PageContainer from "@/app/components/PageContainer"
@@ -28,6 +29,7 @@ export default function HomePage() {
       {/* Constrained content */}
       <PageContainer>
         <div className="space-y-16">
+          <BlackFridayBand />
           <LeagueBand />
           <HowItWorks />
           <Reviews />

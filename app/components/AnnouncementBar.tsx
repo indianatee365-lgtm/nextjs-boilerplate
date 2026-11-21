@@ -21,10 +21,10 @@ export default async function AnnouncementBar() {
   // then the bar falls back to whatever it showed before.
   if (isBonusLive()) {
     return (
-      <Bar href="/gift-cards">
+      <Bar href="/hour-packs">
         <span className="font-extrabold tracking-wide">BLACK FRIDAY SALE</span>
-        <span>· ${BONUS_PER_HUNDRED} bonus card with every $100 in gift cards</span>
-        <span className="hidden sm:inline">· Hour packs from $28/hr · Ends Cyber Monday</span>
+        <span>· Golf from $28/hr with hour packs</span>
+        <span className="hidden sm:inline">· ${BONUS_PER_HUNDRED} bonus with every $100 in gift cards · Ends Cyber Monday</span>
         <span aria-hidden="true">→</span>
       </Bar>
     )

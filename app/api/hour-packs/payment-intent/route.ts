@@ -3,7 +3,7 @@ import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { checkoutRatelimit } from "@/lib/ratelimit"
-import { findPack } from "@/lib/hour-packs/packs"
+import { findPack, packPriceCents } from "@/lib/hour-packs/packs"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentIntent = await getStripe().paymentIntents.create({
-      amount: pack.priceCents,
+      amount: packPriceCents(pack),
       currency: "usd",
       payment_method_types: ["card", "cashapp"],
       metadata: {
