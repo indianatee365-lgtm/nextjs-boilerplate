@@ -55,8 +55,8 @@ export default async function GiftCardsPage() {
         )}
         {bonusLive && (
           <div className="mt-5 rounded-xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm">
-            <p className="font-bold text-white">Black Friday weekend: get a ${BONUS_PER_HUNDRED} bonus card for every $100</p>
-            <p className="mt-1 text-neutral-300">Buy a $100 card, they get $120. Bonus cards are emailed with the gift. {BONUS_RULES_TEXT} Ends Monday, Nov 30.</p>
+            <p className="font-bold text-white">Black Friday sale: get a ${BONUS_PER_HUNDRED} bonus card for every $100</p>
+            <p className="mt-1 text-neutral-300">Buy a $100 gift card and get a $20 bonus card. Keep it for yourself or add it to the gift. {BONUS_RULES_TEXT} Ends Cyber Monday, Nov 30.</p>
           </div>
         )}
       </div>

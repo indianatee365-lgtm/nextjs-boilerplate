@@ -1,11 +1,11 @@
 /**
- * Black Friday weekend 2026 gift card bonus (Jerrod, 2026-11-20): for every
- * full $100 of gift card bought Nov 27 to Nov 30 (Eastern), the recipient
- * also gets a $20 bonus card, good for sessions Jan 1 to Mar 31 2027,
+ * Black Friday 2026 gift card bonus (Jerrod, 2026-11-20): for every full $100
+ * of gift card bought Nov 20 to Nov 30 (Eastern, through Cyber Monday), the
+ * buyer gets a $20 bonus card (or adds it to the gift, their choice), good for sessions Jan 1 to Mar 31 2027,
  * Monday to Thursday only. Full price is charged; the bonus is extra value.
  * Safe to import in the browser. Issuing the card is in ./holiday-bonus.ts.
  */
-export const BONUS_START = new Date("2026-11-27T05:00:00Z") // Nov 27, 12:00 AM ET
+export const BONUS_START = new Date("2026-11-20T05:00:00Z") // Nov 20, 12:00 AM ET (started early, Jerrod 2026-11-20)
 export const BONUS_END = new Date("2026-12-01T05:00:00Z") // end of Nov 30 ET
 export const BONUS_PER_HUNDRED = 20
 export const BONUS_VALID_FROM = new Date("2027-01-01T05:00:00Z") // Jan 1 2027, 12:00 AM ET

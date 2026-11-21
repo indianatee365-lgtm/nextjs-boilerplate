@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (_pi.metadata?.type === "gift_card") {
-      const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
+      const { recipientName, recipientEmail, senderName, amountCents, senderEmail, bonusTo } = _pi.metadata
       const amount = parseInt(amountCents) / 100
       const code = generateGiftCardCode()
       const { error: insertError } = await supabase.from("gift_cards").insert({
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       // Black Friday weekend bonus card (lib/promos). Runs even when the card
       // above already existed, and is itself keyed on the payment.
       await issueHolidayBonusCard(supabase, { id: _pi.id, created: _pi.created },
-        { amount, recipientName, recipientEmail, senderName })
+        { amount, recipientName, recipientEmail, senderName, senderEmail, bonusTo })
       return NextResponse.json({ received: true })
     }
 

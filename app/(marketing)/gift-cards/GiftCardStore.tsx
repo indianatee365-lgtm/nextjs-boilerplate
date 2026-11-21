@@ -17,6 +17,8 @@ interface GiftCardDetails {
   recipientName: string
   recipientEmail: string
   senderName: string
+  senderEmail: string
+  bonusTo: "me" | "gift"
 }
 
 function PaymentStep({ details, onBack, discountPercent, bonusLive }: { details: GiftCardDetails; onBack: () => void; discountPercent: number; bonusLive: boolean }) {
@@ -72,13 +74,14 @@ function PaymentStep({ details, onBack, discountPercent, bonusLive }: { details:
         )}
         {bonusLive && bonusFor(amount) > 0 && (
           <div className="flex justify-between gap-4">
-            <span className="text-neutral-400">Black Friday bonus card</span>
+            <span className="text-neutral-400">Black Friday bonus card {details.bonusTo === "me" ? "(yours to keep)" : "(added to the gift)"}</span>
             <span className="text-right font-semibold" style={{ color: "var(--brand)" }}>+{fmt(bonusFor(amount))}<span className="block text-xs font-normal text-neutral-400">{BONUS_RULES_TEXT}</span></span>
           </div>
         )}
         <div className="flex justify-between"><span className="text-neutral-400">To</span><span className="text-white">{details.recipientName}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">Delivered to</span><span className="text-white">{details.recipientEmail}</span></div>
         <div className="flex justify-between"><span className="text-neutral-400">From</span><span className="text-white">{details.senderName}</span></div>
+        <div className="flex justify-between"><span className="text-neutral-400">Receipt to</span><span className="text-white">{details.senderEmail}</span></div>
       </div>
       <div>
         <p className="label mb-2">Payment</p>
@@ -106,6 +109,8 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
   const [recipientName, setRecipientName] = useState("")
   const [recipientEmail, setRecipientEmail] = useState("")
   const [senderName, setSenderName] = useState("")
+  const [senderEmail, setSenderEmail] = useState("")
+  const [bonusTo, setBonusTo] = useState<"me" | "gift">("me")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [submitted, setSubmitted] = useState(false)
@@ -113,6 +118,8 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
   const effectiveAmount = useCustom ? parseFloat(custom) : (amount ?? 0)
   const valid = effectiveAmount >= 10 && effectiveAmount <= 500
     && recipientName.trim().length > 0 && recipientEmail.trim().length > 0 && senderName.trim().length > 0
+    && senderEmail.trim().length > 0
+  const bonusAmount = bonusLive && effectiveAmount > 0 ? bonusFor(effectiveAmount) : 0
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault()
@@ -125,11 +132,11 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
       const res = await fetch("/api/gift-cards/payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim() }),
+        body: JSON.stringify({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim(), senderEmail: senderEmail.trim(), bonusTo }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? "Something went wrong"); return }
-      setDetails({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim() })
+      setDetails({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim(), senderEmail: senderEmail.trim(), bonusTo })
       setClientSecret(data.clientSecret)
       clarityEvent("giftcard_checkout")
       setStep("payment")
@@ -212,6 +219,31 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
           <p className="mt-1 text-xs text-red-400">Your name is required</p>
         )}
       </div>
+      <div>
+        <label className="label" htmlFor="senderEmail">Your email</label>
+        <input id="senderEmail" type="email" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)}
+          placeholder="you@example.com" className="input mt-1" />
+        {submitted && senderEmail.trim() === "" ? (
+          <p className="mt-1 text-xs text-red-400">Your email is required</p>
+        ) : (
+          <p className="mt-1 text-xs text-neutral-500">For your receipt{bonusAmount > 0 && bonusTo === "me" ? " and your bonus card" : ""}.</p>
+        )}
+      </div>
+      {bonusAmount > 0 && (
+        <div className="rounded-xl border border-brand/40 bg-brand/10 p-4">
+          <p className="text-sm font-semibold text-white">Black Friday bonus: a ${bonusAmount} bonus card</p>
+          <p className="mt-0.5 text-xs text-neutral-400">{BONUS_RULES_TEXT}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {([["me", "Keep it for me"], ["gift", "Add it to the gift"]] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => setBonusTo(v)}
+                className={["rounded-lg border px-4 py-2 text-sm font-semibold transition",
+                  bonusTo === v ? "border-brand bg-brand/20 text-brand" : "border-white/10 text-neutral-300 hover:border-white/30"].join(" ")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
         {loading ? "Loading payment..." : "Continue to payment"}
