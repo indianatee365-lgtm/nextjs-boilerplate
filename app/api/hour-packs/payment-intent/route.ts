@@ -53,8 +53,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const amountCents = packPriceCents(pack)
     const paymentIntent = await getStripe().paymentIntents.create({
-      amount: packPriceCents(pack),
+      amount: amountCents,
       currency: "usd",
       payment_method_types: ["card", "cashapp"],
       metadata: {
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       description: `Tee365 ${pack.hours}-hour pack${mode === "gift" ? ` for ${recipientName}` : ""}`,
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret, credited: Boolean(userId) })
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret, credited: Boolean(userId), amountCents })
   } catch (err) {
     try {
       const sc = await createServiceClient()

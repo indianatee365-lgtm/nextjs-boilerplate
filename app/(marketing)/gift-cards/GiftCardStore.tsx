@@ -19,6 +19,8 @@ interface GiftCardDetails {
   senderName: string
   senderEmail: string
   bonusTo: "me" | "gift"
+  /** From the server: whether this payment gets the Black Friday bonus. */
+  bonusLive: boolean
 }
 
 function PaymentStep({ details, onBack, discountPercent, bonusLive }: { details: GiftCardDetails; onBack: () => void; discountPercent: number; bonusLive: boolean }) {
@@ -136,7 +138,7 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? "Something went wrong"); return }
-      setDetails({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim(), senderEmail: senderEmail.trim(), bonusTo })
+      setDetails({ amountCents, recipientName: recipientName.trim(), recipientEmail: recipientEmail.trim(), senderName: senderName.trim(), senderEmail: senderEmail.trim(), bonusTo, bonusLive: Boolean(data.bonusLive) })
       setClientSecret(data.clientSecret)
       clarityEvent("giftcard_checkout")
       setStep("payment")
@@ -150,7 +152,7 @@ export function PurchaseForm({ discountPercent = 0, bonusLive = false }: { disco
   if (step === "payment" && clientSecret && details) {
     return (
       <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-        <PaymentStep details={details} onBack={() => setStep("form")} discountPercent={discountPercent} bonusLive={bonusLive} />
+        <PaymentStep details={details} onBack={() => setStep("form")} discountPercent={discountPercent} bonusLive={details.bonusLive} />
       </Elements>
     )
   }

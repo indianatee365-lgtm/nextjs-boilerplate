@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBonusLive } from "@/lib/promos/holiday-bonus-rules"
 import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { createServiceClient } from "@/lib/supabase/server"
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       description: `Tee365 Gift Card $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret })
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret, bonusLive: isBonusLive(new Date(paymentIntent.created * 1000)) })
   } catch (err) {
     try {
       const sc = await createServiceClient()

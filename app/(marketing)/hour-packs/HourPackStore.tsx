@@ -19,6 +19,8 @@ interface Order {
   recipientEmail: string
   senderName: string
   credited: boolean
+  /** What the server charges. Can differ from the page if the sale ended while it was open. */
+  amountCents: number
 }
 
 function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => void; saleLive: boolean }) {
@@ -28,7 +30,8 @@ function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => 
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const pack = HOUR_PACKS.find((p) => p.id === order.packId)!
-  const price = packPriceCents(pack, saleLive)
+  const price = order.amountCents
+  const onSale = price < pack.priceCents
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -61,9 +64,9 @@ function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => 
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2 text-sm">
         <div className="flex justify-between"><span className="text-neutral-400">Pack</span><span className="text-white font-semibold">{pack.hours} hours</span></div>
         <div className="flex justify-between">
-          <span className="text-neutral-400">{saleLive ? "Black Friday price" : "Price"}</span>
+          <span className="text-neutral-400">{onSale ? "Black Friday price" : "Price"}</span>
           <span className="text-white font-semibold">
-            {saleLive && <span className="mr-2 font-normal text-neutral-500 line-through">{fmt(pack.priceCents)}</span>}
+            {onSale && <span className="mr-2 font-normal text-neutral-500 line-through">{fmt(pack.priceCents)}</span>}
             {fmt(price)}
           </span>
         </div>
@@ -79,6 +82,9 @@ function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => 
           <div className="flex justify-between"><span className="text-neutral-400">Code emailed to</span><span className="text-white">{order.recipientEmail}</span></div>
         )}
       </div>
+      {saleLive && !onSale && (
+        <p className="text-sm text-yellow-300">The Black Friday sale has ended, so this is the regular price.</p>
+      )}
       <div>
         <p className="label mb-2">Payment</p>
         <PaymentElement
@@ -131,6 +137,7 @@ export function HourPackStore({ signedInName, signedInEmail, saleLive }: { signe
       if (!res.ok) { setError(data.error ?? "Something went wrong"); return }
       setOrder({
         packId, mode, senderName: senderName.trim(), credited: Boolean(data.credited),
+        amountCents: Number(data.amountCents),
         recipientName: mode === "gift" ? recipientName.trim() : senderName.trim(),
         recipientEmail: mode === "gift" ? recipientEmail.trim() : (signedInEmail ?? buyerEmail.trim()),
       })
