@@ -1,6 +1,6 @@
 "use client"
 
-import { clarityEvent } from "@/lib/clarity"
+import { clarityPaid } from "@/lib/clarity"
 import { Fragment, useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { trackFunnel } from "@/lib/funnel"
@@ -81,7 +81,7 @@ function PaymentForm({
           : (error.message ?? "Payment failed"))
         return
       }
-      clarityEvent("book_paid")
+      clarityPaid("book_paid", returnUrl.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0])
       paid = true
       window.location.assign(returnUrl)
     } finally {

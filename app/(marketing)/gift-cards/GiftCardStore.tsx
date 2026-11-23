@@ -1,6 +1,6 @@
 "use client"
 
-import { clarityEvent } from "@/lib/clarity"
+import { clarityEvent, clarityPaid } from "@/lib/clarity"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
@@ -45,7 +45,7 @@ function PaymentStep({ details, onBack, discountPercent, bonusLive }: { details:
         setError(stripeError.message ?? "Payment failed. Please try again.")
         setSubmitting(false)
       } else if (paymentIntent) {
-        clarityEvent("giftcard_paid")
+        clarityPaid("giftcard_paid", paymentIntent.id)
         router.push(`/gift-cards/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`)
       }
     } catch {

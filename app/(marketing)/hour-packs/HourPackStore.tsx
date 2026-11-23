@@ -6,6 +6,7 @@ import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { ArrowLeft } from "lucide-react"
 import { HOUR_PACKS, HOUR_PACK_VALID_MONTHS, REGULAR_RATE_HIGH, REGULAR_RATE_LOW, maxSavings, packPriceCents } from "@/lib/hour-packs/packs"
+import { clarityPaid } from "@/lib/clarity"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 const fmt = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
@@ -48,6 +49,7 @@ function PaymentStep({ order, onBack, saleLive }: { order: Order; onBack: () => 
         setError(stripeError.message ?? "Payment failed. Please try again.")
         setSubmitting(false)
       } else if (paymentIntent) {
+        clarityPaid("hourpack_paid", paymentIntent.id)
         router.push(`/hour-packs/success?payment_intent=${paymentIntent.id}&redirect_status=succeeded`)
       }
     } catch {

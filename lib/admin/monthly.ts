@@ -59,6 +59,7 @@ export type SalesInsights = {
   giftCardBalance: number             // unspent balance on paid gift cards
   compGiftCardBalance: number         // unspent balance on admin-issued cards
   creditHoursOutstanding: number      // unused free hours not yet expired
+  packHoursOutstanding: number        // unused purchased hour-pack hours not yet expired
   projectedMonth: number | null       // this month's revenue at the current daily pace
 }
 
@@ -116,8 +117,8 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
         .order("starts_at")),
     fetchAllRows<{ balance: number; stripe_payment_id: string | null; active: boolean | null; expires_at: string | null }>(() =>
       serviceClient.from("gift_cards").select("balance, stripe_payment_id, active, expires_at").gt("balance", 0).order("created_at")),
-    fetchAllRows<{ hours_remaining: number; active: boolean | null; expires_at: string | null }>(() =>
-      serviceClient.from("hour_credits").select("hours_remaining, active, expires_at").gt("hours_remaining", 0).order("created_at")),
+    fetchAllRows<{ hours_remaining: number; active: boolean | null; expires_at: string | null; stripe_payment_id: string | null }>(() =>
+      serviceClient.from("hour_credits").select("hours_remaining, active, expires_at, stripe_payment_id").gt("hours_remaining", 0).order("created_at")),
   ])
 
   // Played = confirmed, already started, and not an admin test booking.
@@ -229,7 +230,8 @@ export async function computeSalesInsights(serviceClient: any, now: Date = new D
     repeatRate: playCount.size ? ([...playCount.values()].filter((n) => n > 1).length / playCount.size) * 100 : 0,
     giftCardBalance: giftCards.filter((g) => g.stripe_payment_id && notExpired(g)).reduce((t, g) => t + Number(g.balance), 0),
     compGiftCardBalance: giftCards.filter((g) => !g.stripe_payment_id && notExpired(g)).reduce((t, g) => t + Number(g.balance), 0),
-    creditHoursOutstanding: credits.filter(notExpired).reduce((t, c) => t + Number(c.hours_remaining), 0),
+    creditHoursOutstanding: credits.filter((c) => !c.stripe_payment_id && notExpired(c)).reduce((t, c) => t + Number(c.hours_remaining), 0),
+    packHoursOutstanding: credits.filter((c) => c.stripe_payment_id && notExpired(c)).reduce((t, c) => t + Number(c.hours_remaining), 0),
     // Too noisy to project in the first few days of a month.
     projectedMonth: current && daysElapsed >= 5 ? (current.total / daysElapsed) * daysInMonth : null,
   }

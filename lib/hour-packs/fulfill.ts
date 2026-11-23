@@ -55,6 +55,9 @@ export async function fulfillHourPack(db: Db, pi: { id: string; amount_received:
     active: true,
     created_by: meta.userId ?? null,
     stripe_payment_id: pi.id,
+    amount_paid: pi.amount_received / 100,
+    buyer_name: meta.senderName,
+    buyer_email: meta.mode === "gift" ? null : meta.recipientEmail,
   })
   if (error) {
     if ((error as { code?: string }).code === "23505") return // already fulfilled
