@@ -108,6 +108,21 @@ export default async function AccountDashboard({
   const availableCreditHours = creditRows.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
   const nextCreditExpiry = creditRows.find((c) => c.expires_at)?.expires_at ?? null
 
+  // Hour packs bought for themselves while logged out: the code went by email,
+  // offer to add it here. Gift purchases have no buyer_email, so never show.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: packRows } = await (serviceClient as any)
+    .from("hour_credits")
+    .select("id, hours, code, expires_at")
+    .is("user_id", null)
+    .not("stripe_payment_id", "is", null)
+    .ilike("buyer_email", email.replace(/[\\%_]/g, "\\$&"))
+    .eq("active", true)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .order("created_at")
+  const unclaimedPacks = ((packRows ?? []) as Array<{ id: string; hours: number; code: string | null }>)
+    .map((r) => ({ id: r.id, hours: Number(r.hours), code: r.code }))
+
   // Eagle's 2 free hours land with the 3rd monthly payment. Until then, say
   // when, so nobody expects them at signup.
   const { data: eagleCredit } = await serviceClient
@@ -331,7 +346,7 @@ export default async function AccountDashboard({
       {membershipStatus !== "active" && <MembershipGiveawaySection />}
 
       {/* Free hours balance + code redemption */}
-      <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} />
+      <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} unclaimedPacks={unclaimedPacks} />
 
       {leagueName && (
         <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3">

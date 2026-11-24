@@ -5,7 +5,12 @@ import CustomerEmailField from "@/components/admin/CustomerEmailField"
 
 export const metadata = { title: "Hour Credits | Tee365 Admin" }
 
-export default async function AdminHourCreditsPage() {
+export default async function AdminHourCreditsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>
+}) {
+  const { type } = await searchParams
   const supabase = await createClient()
   const serviceClient = await createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,7 +22,7 @@ export default async function AdminHourCreditsPage() {
   const [{ data: credits }, { data: uses }] = await Promise.all([
     serviceClient
       .from("hour_credits")
-      .select("id, code, hours, hours_remaining, reason, expires_at, active, redeemed_at, created_at, profiles!hour_credits_user_id_fkey(first_name, last_name)")
+      .select("id, code, hours, hours_remaining, reason, expires_at, active, redeemed_at, created_at, stripe_payment_id, amount_paid, buyer_name, profiles!hour_credits_user_id_fkey(first_name, last_name)")
       .order("created_at", { ascending: false })
       .limit(200),
     serviceClient
@@ -27,7 +32,18 @@ export default async function AdminHourCreditsPage() {
       .limit(50),
   ])
 
-  const activeCredits = (credits ?? []).filter((c) => c.active)
+  // amount_paid / buyer_name are newer than lib/supabase/types.ts.
+  type CreditRow = {
+    id: string; code: string | null; hours: number; hours_remaining: number; reason: string | null
+    expires_at: string | null; active: boolean; redeemed_at: string | null; created_at: string
+    stripe_payment_id: string | null; amount_paid: number | null; buyer_name: string | null
+    profiles: { first_name: string; last_name: string } | null
+  }
+  const allCredits = (credits ?? []) as unknown as CreditRow[]
+  const shown = type === "paid" ? allCredits.filter((c) => c.stripe_payment_id)
+    : type === "free" ? allCredits.filter((c) => !c.stripe_payment_id)
+    : allCredits
+  const activeCredits = allCredits.filter((c) => c.active)
   const totalIssuedHours = activeCredits.reduce((sum, c) => sum + Number(c.hours), 0)
   const totalRedeemedHours = activeCredits.reduce((sum, c) => sum + (Number(c.hours) - Number(c.hours_remaining)), 0)
   const totalOutstandingHours = activeCredits.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
@@ -110,14 +126,30 @@ export default async function AdminHourCreditsPage() {
         </form>
       </div>
 
-      <h2 className="mt-10 mb-3 text-sm font-semibold text-white">All credits</h2>
-      {credits && credits.length > 0 ? (
+      <div className="mt-10 mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-sm font-semibold text-white">All credits</h2>
+        {[
+          { key: undefined, label: "All" },
+          { key: "paid", label: "Bought (hour packs)" },
+          { key: "free", label: "Free / comp" },
+        ].map((f) => (
+          <a
+            key={f.label}
+            href={f.key ? `/admin/hour-credits?type=${f.key}` : "/admin/hour-credits"}
+            className={`rounded-full px-3 py-1 text-xs ${type === f.key ? "bg-brand/20 text-brand" : "bg-white/5 text-neutral-400 hover:text-white"}`}
+          >
+            {f.label}
+          </a>
+        ))}
+      </div>
+      {shown.length > 0 ? (
         <div className="rounded-xl border border-white/10 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-neutral-500">
                 <th className="px-4 py-3 whitespace-nowrap">Code</th>
                 <th className="px-4 py-3">Holder</th>
+                <th className="px-4 py-3">Paid</th>
                 <th className="px-4 py-3">Hours left</th>
                 <th className="px-4 py-3">Reason</th>
                 <th className="px-4 py-3">Expires</th>
@@ -126,13 +158,20 @@ export default async function AdminHourCreditsPage() {
               </tr>
             </thead>
             <tbody>
-              {credits.map((c) => {
+              {shown.map((c) => {
                 const holder = c.profiles as { first_name: string; last_name: string } | null
                 return (
                   <tr key={c.id} className="border-b border-white/5 text-neutral-300">
                     <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{c.code ?? "direct grant"}</td>
                     <td className="px-4 py-3 text-xs">
-                      {holder ? `${holder.first_name} ${holder.last_name}` : <span className="text-neutral-500">Unclaimed</span>}
+                      {holder
+                        ? `${holder.first_name} ${holder.last_name}`
+                        : <span className="text-neutral-500">{c.stripe_payment_id ? "Code emailed, not used yet" : "Unclaimed"}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {c.stripe_payment_id
+                        ? <>{c.amount_paid !== null ? `$${Number(c.amount_paid).toFixed(2)}` : "Paid"}{c.buyer_name ? <span className="block text-neutral-500">by {c.buyer_name}</span> : null}</>
+                        : <span className="text-neutral-500">Free</span>}
                     </td>
                     <td className="px-4 py-3">{Number(c.hours_remaining)} / {Number(c.hours)}</td>
                     <td className="px-4 py-3 text-neutral-400 text-xs">{c.reason ?? ""}</td>

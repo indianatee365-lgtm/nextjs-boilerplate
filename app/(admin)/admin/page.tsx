@@ -39,6 +39,7 @@ export default async function AdminPage() {
     { count: cancellations30d },
     { count: abandoned30d },
     { data: giftCardBalances },
+    { data: packCredits },
     { data: recentBookings },
     { count: activeCouponCount },
     { count: userCount },
@@ -67,6 +68,8 @@ export default async function AdminPage() {
       serviceClient.from("bookings").select("id", { count: "exact", head: true }),
       thirtyDaysAgo),
     serviceClient.from("gift_cards").select("balance, active"),
+    serviceClient.from("hour_credits").select("hours_remaining, expires_at")
+      .eq("active", true).gt("hours_remaining", 0).not("stripe_payment_id", "is", null),
     serviceClient.from("bookings")
       .select("id, starts_at, ends_at, status, total, bays(name), profiles!user_id(first_name, last_name)")
       .in("status", ["confirmed", "pending"]).gte("starts_at", todayUTC.toISOString())
@@ -83,6 +86,10 @@ export default async function AdminPage() {
     .filter(g => g.active)
     .reduce((sum, g) => sum + Number(g.balance), 0)
   const fmtMoney = (n: number) => `$${n.toFixed(2)}`
+  // Bought hour-pack hours not yet played, like gift card liability.
+  const packHoursOwed = ((packCredits ?? []) as Array<{ hours_remaining: number; expires_at: string | null }>)
+    .filter((c) => !c.expires_at || new Date(c.expires_at).getTime() > nowMs)
+    .reduce((sum, c) => sum + Number(c.hours_remaining), 0)
   // Eastern calendar dates (YYYY-MM-DD) for links into Manage Bookings' day view.
   const etDateKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Indiana/Indianapolis" })
 
@@ -228,7 +235,7 @@ export default async function AdminPage() {
           { href: "/admin/discounts", icon: <Percent size={16} />, label: "Discounts" },
           { href: "/admin/gift-cards", icon: <Gift size={16} />, label: `Gift Cards (${fmtMoney(liability)} liability)` },
           { href: "/admin/membership-giveaways", icon: <Ticket size={16} />, label: "Membership Giveaways" },
-          { href: "/admin/hour-credits", icon: <Clock size={16} />, label: "Hour Credits" },
+          { href: "/admin/hour-credits", icon: <Clock size={16} />, label: packHoursOwed > 0 ? `Hour Credits (${packHoursOwed} pack hrs owed)` : "Hour Credits" },
           { href: "/admin/events", icon: <CalendarDays size={16} />, label: "Events" },
           { href: "/admin/tickets", icon: <PartyPopper size={16} />, label: "Parties" },
           { href: "/admin/incidents", icon: <ClipboardList size={16} />, label: "Incidents" },

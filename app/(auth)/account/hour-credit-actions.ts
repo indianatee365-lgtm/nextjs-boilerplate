@@ -73,3 +73,56 @@ export async function redeemHourCreditCode(
     message: `${hours} free hour${hours !== 1 ? "s" : ""} added to your account. They apply automatically when you book.`,
   }
 }
+
+/**
+ * One-click claim of an hour pack the signed-in customer bought for themselves
+ * while logged out (2026-11-23). The code was still emailed, and stays usable
+ * by anyone until claimed, so a buyer who meant to pass it on can ignore the
+ * prompt. Gift purchases have no buyer_email and never match.
+ */
+export async function claimPurchasedPack(
+  creditId: string
+): Promise<{ ok: boolean; message: string }> {
+  const supabase = await createClient()
+  const serviceClient = await createServiceClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return { ok: false, message: "Please log in first." }
+
+  // buyer_email is newer than lib/supabase/types.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db: any = serviceClient
+  const { data: credit } = await db
+    .from("hour_credits")
+    .select("id, user_id, hours_remaining, buyer_email, active, expires_at, stripe_payment_id")
+    .eq("id", creditId)
+    .maybeSingle()
+  const c = credit as {
+    id: string; user_id: string | null; hours_remaining: number; buyer_email: string | null
+    active: boolean; expires_at: string | null; stripe_payment_id: string | null
+  } | null
+  if (
+    !c || !c.stripe_payment_id || !c.buyer_email
+    || c.buyer_email.trim().toLowerCase() !== user.email.trim().toLowerCase()
+  ) {
+    return { ok: false, message: "That pack could not be found." }
+  }
+  if (c.user_id) return { ok: false, message: "That code has already been used." }
+  if (!c.active || (c.expires_at && new Date(c.expires_at) < new Date())) {
+    return { ok: false, message: "That code is no longer active." }
+  }
+
+  const { data: claimed } = await db
+    .from("hour_credits")
+    .update({ user_id: user.id, redeemed_at: new Date().toISOString() })
+    .eq("id", c.id)
+    .is("user_id", null)
+    .select("id")
+  if (!claimed || claimed.length === 0) {
+    return { ok: false, message: "That code has already been used." }
+  }
+
+  revalidatePath("/account")
+  revalidatePath("/book")
+  const hours = Number(c.hours_remaining)
+  return { ok: true, message: `${hours} hour${hours !== 1 ? "s" : ""} added to your account. They apply automatically when you book.` }
+}
