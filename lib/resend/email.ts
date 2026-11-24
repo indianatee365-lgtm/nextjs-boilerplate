@@ -385,7 +385,9 @@ ${handoffHtml}
   await sendResendEmail({
     to,
     from: "Tee365 <bookings@tee365.org>",
-    subject: "Your Tee365 access code",
+    // Bay in the subject so it shows in the inbox preview (2026-11-24: a
+    // customer booked Bay 4 and sat down in Bay 2, the bay from his last visit).
+    subject: `Your Tee365 access code: ${bayName}`,
     html,
     kind: "access-code-email",
   })
