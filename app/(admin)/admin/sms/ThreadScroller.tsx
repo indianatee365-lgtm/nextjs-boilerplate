@@ -32,6 +32,9 @@ export default function ThreadScroller({
     if (!el) return
     if (shownPhone.current !== phone || nearBottom.current) {
       el.scrollTop = el.scrollHeight
+      // Again after layout settles: the full-height panes finish sizing a
+      // frame later, which left the newest message half hidden.
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
       nearBottom.current = true
     }
     shownPhone.current = phone
