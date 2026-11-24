@@ -209,7 +209,9 @@ export async function requestPasswordReset(
 
 const ResetWithCodeSchema = z.object({
   email: z.string().email("Valid email required"),
-  code: z.string().trim().length(6, "Enter the 6-digit code from your email"),
+  // Supabase sends 8 digits (2026-11-23: a customer got 8, the form only took 6). Accept
+  // any 6 to 10 digit code so a project setting change never locks people out again.
+  code: z.string().transform((s) => s.replace(/\D/g, "")).pipe(z.string().regex(/^[0-9]{6,10}$/, "Enter the code from your email")),
   password: z.string().min(8, "Password must be at least 8 characters"),
 })
 
