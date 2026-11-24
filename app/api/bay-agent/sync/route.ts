@@ -44,6 +44,31 @@ const WHO_IS_UP_WINDOW_MINUTES = 5
 // prior session and doesn't need this.
 const PRE_WARM_MINUTES = 3
 
+// Idle projector branding (2026-11-24). An idle bay used to flash its bay
+// number on the wall projector for 60s of every 5 minutes, all day, even with
+// the shop empty. Now it only flashes when a customer visit on ANY bay is
+// within this many minutes (starting soon, running, or just ended), so
+// someone walking in for Bay 4 still sees which bay is which. Sent to the bay
+// inside the "available" response's booking field, which TeeBayService
+// passes through to the companion untouched (no service rebuild needed).
+const NEAR_VISIT_MINUTES = 15
+
+async function customerVisitNear(
+  serviceClient: Awaited<ReturnType<typeof createServiceClient>>,
+  now: Date,
+): Promise<boolean> {
+  const window = NEAR_VISIT_MINUTES * 60000
+  const { count, error } = await serviceClient
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "confirmed")
+    .lte("starts_at", new Date(now.getTime() + window).toISOString())
+    .gte("ends_at", new Date(now.getTime() - window).toISOString())
+  // On a failed read, flash anyway: showing the bay number is the safe side.
+  if (error) return true
+  return (count ?? 0) > 0
+}
+
 // A failed database read must never be mistaken for "no data". Reading an
 // empty bay_agent_status row made days-old Bay 2 alerts look brand new and
 // texted them at 4:31 AM on 2026-10-15; an empty booking read would tell a
@@ -482,7 +507,9 @@ export async function POST(request: NextRequest) {
   if (overrideState === "occupied" || overrideState === "available") {
     return NextResponse.json({
       desiredState: overrideState,
-      booking: null,
+      booking: overrideState === "available"
+        ? { nearVisit: await customerVisitNear(serviceClient, new Date()) }
+        : null,
       rebootRequestedAt,
       serverTime: new Date().toISOString(),
     })
@@ -555,7 +582,7 @@ export async function POST(request: NextRequest) {
   if (!booking) {
     return NextResponse.json({
       desiredState: "available",
-      booking: null,
+      booking: { nearVisit: await customerVisitNear(serviceClient, now) },
       rebootRequestedAt,
       serverTime: now.toISOString(),
     })
