@@ -57,13 +57,13 @@ export default function ConversationList({
     <>
       <div className="space-y-2 border-b border-white/10 p-3">
         <div className="relative">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-neutral-500" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, number or text"
-            className="input w-full pl-9 text-base md:text-sm"
+            className="input w-full !pl-9 text-base md:text-sm"
           />
         </div>
         <div className="flex gap-2 text-xs">
@@ -84,7 +84,7 @@ export default function ConversationList({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
+      <div className="thin-scroll min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto">
         {shown.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">
             {conversations.length === 0 ? "No messages yet." : "No conversations match."}

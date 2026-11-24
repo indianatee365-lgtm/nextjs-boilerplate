@@ -163,7 +163,7 @@ export default async function AdminSmsPage({
             <ThreadScroller
               phone={selectedPhone}
               lastMessageId={thread.length ? thread[thread.length - 1].id : null}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-4 md:px-4"
+              className="thin-scroll min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-4 md:px-4"
             >
               {thread.length === 0 && (
                 <p className="py-10 text-center text-sm text-neutral-500">No messages with this number yet.</p>

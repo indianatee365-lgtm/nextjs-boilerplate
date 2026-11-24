@@ -67,6 +67,13 @@ body::before {
   transform: rotate(0.02deg);
 }
 
+/* Slim, dark scrollbar for in-page panes (admin SMS inbox, 2026-11-24): still
+   shows there is more to scroll, without the default grey box and arrows. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
 ::selection {
   background: rgba(255, 255, 255, 0.15);
 }
