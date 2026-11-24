@@ -10,7 +10,7 @@ import { isInFirstYear } from "@/lib/membership/first-year"
 import { logEvent, logFailure } from "@/lib/observability/notify"
 import { restoreHourCredits, moveHourCreditUses } from "@/lib/hour-credits"
 import { revokeBookingAccess } from "@/lib/access-control/booking-access"
-import { cancelBookingGroup, getBookingGroup } from "@/lib/bookings/group"
+import { cancelBookingGroup, getBookingGroup, groupChargeIds, refundAcrossCharges } from "@/lib/bookings/group"
 import { applyGroupReschedule, cancelOneBayOfGroup, quoteGroupReschedule } from "@/lib/bookings/group-changes"
 
 function getStripe() {
@@ -69,17 +69,30 @@ export async function cancelBookingByCustomer(
     bays: { name: string } | null
   }
 
+  // A moved booking carries its original payment plus the reschedule fee
+  // payment(s) in extra_charge_ids (2026-11-24). A refund covers all of them.
+  // extra_charge_ids is newer than lib/supabase/types.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: extraRow } = await (serviceClient as any)
+    .from("bookings").select("extra_charge_ids").eq("id", bookingId).single()
+  const chargeIds = groupChargeIds({
+    stripe_charge_id: b.stripe_charge_id,
+    extra_charge_ids: (extraRow as { extra_charge_ids: string[] | null } | null)?.extra_charge_ids ?? [],
+  })
+
   if (b.status === "pending" && b.stripe_payment_intent_id) {
     try {
       await getStripe().paymentIntents.cancel(b.stripe_payment_intent_id)
     } catch { /* already cancelled or captured */ }
-  } else if (refundEligible && b.stripe_charge_id && Number(b.total) > 0) {
-    await getStripe().refunds.create({ charge: b.stripe_charge_id })
+  } else if (refundEligible && chargeIds.length > 0 && Number(b.total) > 0) {
+    // Refunds whatever is still unrefunded on each payment, so a retry after
+    // a partial failure never refunds anything twice.
+    await refundAcrossCharges(chargeIds, Number.MAX_SAFE_INTEGER)
   }
 
   // Only a paid, charged booking actually gets money back - a pending booking's
   // total was never captured, so telling that customer "refunded" would be false.
-  const refundIssued = refundEligible && Boolean(b.stripe_charge_id) && Number(b.total) > 0
+  const refundIssued = refundEligible && chargeIds.length > 0 && Number(b.total) > 0
 
   await serviceClient
     .from("bookings")
@@ -88,7 +101,7 @@ export async function cancelBookingByCustomer(
       cancelled_at: new Date().toISOString(),
       cancelled_by: user.id,
       refund_amount: refundEligible ? b.total : 0,
-      refunded_at: refundEligible && b.stripe_charge_id ? new Date().toISOString() : null,
+      refunded_at: refundEligible && chargeIds.length > 0 ? new Date().toISOString() : null,
     })
     .eq("id", bookingId)
 
@@ -288,11 +301,37 @@ export async function finalizeReschedule({
     throw new Error("That time slot was just taken. Please choose another time.")
   }
 
+  // The new booking takes over the original payment (2026-11-24). Before,
+  // the new row kept only the reschedule fee charge and the original payment
+  // stayed on the cancelled row, so cancelling the moved booking refunded the
+  // $5 fee and never the booking itself. Same approach as two-bay bookings
+  // (lib/bookings/group-changes.ts): main charge stays, fee charges go in
+  // extra_charge_ids. The PI column is UNIQUE, so the old row lets go first.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: payRow } = await (serviceClient as any)
+    .from("bookings")
+    .select("stripe_payment_intent_id, stripe_charge_id, extra_charge_ids")
+    .eq("id", originalBookingId)
+    .single()
+  const origPay = (payRow ?? {}) as {
+    stripe_payment_intent_id: string | null; stripe_charge_id: string | null; extra_charge_ids: string[] | null
+  }
+  const mainChargeId = origPay.stripe_charge_id ?? newStripeChargeId
+  const mainPaymentIntentId = origPay.stripe_charge_id ? origPay.stripe_payment_intent_id : (paymentIntentId ?? null)
+  const extraChargeIds = [
+    ...(origPay.extra_charge_ids ?? []),
+    ...(newStripeChargeId && newStripeChargeId !== mainChargeId ? [newStripeChargeId] : []),
+  ]
+
   // Cancel original
-  await serviceClient.from("bookings").update({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (serviceClient as any).from("bookings").update({
     status: "cancelled",
     cancelled_at: new Date().toISOString(),
     cancelled_by: user.id,
+    stripe_payment_intent_id: null,
+    stripe_charge_id: null,
+    extra_charge_ids: [],
   }).eq("id", originalBookingId)
 
   // Create new confirmed booking
@@ -316,13 +355,30 @@ export async function finalizeReschedule({
       total: newPricing.total,
       membership_id: membershipId,
       paid_at: new Date().toISOString(),
-      stripe_payment_intent_id: paymentIntentId ?? null,
-      stripe_charge_id: newStripeChargeId,
+      stripe_payment_intent_id: mainPaymentIntentId,
+      stripe_charge_id: mainChargeId,
     })
     .select("id")
     .single()
 
-  if (!newBooking) throw new Error("Failed to create rescheduled booking")
+  if (!newBooking) {
+    // Put the payment back on the original so it is never orphaned.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (serviceClient as any).from("bookings").update({
+      stripe_payment_intent_id: origPay.stripe_payment_intent_id,
+      stripe_charge_id: origPay.stripe_charge_id,
+      extra_charge_ids: origPay.extra_charge_ids ?? [],
+    }).eq("id", originalBookingId)
+    await logFailure(serviceClient, "reschedule-insert-FAILED",
+      `original=${originalBookingId} charge=${mainChargeId} fee=${newStripeChargeId}`)
+    throw new Error("Failed to create rescheduled booking")
+  }
+  if (extraChargeIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (serviceClient as any).from("bookings").update({ extra_charge_ids: extraChargeIds }).eq("id", newBooking.id)
+  }
+  await logEvent(serviceClient, "reschedule-payment-moved",
+    `original=${originalBookingId} new=${newBooking.id} charge=${mainChargeId} extra=${extraChargeIds.join(",") || "none"}`)
 
   // Keep credit usage attached to the live booking so a later cancellation
   // restores the right hours.

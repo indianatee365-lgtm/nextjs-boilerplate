@@ -7,7 +7,7 @@ import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
 import { createBooking } from "@/lib/bookings/create"
 import { holdsBayFilter } from "@/lib/bookings/pending-hold"
-import { bayLabel, cancelBookingGroup, getBookingGroup } from "@/lib/bookings/group"
+import { bayLabel, cancelBookingGroup, getBookingGroup, groupChargeIds, refundAcrossCharges } from "@/lib/bookings/group"
 import { cancelOneBayOfGroup, moveGroupByAdmin } from "@/lib/bookings/group-changes"
 import { revokeBookingAccess, reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } from "@/lib/access-control/booking-access"
 
@@ -287,6 +287,16 @@ export async function cancelBooking(bookingId: string, { onlyThisBay = false }: 
     return
   }
 
+  // A moved booking carries its original payment plus reschedule fee
+  // payment(s) in extra_charge_ids (2026-11-24). A refund covers all of them.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: extraRow } = await (serviceClient as any)
+    .from("bookings").select("extra_charge_ids").eq("id", bookingId).single()
+  const chargeIds = groupChargeIds({
+    stripe_charge_id: b.stripe_charge_id,
+    extra_charge_ids: (extraRow as { extra_charge_ids: string[] | null } | null)?.extra_charge_ids ?? [],
+  })
+
   if (b.status === "pending" && b.stripe_payment_intent_id) {
     // Cancel the PaymentIntent so the customer can't complete payment after cancellation
     try {
@@ -294,17 +304,16 @@ export async function cancelBooking(bookingId: string, { onlyThisBay = false }: 
     } catch {
       // Already cancelled or captured, ignore
     }
-  } else if (b.stripe_charge_id && Number(b.total) > 0) {
-    // Issue Stripe refund for confirmed paid bookings
-    await getStripe().refunds.create({
-      charge: b.stripe_charge_id,
-    })
+  } else if (chargeIds.length > 0 && Number(b.total) > 0) {
+    // Issue Stripe refund for confirmed paid bookings: whatever is still
+    // unrefunded on each payment, so a retry never refunds twice.
+    await refundAcrossCharges(chargeIds, Number.MAX_SAFE_INTEGER)
   }
 
   // Only a paid, charged booking actually gets money back - a pending
   // booking's total was never captured, so telling that customer "refunded"
   // would be false even though b.total is nonzero.
-  const refundIssued = Boolean(b.stripe_charge_id) && Number(b.total) > 0
+  const refundIssued = chargeIds.length > 0 && Number(b.total) > 0
 
   await serviceClient
     .from("bookings")
@@ -313,7 +322,7 @@ export async function cancelBooking(bookingId: string, { onlyThisBay = false }: 
       cancelled_at: new Date().toISOString(),
       cancelled_by: user.id,
       refund_amount: b.total,
-      refunded_at: b.stripe_charge_id ? new Date().toISOString() : null,
+      refunded_at: chargeIds.length > 0 ? new Date().toISOString() : null,
     })
     .eq("id", bookingId)
 
