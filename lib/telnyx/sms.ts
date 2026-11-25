@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { logEvent } from "@/lib/observability/notify"
 import { doorOpensAt } from "@/lib/access-control/constants"
 
-function normalizePhone(phone: string): string {
+export function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "")
   if (digits.length === 10) return "+1" + digits
   if (digits.length === 11 && digits.startsWith("1")) return "+" + digits
@@ -79,6 +79,15 @@ async function sendSms(to: string, body: string, kind: string, subject?: string)
 // typed.
 export async function sendAdminReplySms(to: string, body: string) {
   await sendSms(to, body, "admin-reply")
+}
+
+// The booking panel's "Text customer" box (2026-11-25). Unlike admin-reply
+// (answering someone who just texted in), this starts a new conversation, so
+// it is NOT opt-out exempt: after STOP the only allowed text is the one
+// confirmation. sendBookingSms checks the STOP list first and throws a clear
+// error; this kind is the backstop if that check is ever bypassed.
+export async function sendAdminBookingSms(to: string, body: string) {
+  await sendSms(to, body, "admin-booking-text")
 }
 
 // Free-form send for the admin's "new message" compose box - individual or

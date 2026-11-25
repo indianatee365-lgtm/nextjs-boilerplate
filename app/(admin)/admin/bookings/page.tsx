@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { normalizePhone } from "@/lib/telnyx/sms"
 import BookingsManager from "./BookingsManager"
 import MonthCalendar from "./MonthCalendar"
 import BookingsRealtimeRefresher from "./BookingsRealtimeRefresher"
@@ -135,6 +136,27 @@ export default async function AdminBookingsPage({
       .gt("ends_at", start.toISOString())
       .order("starts_at")
     blockedTimes = blocks ?? []
+  }
+
+  // SMS policy (2026-11-25): the detail panel hides the text box for anyone on
+  // the STOP list or with no phone, and offers their email instead. Email lives
+  // in auth.users, not profiles, so it's looked up per customer on the page.
+  type ContactProfile = { id: string; phone: string | null; email?: string | null; sms_opted_out_at?: string | null }
+  const contactRows = ((bookings ?? []) as unknown as { profiles: ContactProfile | null }[]).filter((b) => b.profiles)
+  const phones = [...new Set(contactRows.map((b) => b.profiles!.phone).filter((p): p is string => !!p).map(normalizePhone))]
+  const userIds = [...new Set(contactRows.map((b) => b.profiles!.id))]
+  const [{ data: optOuts }, emails] = await Promise.all([
+    phones.length
+      ? serviceClient.from("sms_opt_outs").select("phone_number, opted_out_at").in("phone_number", phones)
+      : Promise.resolve({ data: [] as { phone_number: string; opted_out_at: string }[] }),
+    Promise.all(userIds.map(async (id) => [id, (await serviceClient.auth.admin.getUserById(id)).data.user?.email ?? null] as const)),
+  ])
+  const optedOutAt = new Map((optOuts ?? []).map((o) => [o.phone_number, o.opted_out_at]))
+  const emailById = new Map(emails)
+  for (const b of contactRows) {
+    const p = b.profiles!
+    p.email = emailById.get(p.id) ?? null
+    p.sms_opted_out_at = p.phone ? optedOutAt.get(normalizePhone(p.phone)) ?? null : null
   }
 
   const { data: bays } = await serviceClient

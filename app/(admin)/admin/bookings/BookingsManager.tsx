@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight, X, Lock, CalendarRange, ArrowUpRight, Plus } from "lucide-react"
 import { cancelBooking, blockTime, confirmBookingManually, rescheduleBooking, removeBlockedTime, updateBlockedTime, createManualBooking, sendBookingSms, extendBookingComp } from "./actions"
 import RefundControl from "./RefundControl"
+import { withSenderId } from "@/lib/telnyx/sender-id"
 
 // Who added the extra time. Admin extensions are free and tracked in
 // admin_extension_minutes; everything else in extension_minutes is time the
@@ -44,7 +45,7 @@ interface Booking {
   credit_discount?: number
   paid_at?: string | null
   bays: { id: string; name: string; number: number } | null
-  profiles: { id: string; first_name: string; last_name: string; phone: string | null; sms_consent?: boolean | null } | null
+  profiles: { id: string; first_name: string; last_name: string; phone: string | null; sms_consent?: boolean | null; email?: string | null; sms_opted_out_at?: string | null } | null
 }
 
 interface Bay { id: string; number: number; name: string }
@@ -1255,25 +1256,51 @@ export default function BookingsManager({
                       {detailBooking.profiles?.phone ?? "No phone on file"}
                     </span>
                   </div>
-                  {detailBooking.profiles?.phone && detailBooking.profiles?.sms_consent === false && (
-                    <p className="mb-2 text-xs text-amber-400">
-                      They opted out of marketing texts. This still sends as an operational reply about their booking.
+                  {!detailBooking.profiles?.phone ? (
+                    <p className="text-xs text-neutral-400">
+                      No phone number on file, so they can&apos;t be texted.{" "}
+                      {detailBooking.profiles?.email
+                        ? <>Email them at <a href={`mailto:${detailBooking.profiles.email}`} className="text-brand hover:underline">{detailBooking.profiles.email}</a>.</>
+                        : "No email on file either."}
                     </p>
+                  ) : detailBooking.profiles.sms_opted_out_at ? (
+                    <p className="text-xs text-amber-400">
+                      They texted STOP on{" "}
+                      {new Date(detailBooking.profiles.sms_opted_out_at).toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis", month: "short", day: "numeric", year: "numeric" })}
+                      , so texting them is blocked. Call {detailBooking.profiles.phone}
+                      {detailBooking.profiles.email
+                        ? <> or email <a href={`mailto:${detailBooking.profiles.email}`} className="text-brand hover:underline">{detailBooking.profiles.email}</a></>
+                        : null}
+                      .
+                    </p>
+                  ) : (
+                    <>
+                      {detailBooking.profiles.sms_consent === false && (
+                        <p className="mb-2 text-xs text-amber-400">
+                          They didn&apos;t opt in to marketing texts. Keep this about their booking.
+                        </p>
+                      )}
+                      <textarea
+                        value={smsBody}
+                        onChange={(e) => setSmsBody(e.target.value)}
+                        rows={3}
+                        placeholder="Hey Sir - this is jerrod from Tee365..."
+                        className="w-full rounded-lg border border-white/10 bg-black/30 p-2 text-sm text-white placeholder:text-neutral-600"
+                      />
+                      {smsBody.trim() && withSenderId(smsBody) !== smsBody.trim() && (
+                        <p className="mt-1 text-xs text-neutral-500">
+                          Will send: <span className="text-neutral-300">{withSenderId(smsBody)}</span>
+                        </p>
+                      )}
+                      <button
+                        disabled={isPending || !smsBody.trim()}
+                        onClick={() => handleSendSms(detailBooking.id)}
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 py-2 text-sm font-medium text-neutral-200 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white disabled:opacity-40"
+                      >
+                        Send SMS
+                      </button>
+                    </>
                   )}
-                  <textarea
-                    value={smsBody}
-                    onChange={(e) => setSmsBody(e.target.value)}
-                    rows={3}
-                    placeholder="Message to the customer..."
-                    className="w-full rounded-lg border border-white/10 bg-black/30 p-2 text-sm text-white placeholder:text-neutral-600"
-                  />
-                  <button
-                    disabled={isPending || !detailBooking.profiles?.phone || !smsBody.trim()}
-                    onClick={() => handleSendSms(detailBooking.id)}
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 py-2 text-sm font-medium text-neutral-200 transition hover:border-brand/40 hover:bg-brand/10 hover:text-white disabled:opacity-40"
-                  >
-                    Send SMS
-                  </button>
                   {smsNote && (
                     <p className={`mt-2 text-xs ${smsNote.ok ? "text-green-400" : "text-red-400"}`}>{smsNote.text}</p>
                   )}

@@ -1,7 +1,8 @@
 "use server"
 
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingRescheduledSms, sendAdminReplySms } from "@/lib/telnyx/sms"
+import { sendBookingConfirmation, sendBookingCancellationSms, sendBookingRescheduledSms, sendAdminBookingSms, normalizePhone } from "@/lib/telnyx/sms"
+import { withSenderId } from "@/lib/telnyx/sender-id"
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail, sendBookingRescheduledEmail } from "@/lib/resend/email"
 import Stripe from "stripe"
 import { restoreHourCredits } from "@/lib/hour-credits"
@@ -633,12 +634,25 @@ export async function sendBookingSms(bookingId: string, body: string) {
   const phone = (booking?.profiles as unknown as { phone: string | null } | null)?.phone
   if (!phone) throw new Error("No phone number on file for this customer")
 
-  await sendAdminReplySms(phone, message)
+  // SMS policy: after STOP, nothing but the one confirmation text. Checked here
+  // too, not just in the panel, so a stale page can't slip one through.
+  const { data: optOut } = await serviceClient
+    .from("sms_opt_outs")
+    .select("opted_out_at")
+    .eq("phone_number", normalizePhone(phone))
+    .maybeSingle()
+  if (optOut) {
+    const when = new Date(optOut.opted_out_at).toLocaleDateString("en-US", { timeZone: "America/Indiana/Indianapolis", month: "short", day: "numeric", year: "numeric" })
+    throw new Error(`They texted STOP on ${when}, so texting them is blocked. Call or email instead.`)
+  }
+
+  const finalMessage = withSenderId(message)
+  await sendAdminBookingSms(phone, finalMessage)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (serviceClient as any).from("sms_messages").insert({
     phone_number: phone,
     direction: "outbound",
-    body: message,
+    body: finalMessage,
   })
 }
 
