@@ -99,7 +99,7 @@ export default async function AdminBookingsPage({
       .from("bookings")
       .select(`
         id, starts_at, ends_at, status, total, duration_minutes, extension_minutes, extension_count, extension_revenue, admin_extension_minutes,
-        access_code, notes, cancelled_at, refund_amount,
+        access_code, notes, cancelled_at, refund_amount, parent_booking_id,
         created_at, stripe_payment_intent_id,
         bays(id, name, number),
         profiles!user_id(id, first_name, last_name, phone, sms_consent)
@@ -113,7 +113,7 @@ export default async function AdminBookingsPage({
       .from("bookings")
       .select(`
         id, starts_at, ends_at, status, total, duration_minutes, extension_minutes, extension_count, extension_revenue, admin_extension_minutes,
-        access_code, notes, cancelled_at, refund_amount,
+        access_code, notes, cancelled_at, refund_amount, parent_booking_id,
         created_at, stripe_payment_intent_id,
         subtotal, membership_discount, coupon_discount, tax,
         gift_card_applied, credit_hours_applied, credit_discount, paid_at,

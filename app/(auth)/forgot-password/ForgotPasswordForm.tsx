@@ -27,7 +27,7 @@ export default function ForgotPasswordForm() {
       <form action={resetAction} className="space-y-5">
         <input type="hidden" name="email" value={submittedEmail} />
         <p className="text-sm text-neutral-400">
-          Enter the 6-digit code we sent to <span className="text-white">{submittedEmail}</span> and choose a new password.
+          Enter the code we sent to <span className="text-white">{submittedEmail}</span> and choose a new password.
         </p>
 
         {resetState.message && (
@@ -37,10 +37,10 @@ export default function ForgotPasswordForm() {
         )}
 
         <div>
-          <label className="label" htmlFor="code">6-digit code</label>
+          <label className="label" htmlFor="code">Code from your email</label>
           <input
-            id="code" name="code" type="text" inputMode="numeric" pattern="[0-9]{6}"
-            maxLength={6} required autoComplete="one-time-code" className="input"
+            id="code" name="code" type="text" inputMode="numeric" pattern="[0-9]{6,10}"
+            maxLength={10} required autoComplete="one-time-code" className="input"
           />
         </div>
 

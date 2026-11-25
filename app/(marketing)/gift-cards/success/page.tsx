@@ -3,6 +3,7 @@ import Link from "next/link"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { randomBytes } from "crypto"
+import { bonusFor, isBonusLive, BONUS_RULES_TEXT } from "@/lib/promos/holiday-bonus-rules"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -31,8 +32,10 @@ export default async function GiftCardSuccessPage({
 
   if (pi.status !== "succeeded" || pi.metadata?.type !== "gift_card") redirect("/gift-cards")
 
-  const { recipientName, recipientEmail, senderName, amountCents } = pi.metadata!
+  const { recipientName, recipientEmail, senderName, amountCents, senderEmail, bonusTo } = pi.metadata!
   const amount = parseInt(amountCents) / 100
+  const bonus = isBonusLive(new Date(pi.created * 1000)) ? bonusFor(amount) : 0
+  const bonusEmail = bonusTo !== "gift" && senderEmail ? senderEmail : recipientEmail
   const stripePaymentId = pi.id
 
   const supabase = await createServiceClient()
@@ -73,6 +76,11 @@ export default async function GiftCardSuccessPage({
         <p className="text-neutral-400 mb-8">
           A ${amount.toFixed(2)} gift card has been emailed to <strong className="text-white">{recipientEmail}</strong>.
         </p>
+        {bonus > 0 && (
+          <p className="text-neutral-300 -mt-4 mb-8 text-sm">
+            Plus a ${bonus} Black Friday bonus card, emailed to <strong className="text-white">{bonusEmail}</strong>. {BONUS_RULES_TEXT}
+          </p>
+        )}
         <div className="bg-black/30 rounded-xl px-6 py-5 mb-4">
           <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Gift card code</p>
           <p className="text-2xl font-bold tracking-[6px] text-white font-mono">{code}</p>

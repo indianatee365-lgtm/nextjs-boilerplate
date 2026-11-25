@@ -77,6 +77,12 @@ export default async function AdminSettingsPage() {
           initialValue={settingsMap.notify_door_entries ?? true}
         />
         <SettingsToggle
+          settingKey="range_shots_sms"
+          label="Text customers their range shots after a session"
+          description="About 15 minutes after a session, texts each person who hit 10+ shots, mostly on the range, that their shots are saved at tee365.org/account/shots. Stops for good once they open My Shots. While off, only admin accounts get it (for testing)."
+          initialValue={settingsMap.range_shots_sms ?? false}
+        />
+        <SettingsToggle
           settingKey="notify_door_entries_first_visit_only"
           label="Only text me for first visits"
           description="Narrows the door text above to customers on their first ever booking, so you know who to look for on the cameras. Off: you get a text for every customer's first entry."

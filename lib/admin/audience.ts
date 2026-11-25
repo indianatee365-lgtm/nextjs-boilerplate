@@ -23,7 +23,9 @@ export async function getAudience(): Promise<AudienceMember[]> {
   const perPage = 1000
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await serviceClient.auth.admin.listUsers({ page, perPage })
-    if (error) break
+    // Never fall back to a partial audience: on 2026-11-20 this silently
+    // returned only the 53 waitlist rows out of 437 people.
+    if (error) throw new Error(`Could not load accounts for the audience: ${error.message}`)
     const batch = (data?.users ?? []) as AuthUser[]
     authUsers.push(...batch)
     if (batch.length < perPage) break

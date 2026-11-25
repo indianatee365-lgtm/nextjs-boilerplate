@@ -30,6 +30,7 @@ interface Booking {
   admin_extension_minutes?: number | null
   access_code: string | null
   notes: string | null
+  parent_booking_id?: string | null
   cancelled_at: string | null
   refund_amount: number | null
   created_at?: string
@@ -242,10 +243,31 @@ export default function BookingsManager({
     })
   }
 
+  // The other live bay of a two-bay booking, if this booking is half of one.
+  function groupPartner(bookingId: string): Booking | undefined {
+    const me = bookings.find((x) => x.id === bookingId)
+    if (!me) return undefined
+    return bookings.find((x) => x.id !== me.id && x.status !== "cancelled" &&
+      (x.id === me.parent_booking_id || x.parent_booking_id === me.id))
+  }
+
   function handleCancel(bookingId: string) {
-    if (!confirm("Cancel this booking? A refund will be issued to the customer.")) return
+    const partner = groupPartner(bookingId)
+    let onlyThisBay = false
+    if (partner) {
+      const me = bookings.find((x) => x.id === bookingId)
+      const both = confirm(`This is a two-bay booking (${me?.bays?.name ?? "this bay"} and ${partner.bays?.name ?? "another bay"}).\n\nOK = cancel BOTH bays and refund everything.\nCancel = choose to cancel just one bay.`)
+      if (!both) {
+        if (!confirm(`Cancel ONLY ${me?.bays?.name ?? "this bay"} and refund its share? ${partner.bays?.name ?? "The other bay"} stays booked.`)) return
+        onlyThisBay = true
+      }
+    } else if (!confirm("Cancel this booking? A refund will be issued to the customer.")) return
     startTransition(async () => {
-      await cancelBooking(bookingId)
+      try {
+        await cancelBooking(bookingId, { onlyThisBay })
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Could not cancel that booking.")
+      }
       router.refresh()
     })
   }
@@ -262,6 +284,24 @@ export default function BookingsManager({
   // single shared drop handler on the grid's background cells can tell the
   // two apart - both use the same native HTML5 drag-and-drop, just resolve
   // to different server actions on drop.
+  // How many 30-min slots below the card's top edge it was grabbed, so a drop
+  // lines up the card's START with the row under it, not the mouse (2026-11-20:
+  // grabbing a 2-hour card by its middle used to land it an hour early).
+  const grabOffsetRef = useRef(0)
+
+  function moveToBaySameTime(booking: Booking, bay: Bay) {
+    if (!confirm(`Move to ${bay.name}, same time? The customer will be texted/emailed.`)) return
+    startTransition(async () => {
+      try {
+        await rescheduleBooking(booking.id, bay.id, booking.starts_at)
+        setDetailBooking(null)
+        router.refresh()
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Could not move that booking.")
+      }
+    })
+  }
+
   function handleDragStart(e: React.DragEvent, id: string) {
     e.dataTransfer.setData("text/plain", id)
     e.dataTransfer.effectAllowed = "move"
@@ -272,6 +312,7 @@ export default function BookingsManager({
   // browsers/edge cases that do - a card drop shouldn't also pop the detail
   // panel open on top of the "move this booking?" confirm dialog.
   function handleDragEnd() {
+    grabOffsetRef.current = 0
     setTimeout(() => setJustDragged(false), 0)
   }
 
@@ -289,11 +330,25 @@ export default function BookingsManager({
     // is the only time this action can construct. Server recomputes booking
     // duration from the booking's own duration_minutes rather than trusting
     // a client-sent end time; block duration is preserved the same way below.
-    const { hour, minute } = slotToHourMinute(slot)
-    const startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
+    const grabbed = type === "booking" ? grabOffsetRef.current : 0
+    const dropSlot = Math.max(0, slot - grabbed)
+    const { hour, minute } = slotToHourMinute(dropSlot)
+    let startsAt = new Date(`${selectedDate}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`)
 
     if (type === "booking") {
-      if (!confirm(`Move this booking to ${bay.name} at ${slotLabel(slot)}? Price stays the same and the customer will be texted/emailed the new time.`)) return
+      // Most moves are "same time, other bay": a drop in another bay within
+      // 30 minutes of the original start keeps the exact original time.
+      const moving = bookings.find((x) => x.id === id)
+      if (moving && moving.bays?.id !== bay.id) {
+        const origSlot = bookingSlotSpan(moving.starts_at, moving.ends_at).start
+        if (Math.abs(dropSlot - origSlot) <= 1) startsAt = new Date(moving.starts_at)
+      }
+      const when = startsAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })
+      const partner = groupPartner(id)
+      const msg = partner
+        ? `This is a two-bay booking, so both bays move. This one goes to ${bay.name} at ${when} and the other lands in the bay next to it. Price stays the same and the customer will be texted/emailed. Move both?`
+        : `Move this booking to ${bay.name} at ${when}? Price stays the same and the customer will be texted/emailed the new time.`
+      if (!confirm(msg)) return
       startTransition(async () => {
         try {
           await rescheduleBooking(id, bay.id, startsAt.toISOString())
@@ -719,7 +774,12 @@ export default function BookingsManager({
                     key={booking.id}
                     style={{ gridColumn: bi + 2, gridRow: `${slotRow(start)} / ${slotRow(end)}` }}
                     draggable={booking.status !== "cancelled" && !isCompleted}
-                    onDragStart={(e) => handleDragStart(e, `booking:${booking.id}`)}
+                    onDragStart={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const span = Math.max(1, end - start)
+                      grabOffsetRef.current = Math.max(0, Math.min(span - 1, Math.floor((e.clientY - rect.top) / (rect.height / span))))
+                      handleDragStart(e, `booking:${booking.id}`)
+                    }}
                     onDragEnd={handleDragEnd}
                     onClick={() => { if (!justDragged) setDetailBooking(booking) }}
                     className={`m-1 overflow-hidden rounded border px-2 py-1 text-xs shadow-sm ${booking.status !== "cancelled" && !isCompleted ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
@@ -1007,6 +1067,23 @@ export default function BookingsManager({
                 <span className="text-neutral-500">Bay</span>
                 <span className="text-white">{detailBooking.bays?.name ?? "N/A"}</span>
               </div>
+              {detailBooking.status !== "cancelled" && new Date(detailBooking.ends_at).getTime() > nowMs && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-neutral-500">Move to</span>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {bays.filter((bay) => bay.id !== detailBooking.bays?.id).map((bay) => (
+                      <button
+                        key={bay.id}
+                        onClick={() => moveToBaySameTime(detailBooking, bay)}
+                        disabled={isPending}
+                        className="rounded border border-white/15 px-2 py-0.5 text-xs text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+                      >
+                        {bay.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-neutral-500">Booked for</span>
                 <span className="text-white">{fullDateTime(detailBooking.starts_at)}</span>

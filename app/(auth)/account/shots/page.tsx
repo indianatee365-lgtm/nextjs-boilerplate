@@ -18,6 +18,10 @@ export default async function ShotsPage() {
   const serviceClient = await createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+  // First visit to My Shots stops the after-session range text (lib/shots/range-sms.ts).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (serviceClient as any).from("profiles").update({ shots_page_viewed_at: new Date().toISOString() })
+    .eq("id", user.id).is("shots_page_viewed_at", null)
 
   const { data: shots } = await serviceClient
     .from("shots")

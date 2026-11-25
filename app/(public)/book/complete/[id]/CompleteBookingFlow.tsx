@@ -1,6 +1,6 @@
 "use client"
 
-import { clarityEvent } from "@/lib/clarity"
+import { clarityPaid } from "@/lib/clarity"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -56,7 +56,7 @@ function PaymentForm({ returnUrl, total, onError }: { returnUrl: string; total: 
         redirect: "if_required",
       })
       if (error) { onError(error.message ?? "Payment failed"); return }
-      clarityEvent("book_paid")
+      clarityPaid("book_paid", returnUrl.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0])
       paid = true
       window.location.assign(returnUrl)
     } finally {

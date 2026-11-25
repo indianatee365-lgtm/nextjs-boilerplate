@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { applyGroupReschedule } from "@/lib/bookings/group-changes"
+import { getBookingGroup } from "@/lib/bookings/group"
 import Stripe from "stripe"
 import { createServiceClient } from "@/lib/supabase/server"
 import { sendBookingConfirmation, sendAccessCodeReminder, sendBookingPaymentFailedSms, sendSubscriptionPastDueSms, sendSubscriptionCancelledSms } from "@/lib/telnyx/sms"
@@ -16,6 +18,8 @@ import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 import { announceExtension } from "@/lib/bookings/extension-notify"
 import { recordStripeEventPayment } from "@/lib/events"
 import { recordTicketPayment } from "@/lib/tickets"
+import { issueHolidayBonusCard } from "@/lib/promos/holiday-bonus"
+import { fulfillHourPack } from "@/lib/hour-packs/fulfill"
 
 function generateGiftCardCode(): string {
   return randomBytes(6).toString("hex").toUpperCase().match(/.{4}/g)!.join("-")
@@ -78,6 +82,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    if (_pi.metadata?.type === "group-reschedule") {
+      // Backstop for finalizeReschedule (the customer may close the tab after
+      // paying). applyGroupReschedule claims the charge, so only one applies.
+      const { parentBookingId, userId, newStartsAt } = _pi.metadata
+      try {
+        const group = await getBookingGroup(supabase, parentBookingId)
+        const chargeId = typeof _pi.latest_charge === "string" ? _pi.latest_charge : _pi.latest_charge?.id ?? null
+        await applyGroupReschedule(supabase, userId, group, newStartsAt, { chargeId })
+      } catch (e) {
+        await logFailure(supabase, "group-reschedule-webhook-FAILED", `pi=${_pi.id} parent=${parentBookingId} err=${String(e).slice(0, 200)}`)
+      }
+      return NextResponse.json({ received: true })
+    }
+
     if (_pi.metadata?.type === "extend") {
       // Redundant backstop for finalizeExtend (app/(public)/extend/[bookingId]/actions.ts),
       // which normally applies this immediately after the client sees payment
@@ -125,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (_pi.metadata?.type === "gift_card") {
-      const { recipientName, recipientEmail, senderName, amountCents } = _pi.metadata
+      const { recipientName, recipientEmail, senderName, amountCents, senderEmail, bonusTo } = _pi.metadata
       const amount = parseInt(amountCents) / 100
       const code = generateGiftCardCode()
       const { error: insertError } = await supabase.from("gift_cards").insert({
@@ -152,6 +170,20 @@ export async function POST(request: NextRequest) {
           ? `ALERT Gift card email FAILED, code=${code} to=${recipientEmail} $${amount}. Send manually.`
           : `Gift card $${amount} from ${senderName} to ${recipientName} (code=${code})`)
       }
+      // Black Friday weekend bonus card (lib/promos). Runs even when the card
+      // above already existed, and is itself keyed on the payment.
+      await issueHolidayBonusCard(supabase, { id: _pi.id, created: _pi.created },
+        { amount, recipientName, recipientEmail, senderName, senderEmail, bonusTo })
+      return NextResponse.json({ received: true })
+    }
+
+    if (_pi.metadata?.type === "hour_pack") {
+      // Prepaid hour packs (lib/hour-packs). Idempotent on the payment.
+      const m = _pi.metadata
+      await fulfillHourPack(supabase, { id: _pi.id, amount_received: _pi.amount_received }, {
+        packId: m.packId, mode: m.mode === "gift" ? "gift" : "self", userId: m.userId || undefined,
+        recipientName: m.recipientName, recipientEmail: m.recipientEmail, senderName: m.senderName,
+      })
       return NextResponse.json({ received: true })
     }
 
@@ -687,6 +719,9 @@ export async function POST(request: NextRequest) {
       // Weekly league charge (lib/league/charges.ts). The charge job already
       // texted the payer and alerted Jerrod; this only leaves a trail.
       await logEvent(supabase, "league-charge-payment-failed-webhook", `pi=${pi.id} amount=$${amount} err=${errMsg}`)
+    } else if (piType === "hour_pack") {
+      // The customer is still on the payment form and can retry; just leave a trail.
+      await logEvent(supabase, "hour-pack-payment-failed", `pi=${pi.id} amount=$${amount} err=${errMsg}`)
     } else if (piType === "gift_card") {
       const { recipientEmail, senderName } = pi.metadata
       await logFailure(supabase, "gift-card-payment-FAILED",

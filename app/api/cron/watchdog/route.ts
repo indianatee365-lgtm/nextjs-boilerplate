@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { notifyOwner } from "@/lib/observability/notify"
+import { logEvent, notifyOwner } from "@/lib/observability/notify"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -84,5 +84,64 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  sent.push(...await checkStuckPasswordResets(serviceClient))
+
   return NextResponse.json({ ok: true, labserverMinutes: labMinutes, sent })
+}
+
+// Stuck password resets (2026-11-23). The reset form only took 6 digits while
+// Supabase sent 8, from some point after Sept 6 until a customer emailed about
+// it; at least 3 others asked for a reset and never got back in. A successful
+// reset signs the customer in, so a reset with no sign-in after it, an hour
+// on, means they gave up or are stuck. One text per reset request.
+const RESET_STUCK_MINUTES = 60
+const RESET_LOOKBACK_HOURS = 6
+
+async function checkStuckPasswordResets(
+  serviceClient: Awaited<ReturnType<typeof createServiceClient>>,
+): Promise<string[]> {
+  const sent: string[] = []
+  try {
+    const now = Date.now()
+    const stuck: Array<{ id: string; email: string; at: string }> = []
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await serviceClient.auth.admin.listUsers({ page, perPage: 1000 })
+      if (error) throw error
+      for (const u of data.users) {
+        if (!u.recovery_sent_at) continue
+        const at = new Date(u.recovery_sent_at).getTime()
+        const age = (now - at) / 60_000
+        if (age < RESET_STUCK_MINUTES || age > RESET_LOOKBACK_HOURS * 60) continue
+        if (u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() >= at) continue
+        stuck.push({ id: u.id, email: u.email ?? "no email", at: u.recovery_sent_at })
+      }
+      if (data.users.length < 1000) break
+    }
+    if (stuck.length === 0) return sent
+
+    const keys = stuck.map((r) => `user=${r.id} sent=${r.at}`)
+    const { data: done } = await serviceClient
+      .from("admin_logs").select("detail").eq("event", "password-reset-stuck").in("detail", keys)
+    const already = new Set((done ?? []).map((d) => d.detail as string))
+    const { data: people } = await serviceClient
+      .from("profiles").select("id, first_name, last_name, phone").in("id", stuck.map((r) => r.id))
+    const byId = new Map((people ?? []).map((p) => [p.id, p]))
+
+    for (let i = 0; i < stuck.length; i++) {
+      if (already.has(keys[i])) continue
+      const r = stuck[i]
+      const p = byId.get(r.id)
+      const who = p ? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || r.email : r.email
+      const when = new Date(r.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Indiana/Indianapolis" })
+      await logEvent(serviceClient, "password-reset-stuck", keys[i])
+      await notifyOwner(
+        `Tee365: ${who} asked for a password reset at ${when} and has not signed in since. ` +
+          `They may be stuck. ${r.email}${p?.phone ? `, ${p.phone}` : ""}`
+      )
+      sent.push(`reset stuck: ${r.id}`)
+    }
+  } catch (err) {
+    console.error("stuck password reset check failed:", err)
+  }
+  return sent
 }

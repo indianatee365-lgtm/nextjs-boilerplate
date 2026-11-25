@@ -234,12 +234,13 @@ export default async function AdminSalesPage() {
       </div>
 
       {/* Customers and what is owed */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
         {[
           { label: "Customers all time", value: insights.customersAllTime.toLocaleString("en-US"), hint: "People who have played at least once" },
           { label: "Repeat customers", value: `${insights.repeatRate.toFixed(0)}%`, hint: "Played more than once" },
           { label: "Gift card balance owed", value: fmt(insights.giftCardBalance), hint: "Unspent on purchased cards" },
           { label: "Comp card balance", value: fmt(insights.compGiftCardBalance), hint: "Unspent on cards you issued" },
+          { label: "Hour pack hours owed", value: insights.packHoursOutstanding.toFixed(1), hint: "Bought and unused, not expired" },
           { label: "Free hours owed", value: insights.creditHoursOutstanding.toFixed(1), hint: "Unused, not expired" },
         ].map(c => (
           <div key={c.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
@@ -359,7 +360,7 @@ export default async function AdminSalesPage() {
         Bay extensions are counted separately, on the day the extension was bought rather than
         the day the original booking was paid for. Extensions from before 2026-09-12 are missing:
         the amount was never recorded at the time.
-        Gift cards shown at face value, excluding admin-issued comps. Membership sign-ups include first month + joining fee,
+        Gift cards shown at face value, excluding admin-issued comps. Hour packs shown at the price charged, on the day bought. Membership sign-ups include first month + joining fee,
         excluding free grants. Renewals pulled from Stripe webhook events. Private events, party tickets and league
         charges count when paid, and appear once they have any revenue.
         Month-by-month sessions, bay hours and customers go by when the session was played, so a booking paid in

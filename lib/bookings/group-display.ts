@@ -6,17 +6,22 @@
  */
 export function mergeGroupedBookings<
   T extends { id: string; parent_booking_id?: string | null; total: number | string | null; bays: unknown },
->(rows: T[]): (T & { bayNames: string[]; groupTotal: number; isGroup: boolean })[] {
+>(rows: T[]): (T & { bayNames: string[]; groupTotal: number; isGroup: boolean; groupBays: { id: string; name: string; total: number }[] })[] {
+  const statusOf = new Map(rows.map((r) => [r.id, (r as { status?: string }).status]))
+  // A cancelled bay of a booking that is still on shows as its own cancelled
+  // card, not folded into (and added to the total of) the live one.
+  const folds = (r: T) => Boolean(r.parent_booking_id && statusOf.has(r.parent_booking_id) &&
+    ((r as { status?: string }).status !== "cancelled" || statusOf.get(r.parent_booking_id) === "cancelled"))
   const ids = new Set(rows.map((r) => r.id))
   const childrenByParent = new Map<string, T[]>()
   for (const r of rows) {
-    if (r.parent_booking_id && ids.has(r.parent_booking_id)) {
+    if (folds(r) && r.parent_booking_id && ids.has(r.parent_booking_id)) {
       childrenByParent.set(r.parent_booking_id, [...(childrenByParent.get(r.parent_booking_id) ?? []), r])
     }
   }
   const nameOf = (r: T) => (r.bays as { name: string } | null)?.name ?? "Bay"
   return rows
-    .filter((r) => !(r.parent_booking_id && ids.has(r.parent_booking_id)))
+    .filter((r) => !folds(r))
     .map((r) => {
       const kids = childrenByParent.get(r.id) ?? []
       return {
@@ -24,6 +29,7 @@ export function mergeGroupedBookings<
         bayNames: [nameOf(r), ...kids.map(nameOf)],
         groupTotal: [r, ...kids].reduce((sum, x) => sum + Number(x.total ?? 0), 0),
         isGroup: kids.length > 0,
+        groupBays: [r, ...kids].map((x) => ({ id: x.id, name: nameOf(x), total: Number(x.total ?? 0) })),
       }
     })
 }

@@ -81,7 +81,7 @@ export default async function AccountDashboard({
       serviceClient.from("profiles").select("first_name, last_name, phone, role, stripe_customer_id, sms_consent, reinstate_blocked, veteran_verified_at").eq("id", userId).single(),
       serviceClient
         .from("memberships")
-        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, signup_bonus_hours, signup_bonus_expires_at, cancellation_requested_at, granted_free, comped, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly, grounds_crew_daily_hours)")
+        .select("status, started_at, current_period_end, year_one_discount_expires_at, founder_number, cancellation_requested_at, granted_free, comped, membership_plans(name, display_name, slug, discount_percent, first_year_discount, advance_booking_days, max_active_reservations, price_monthly, grounds_crew_daily_hours)")
         .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(1)
@@ -107,6 +107,21 @@ export default async function AccountDashboard({
   const creditRows = (hourCredits ?? []) as { hours_remaining: number; expires_at: string | null }[]
   const availableCreditHours = creditRows.reduce((sum, c) => sum + Number(c.hours_remaining), 0)
   const nextCreditExpiry = creditRows.find((c) => c.expires_at)?.expires_at ?? null
+
+  // Hour packs bought for themselves while logged out: the code went by email,
+  // offer to add it here. Gift purchases have no buyer_email, so never show.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: packRows } = await (serviceClient as any)
+    .from("hour_credits")
+    .select("id, hours, code, expires_at")
+    .is("user_id", null)
+    .not("stripe_payment_id", "is", null)
+    .ilike("buyer_email", email.replace(/[\\%_]/g, "\\$&"))
+    .eq("active", true)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .order("created_at")
+  const unclaimedPacks = ((packRows ?? []) as Array<{ id: string; hours: number; code: string | null }>)
+    .map((r) => ({ id: r.id, hours: Number(r.hours), code: r.code }))
 
   // Eagle's 2 free hours land with the 3rd monthly payment. Until then, say
   // when, so nobody expects them at signup.
@@ -154,8 +169,6 @@ export default async function AccountDashboard({
   } | null
   const membershipStatus = membership?.status as string | undefined
   const founderNumber = membership?.founder_number as number | null | undefined
-  const bonusHours = membership?.signup_bonus_hours as number | null | undefined
-  const bonusExpires = membership?.signup_bonus_expires_at as string | null | undefined
 
   const isFirstYear = isInFirstYear(membership as { started_at: string; year_one_discount_expires_at?: string | null } | null)
 
@@ -279,12 +292,6 @@ export default async function AccountDashboard({
                 </p>
               </div>
             )}
-            {bonusHours && bonusExpires && new Date(bonusExpires) > new Date() && (
-              <div className="rounded-lg bg-black/20 px-3 py-2">
-                <p className="text-neutral-500">Signup bonus</p>
-                <p className="text-brand font-medium mt-0.5">{bonusHours} free hrs remaining</p>
-              </div>
-            )}
           </div>
           {membershipStatus === "active" && membership?.current_period_end && !(membership as { cancellation_requested_at?: string | null }).cancellation_requested_at && (
             <p className="mt-3 text-xs text-neutral-500">
@@ -339,7 +346,7 @@ export default async function AccountDashboard({
       {membershipStatus !== "active" && <MembershipGiveawaySection />}
 
       {/* Free hours balance + code redemption */}
-      <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} />
+      <HourCreditsSection availableHours={availableCreditHours} nextExpiry={nextCreditExpiry} unclaimedPacks={unclaimedPacks} />
 
       {leagueName && (
         <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3">

@@ -15,7 +15,7 @@ export type PeriodKey = "today" | "week" | "mtd" | "lastMonth" | "ytd"
 export type RevenueBuckets = Record<PeriodKey, number>
 
 export type RevenueSource =
-  | "bookings" | "extensions" | "giftCards" | "memberships" | "renewals"
+  | "bookings" | "extensions" | "giftCards" | "hourPacks" | "memberships" | "renewals"
   | "events" | "parties" | "league"
 
 export type RevenueBreakdown = Record<RevenueSource | "total", RevenueBuckets> & {
@@ -132,7 +132,7 @@ export async function fetchAllRows<T>(makeQuery: () => any): Promise<T[]> {
 export async function collectRevenueEvents(serviceClient: any, since: Date): Promise<RevenueEvent[]> {
   const sinceIso = since.toISOString()
 
-  const [bookings, extensions, giftCards, memberships, renewalLogs, eventPayments, ticketOrders, leagueCharges] = await Promise.all([
+  const [bookings, extensions, giftCards, hourPacks, memberships, renewalLogs, eventPayments, ticketOrders, leagueCharges] = await Promise.all([
     fetchAllRows<{ total: number; gift_card_applied: number | null; refund_amount: number | null; paid_at: string }>(() =>
       serviceClient
         .from("bookings")
@@ -155,6 +155,15 @@ export async function collectRevenueEvents(serviceClient: any, since: Date): Pro
       serviceClient
         .from("gift_cards")
         .select("original_amount, created_at, stripe_payment_id")
+        .gte("created_at", sinceIso)
+        .order("created_at")),
+    // Prepaid hour packs (2026-11-20) are hour_credits rows with a Stripe
+    // payment. Free and comp hours have none and are not revenue.
+    fetchAllRows<{ amount_paid: number | null; created_at: string }>(() =>
+      serviceClient
+        .from("hour_credits")
+        .select("amount_paid, created_at")
+        .not("stripe_payment_id", "is", null)
         .gte("created_at", sinceIso)
         .order("created_at")),
     fetchAllRows<{
@@ -226,6 +235,8 @@ export async function collectRevenueEvents(serviceClient: any, since: Date): Pro
     push("giftCards", Number(g.original_amount), g.created_at)
   }
 
+  for (const h of hourPacks) push("hourPacks", Number(h.amount_paid ?? 0), h.created_at)
+
   for (const m of memberships) {
     // Free grants (admin direct grant / giveaway code) collect nothing at
     // signup - see memberships.granted_free. Counting their sticker price is
@@ -278,6 +289,7 @@ export async function computeRevenue(serviceClient: any, now: Date = new Date())
     bookings: bucketsFor("bookings"),
     extensions: bucketsFor("extensions"),
     giftCards: bucketsFor("giftCards"),
+    hourPacks: bucketsFor("hourPacks"),
     memberships: bucketsFor("memberships"),
     renewals: bucketsFor("renewals"),
     events: bucketsFor("events"),
@@ -296,6 +308,7 @@ export const REVENUE_SOURCE_LABELS: Record<RevenueSource, string> = {
   bookings: "Bay bookings",
   extensions: "Bay extensions",
   giftCards: "Gift cards sold",
+  hourPacks: "Hour packs sold",
   memberships: "Membership sign-ups",
   renewals: "Membership renewals",
   events: "Private events",
@@ -314,6 +327,7 @@ export const REVENUE_SOURCE_ORDER: RevenueSource[] = [
   "renewals",
   "memberships",
   "giftCards",
+  "hourPacks",
   "events",
   "parties",
   "league",
@@ -450,6 +464,40 @@ export async function getRevenueLineItems(serviceClient: any, source: RevenueSou
       excludedReason: g.stripe_payment_id ? undefined : "admin-issued, no payment taken",
       href: "/admin/gift-cards",
     }))
+  }
+
+  if (source === "hourPacks") {
+    const { data } = await serviceClient
+      .from("hour_credits")
+      .select("user_id, hours, hours_remaining, reason, amount_paid, buyer_name, buyer_email, code, created_at, stripe_payment_id")
+      .not("stripe_payment_id", "is", null)
+      .gte("created_at", since)
+      .lt("created_at", until)
+      .order("created_at", { ascending: false })
+    const rows = (data ?? []) as Array<{
+      user_id: string | null; hours: number; hours_remaining: number; reason: string | null
+      amount_paid: number | null; buyer_name: string | null; buyer_email: string | null
+      code: string | null; created_at: string
+    }>
+    const ids = [...new Set(rows.map((r) => r.user_id).filter((x): x is string => Boolean(x)))]
+    const { data: people } = ids.length
+      ? await serviceClient.from("profiles").select("id, first_name, last_name").in("id", ids)
+      : { data: [] }
+    const byId = new Map(((people ?? []) as Array<{ id: string; first_name: string | null; last_name: string | null }>).map((p) => [p.id, p]))
+    return rows.map((h) => {
+      const owner = h.user_id ? byId.get(h.user_id) ?? null : null
+      const bits = [h.reason ?? `${h.hours}-hour pack`]
+      bits.push(h.code ? `code ${h.code}${h.user_id ? " (redeemed)" : " (not redeemed yet)"}` : "added to account")
+      bits.push(`${Number(h.hours_remaining)} of ${Number(h.hours)} hours left`)
+      return {
+        when: h.created_at,
+        who: h.buyer_name || (owner ? name(owner) : "Unknown"),
+        detail: bits.join(" · "),
+        amount: Number(h.amount_paid ?? 0),
+        excludedReason: h.amount_paid === null ? "price not recorded" : undefined,
+        href: h.user_id ? `/admin/users/${h.user_id}` : undefined,
+      }
+    })
   }
 
   if (source === "memberships") {

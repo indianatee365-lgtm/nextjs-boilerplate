@@ -443,6 +443,27 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       return { ok: false, status: 400, error: "Gift card has no remaining balance" }
     }
 
+    // Bonus cards (lib/promos/holiday-bonus-rules.ts) only cover sessions in a
+    // date range and on some weekdays. Plain gift cards have neither set.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gcRules } = await (serviceClient as any).from("gift_cards")
+      .select("valid_from, expires_at, days_allowed").eq("id", giftCard.id).single()
+    const rules = gcRules as { valid_from: string | null; expires_at: string | null; days_allowed: number[] | null } | null
+    const dayLabel = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Indiana/Indianapolis" })
+    if (rules?.valid_from && startDate < new Date(rules.valid_from)) {
+      return { ok: false, status: 400, error: `This gift card is good for sessions starting ${dayLabel(new Date(rules.valid_from))}.` }
+    }
+    if (rules?.expires_at && startDate >= new Date(rules.expires_at)) {
+      return { ok: false, status: 400, error: `This gift card is good for sessions through ${dayLabel(new Date(new Date(rules.expires_at).getTime() - 1))}.` }
+    }
+    if (rules?.days_allowed?.length) {
+      const dow = new Date(`${easternDateKey(startDate)}T12:00:00Z`).getUTCDay()
+      if (!rules.days_allowed.includes(dow)) {
+        const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        return { ok: false, status: 400, error: `This gift card works on ${rules.days_allowed.map((d) => names[d]).join(", ")} sessions only.` }
+      }
+    }
+
     giftCardId = giftCard.id
     giftCardBalance = Number(giftCard.balance)
   }
@@ -532,8 +553,10 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   // Guard against zero/sub-minimum amounts
   // The second bay is priced like the first at its member, veteran and
-  // site-sale rates. Coupons, gift cards, hour credits and Grounds Crew time
-  // apply to the first bay only.
+  // site-sale rates. A percent coupon covers it too (Jerrod 2026-11-20: a
+  // "50% off" code that only halved one bay would feel like a bait and
+  // switch); fixed-amount coupons, gift cards, hour credits and Grounds Crew
+  // time apply to the first bay only.
   const secondBayPricing = secondBayRow
     ? calculateBookingPrice({
         pricePerHour,
@@ -541,6 +564,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         membershipDiscountPercent,
         veteranDiscountPercent,
         promoDiscountPercent,
+        ...(couponDiscountType === "percent" ? { couponDiscountType, couponDiscountValue } : {}),
         context,
       })
     : null
@@ -825,7 +849,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         promo_discount: secondBayPricing.promoDiscount,
         membership_discount: secondBayPricing.membershipDiscount,
         veteran_discount: secondBayPricing.veteranDiscount,
-        coupon_discount: 0,
+        coupon_discount: secondBayPricing.couponDiscount,
         tax: secondBayPricing.tax,
         gift_card_applied: 0,
         credit_hours_applied: 0,

@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server"
 import { FOUNDERS_CLUB_DEADLINE, BIRDIE_EAGLE_LAUNCH } from "@/lib/bookings/launch-gate"
 import { CountdownClock } from "@/app/components/ui/CountdownClock"
 import { LEAGUE_SLUG, signupClosesAt, signupWindow, type League } from "@/lib/league"
+import { isBonusLive, BONUS_PER_HUNDRED } from "@/lib/promos/holiday-bonus-rules"
 
 function Bar({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -16,6 +17,19 @@ function Bar({ href, children }: { href: string; children: React.ReactNode }) {
 }
 
 export default async function AnnouncementBar() {
+  // Black Friday sale takes the bar while it runs (lib/promos/holiday-bonus-rules.ts),
+  // then the bar falls back to whatever it showed before.
+  if (isBonusLive()) {
+    return (
+      <Bar href="/hour-packs">
+        <span className="font-extrabold tracking-wide">BLACK FRIDAY SALE</span>
+        <span>· Golf from $28/hr with hour packs</span>
+        <span className="hidden sm:inline">· ${BONUS_PER_HUNDRED} bonus with every $100 in gift cards · Ends Cyber Monday</span>
+        <span aria-hidden="true">→</span>
+      </Bar>
+    )
+  }
+
   const supabase = await createServiceClient()
 
   // Thursday Night League gets the bar while public signups are open (2026-10-19).

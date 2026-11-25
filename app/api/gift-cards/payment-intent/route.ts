@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isBonusLive } from "@/lib/promos/holiday-bonus-rules"
 import Stripe from "stripe"
 import { logFailure } from "@/lib/observability/notify"
 import { createServiceClient } from "@/lib/supabase/server"
@@ -17,10 +18,15 @@ export async function POST(request: NextRequest) {
     const { success } = await checkoutRatelimit.limit(ip)
     if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 })
 
-    const { amountCents, recipientName, recipientEmail, senderName } = await request.json()
+    const { amountCents, recipientName, recipientEmail, senderName, senderEmail, bonusTo } = await request.json()
 
     if (!amountCents || !recipientName || !recipientEmail || !senderName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+    // Buyer's email: Stripe receipt, and where a kept Black Friday bonus card goes.
+    const buyerEmail = String(senderEmail ?? "").trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
+      return NextResponse.json({ error: "Your email is required" }, { status: 400 })
     }
     if (typeof amountCents !== "number" || amountCents < 1000 || amountCents > 50000) {
       return NextResponse.json({ error: "Amount must be between $10 and $500" }, { status: 400 })
@@ -46,12 +52,15 @@ export async function POST(request: NextRequest) {
         recipientName,
         recipientEmail,
         senderName,
+        senderEmail: buyerEmail,
+        bonusTo: bonusTo === "gift" ? "gift" : "me",
         amountCents: String(amountCents),
       },
+      receipt_email: buyerEmail,
       description: `Tee365 Gift Card $${(amountCents / 100).toFixed(2)} for ${recipientName}`,
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret })
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret, bonusLive: isBonusLive(new Date(paymentIntent.created * 1000)) })
   } catch (err) {
     try {
       const sc = await createServiceClient()

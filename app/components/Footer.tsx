@@ -26,6 +26,9 @@ export default function Footer() {
           <a className="hover:text-white" href="/gift-cards">
             Gift cards
           </a>
+          <a className="hover:text-white" href="/hour-packs">
+            Hour packs
+          </a>
           <a className="hover:text-white" href="/about">
             About
           </a>

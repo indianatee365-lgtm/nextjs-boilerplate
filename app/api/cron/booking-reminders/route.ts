@@ -8,6 +8,8 @@ import { DOOR_OPENS_EARLY_MINUTES } from "@/lib/access-control/constants"
 import { nextGroupStartsAt, previousGroupEndsAt } from "@/lib/bookings/handoff"
 
 export const runtime = "nodejs"
+// Normally ~1 s; the access-code recheck can add up to 10 s per racing booking.
+export const maxDuration = 60
 
 
 export async function GET(request: NextRequest) {
@@ -100,6 +102,9 @@ export async function GET(request: NextRequest) {
       continue
     }
     const smsEligible = !!(profile?.phone && profile.sms_consent)
+    // Set once THIS run saved a code: after that, an error (e.g. the text
+    // failing) is a real delivery failure and must alert, never be skipped.
+    let codeSavedHere = false
 
     try {
       const { pinCode, userId, accessPolicyId, scheduleId } = await grantBayAccess({
@@ -123,6 +128,7 @@ export async function GET(request: NextRequest) {
           unifi_schedule_id: scheduleId,
         })
         .eq("id", booking.id)
+      codeSavedHere = true
 
       // Someone else has the bay until their start: say so, and that they can
       // wait in the room (lib/bookings/handoff.ts).
@@ -174,6 +180,22 @@ export async function GET(request: NextRequest) {
           `ALERT booking=${booking.id} has an access code but no way to deliver it (no phone/consent, no account email). Customer may not know their code.`)
       }
     } catch (err) {
+      // A booking made minutes before its start gets its code from the
+      // payment path (lib/bookings/create.ts, "access-code-sent-immediate")
+      // at the same moment this cron can pick it up. Both create the same
+      // UniFi schedule; the loser gets CODE_ACCESS_POLICY_SCHEDULE_NAME_EXIST
+      // and used to send a false "Customer may be locked out" alert
+      // (2026-11-17, 7:00 PM booking: the customer had the code 3 s later).
+      // Give the other path up to 10 s to finish, and only alert if the
+      // booking still has no code. The payment path alerts on its own
+      // delivery failures.
+      const issuedElsewhere = !codeSavedHere && (await accessCodeIssuedElsewhere(supabase, booking.id))
+      if (issuedElsewhere) {
+        results.push({ id: booking.id, sent: true })
+        await logEvent(supabase, "access-code-cron-skipped",
+          `booking=${booking.id} code already issued by another path; cron error ignored: ${String(err).slice(0, 160)}`)
+        continue
+      }
       results.push({ id: booking.id, sent: false, error: String(err) })
       await logFailure(supabase, "access-code-CRON-FAILED",
         `booking=${booking.id} starts_at=${booking.starts_at} err=${String(err).slice(0, 200)}`,
@@ -188,6 +210,21 @@ export async function GET(request: NextRequest) {
   const headsUps = await sendHandoffHeadsUps(supabase, now)
 
   return NextResponse.json({ processed: results.length, results, headsUps })
+}
+
+// True once the booking has an access code from any path. Polls for up to
+// 10 s because the other path may still be talking to UniFi.
+async function accessCodeIssuedElsewhere(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  bookingId: string,
+): Promise<boolean> {
+  for (let i = 0; i < 6; i++) {
+    const { data } = await supabase.from("bookings").select("access_code").eq("id", bookingId).maybeSingle()
+    if (data?.access_code) return true
+    if (i < 5) await new Promise((r) => setTimeout(r, 2000))
+  }
+  return false
 }
 
 // Texts the current customer about ten minutes before the end when another
