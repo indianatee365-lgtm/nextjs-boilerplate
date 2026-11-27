@@ -23,18 +23,22 @@ export async function announceExtension(
     amount,
     newEndsAt,
     via,
+    covered = "",
   }: {
     bookingId: string
     paymentIntentId: string
     addedMinutes: number
     amount: number
     newEndsAt: string
-    via: "finalize" | "webhook"
+    via: "finalize" | "webhook" | "free"
+    // What paid besides the card, e.g. "1 pack hr + $5.00 gift card".
+    covered?: string
   },
 ): Promise<void> {
   await logEvent(db, "booking-extended",
     `booking=${bookingId} pi=${paymentIntentId} addedMinutes=${addedMinutes} ` +
-    `amount=$${amount.toFixed(2)} newEndsAt=${newEndsAt} via=${via}`)
+    `amount=$${amount.toFixed(2)} newEndsAt=${newEndsAt} via=${via}` +
+    (covered ? ` covered=${covered.replace(/ /g, "_")}` : ""))
 
   if (!(await getAdminSetting(db, "notify_extensions"))) return
 
@@ -50,6 +54,10 @@ export async function announceExtension(
   })
   await notifyOwner(
     `Session extended: ${name}, ${b?.bays?.name ?? "a bay"}, ` +
-    `+${formatDuration(addedMinutes)} for $${amount.toFixed(2)}. Now ends ${endsLocal}.`,
+    `+${formatDuration(addedMinutes)} ` +
+    (covered
+      ? (amount > 0 ? `for $${amount.toFixed(2)} card + ${covered}` : `with ${covered}`)
+      : `for $${amount.toFixed(2)}`) +
+    `. Now ends ${endsLocal}.`,
   )
 }

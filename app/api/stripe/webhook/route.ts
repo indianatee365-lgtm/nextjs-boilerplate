@@ -16,6 +16,7 @@ import { reissueBookingAccessForNewWindow, extendBookingAccessToCurrentEnd } fro
 import { getStillConfirmedBayNames } from "@/lib/bookings/still-confirmed"
 import { bayLabel, confirmGroupChildren } from "@/lib/bookings/group"
 import { announceExtension } from "@/lib/bookings/extension-notify"
+import { applyExtension, describeCovered } from "@/lib/bookings/apply-extension"
 import { recordStripeEventPayment } from "@/lib/events"
 import { recordTicketPayment } from "@/lib/tickets"
 import { issueHolidayBonusCard } from "@/lib/promos/holiday-bonus"
@@ -103,23 +104,32 @@ export async function POST(request: NextRequest) {
       // right after paying - idempotent, so it's a no-op if finalizeExtend already ran.
       const { bookingId, newEndsAt } = _pi.metadata
       const extendAmount = (_pi.amount_received ?? _pi.amount ?? 0) / 100
-      // Same guarded RPC finalizeExtend uses, so whichever path runs second
-      // is a genuine no-op rather than double-counting the extension.
-      const { data: applied } = await supabase.rpc("apply_booking_extension", {
-        p_booking_id: bookingId,
-        p_new_ends_at: newEndsAt,
-        p_amount: extendAmount,
-      })
+      // Same guarded apply finalizeExtend uses (card only: the original RPC;
+      // with hours or a gift card: the one that also deducts them), so
+      // whichever path runs second is a genuine no-op rather than
+      // double-counting the extension.
+      let extendResult: { applied: boolean; added_minutes: number; covered: string } | null = null
+      try {
+        const r = await applyExtension(supabase, {
+          bookingId, newEndsAt, amount: extendAmount,
+          creditHours: Number(_pi.metadata?.creditHours ?? 0),
+          giftCardId: _pi.metadata?.giftCardId || null,
+          giftCardApplied: Number(_pi.metadata?.giftCardApplied ?? 0),
+          strict: false,
+        })
+        extendResult = { applied: r.applied, added_minutes: r.addedMinutes, covered: describeCovered(r.creditHoursUsed, r.giftCardUsed) }
+      } catch (e) {
+        await logFailure(supabase, "booking-extend-FAILED", `booking=${bookingId} pi=${_pi.id} via=webhook err=${String(e).slice(0, 200)}`)
+      }
       // This path usually wins the race, so it has to announce too. Never
       // let a notification problem fail the webhook: the extension is applied.
-      const extendResult = (Array.isArray(applied) ? applied[0] : applied) as { applied: boolean; added_minutes: number } | null
       if (extendResult?.applied) {
         // The door code has to follow the new end time too. Never throws.
         await extendBookingAccessToCurrentEnd(supabase, bookingId)
         try {
           await announceExtension(supabase, {
             bookingId, paymentIntentId: _pi.id, addedMinutes: extendResult.added_minutes,
-            amount: extendAmount, newEndsAt, via: "webhook",
+            amount: extendAmount, newEndsAt, via: "webhook", covered: extendResult.covered,
           })
         } catch (e) {
           await logFailure(supabase, "booking-extended-notify-FAILED", `booking=${bookingId} err=${String(e).slice(0, 200)}`)
