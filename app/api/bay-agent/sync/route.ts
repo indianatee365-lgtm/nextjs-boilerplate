@@ -358,17 +358,23 @@ export async function POST(request: NextRequest) {
         `bay=${bay.name} at=${status.lastManualRestartAt} restartCountThisBooking=${restartCount ?? "?"} ` +
         `simRunning=${diagnostics.simRunning} chainConfirmedUp=${diagnostics.chainConfirmedUp} ` +
         `gsproStartClicked=${diagnostics.gsproStartClicked} currentHitter=${diagnostics.currentHitter ?? "none"} ` +
+        // GSPro screen at the click and seconds since the last shot (companion
+        // builds from 2026-11-27 on; older builds log "unknown").
+        `screen=${diagnostics.gsproScreen ?? "unknown"} lastShotAgo=${diagnostics.lastShotAgoSeconds ?? "none"} ` +
         `runningProcesses=${JSON.stringify(diagnostics.runningProcesses ?? [])}`
       const notifyEnabled = await getAdminSetting(serviceClient, "notify_restart_clicks")
       // Escalated wording once a SECOND (or later) restart happens in the
       // same booking - Jerrod's ask 2026-09-05: a repeat click for the same
       // customer is a much bigger deal than a one-off and shouldn't read
       // identically in the alert.
-      const alertMsg = restartCount && restartCount >= 2
+      const screenNote = diagnostics.gsproScreen
+        ? ` They were on the ${diagnostics.gsproScreen === "menu" ? "main menu" : diagnostics.gsproScreen}.`
+        : ""
+      const alertMsg = (restartCount && restartCount >= 2
         ? `${bay.name}: customer's ${restartCount}${restartCount === 2 ? "nd" : restartCount === 3 ? "rd" : "th"} restart click THIS SESSION - ` +
           `likely needs real attention, not just a blip. Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time.`
         : `${bay.name}: customer clicked "Simulator issue? Click to restart". ` +
-          `Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time. Check admin/logs for details.`
+          `Sim was ${diagnostics.simRunning ? "running" : "NOT running"} at the time. Check admin/logs for details.`) + screenNote
       await logFailure(
         serviceClient,
         "bay-agent-manual-restart-clicked",
