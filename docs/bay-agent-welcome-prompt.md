@@ -80,10 +80,13 @@ With the capability, an occupied response carries:
 
 1. Merge the branch (website goes live; bays unchanged).
 2. Update companion.py on one bay, run a test booking, check the pop-up,
-   arrow direction, auto-close and corner tab. Build on top of the
-   2026-11-24 bay build (idle projector flashes the bay number only when a
-   visit is within 15 minutes, from the sync response's `nearVisit`), so
-   that change is kept. Both changes touch the same sync handling.
+   arrow direction, auto-close and corner tab. Build on top of the latest
+   bay build (2026-11-27 or later) so its changes are kept: the idle
+   projector bay-number flash from the sync response's `nearVisit`
+   (2026-11-24), and the exit tip ring and restart logging (2026-11-27).
+   The "Restart anyway" path in step 4 above must still send the GSPro
+   screen and seconds since the last shot with the restart, as the
+   2026-11-27 build does, so the restart log and text keep that detail.
 3. Roll to the other bays.
 
 ## Not built: GSPro saved players
